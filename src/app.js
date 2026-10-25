@@ -1,5 +1,6 @@
 import express from 'express';
 import { createAuthRouter } from './routes/auth.js';
+import { createAdminRouter } from './routes/admin.js';
 
 function csrfGuard(request, response, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next();
@@ -41,6 +42,7 @@ export function createApp({ pool, config, clock = Date.now }) {
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
+  app.use('/api/admin', createAdminRouter({ pool, config }));
   app.use('/api', (request, response) => response.status(404).json({ error: 'مسیر پیدا نشد.' }));
   app.use((error, request, response, next) => {
     console.error(`Request failed: ${error.message}`);
