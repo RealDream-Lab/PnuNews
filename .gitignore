@@ -1,0 +1,10 @@
+.autostart
+.env
+.env.*
+!.env.dev.example
+!.autostart.example
+uploads/*
+!uploads/.gitkeep
+node_modules/
+.DS_Store
+*.log
