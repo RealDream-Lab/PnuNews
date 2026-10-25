@@ -159,6 +159,26 @@ async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
   return rows;
 }
 
+function injectOpenGraph(shell, { title, summary, image, canonical, siteTitle }) {
+  const titleTag = `<title>${escapeHtml(title)} — ${escapeHtml(siteTitle)}</title>`;
+  const descriptionTag = `<meta name="description" content="${escapeHtml(summary)}">`;
+  const metadata = [
+    '<meta property="og:type" content="article">',
+    `<meta property="og:site_name" content="${escapeHtml(siteTitle)}">`,
+    `<meta property="og:title" content="${escapeHtml(title)}">`,
+    `<meta property="og:description" content="${escapeHtml(summary)}">`,
+    `<meta property="og:url" content="${escapeHtml(canonical)}">`,
+    `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    image ? `<meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">` : '<meta name="twitter:card" content="summary">',
+    `<meta name="twitter:title" content="${escapeHtml(title)}">`,
+    `<meta name="twitter:description" content="${escapeHtml(summary)}">`,
+  ].join('\n');
+  return shell
+    .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
+    .replace(/<meta name="description"[^>]*>/i, descriptionTag)
+    .replace('</head>', `${metadata}\n</head>`);
+}
+
 function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
   const imageMeta = image
     ? `<meta property="og:image" content="${escapeHtml(image)}"><meta name="twitter:image" content="${escapeHtml(image)}"><meta name="twitter:card" content="summary_large_image">`
@@ -180,16 +200,16 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.css">
+<link rel="stylesheet" href="/reader/styles.v1.css">
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.js"></script>
+<script type="module" src="/reader/app.v1.js"></script>
 </body>
 </html>`;
 }
 
-export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl = fetch, events = appEvents }) {
+export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl = fetch, events = appEvents, staticAssets }) {
   const router = express.Router();
   const cache = createMicroCache({ ttlMs: 15_000, maxEntries: 1000, clock });
   const rateLimit = createRateLimiter({ limit: 120, windowMs: 60_000, clock });
@@ -203,6 +223,15 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   events.on('news.published', clearCaches);
   events.on('settings.changed', clearCaches);
   router.use(['/api/public', '/n'], rateLimit);
+
+  router.get('/media/placeholder/:color.svg', (request, response) => {
+    const color = request.params.color;
+    if (!/^[a-f\d]{6}$/i.test(color)) return response.status(404).end();
+    response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    response.type('image/svg+xml');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    return response.send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="#${color}"/></svg>`);
+  });
 
   router.get('/api/public/config', async (request, response, next) => {
     try {
@@ -320,7 +349,13 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
           published_at: news.published_at.toISOString(), expires_at: news.expires_at?.toISOString() ?? null,
           is_pinned: Boolean(news.is_pinned), is_urgent: Boolean(news.is_urgent),
           view_count: Number(news.view_count), ...byline,
-          cover: coverImage ? { ...coverImage, dominant_color: coverAttachment.dominant_color } : null,
+          cover: coverImage ? {
+                      ...coverImage,
+                      id: Number(coverAttachment.id),
+                      width: coverAttachment.width,
+                      height: coverAttachment.height,
+                      dominant_color: coverAttachment.dominant_color,
+                    } : null,
           images: imageAttachments, files,
         },
       });
@@ -382,8 +417,11 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       const image = imagePath ? new URL(imagePath, config.publicUrl).href : null;
       const siteTitle = plainString(news.site_title || 'اخبار پیام نور', 160);
       const canonical = new URL(`/n/${id}`, config.publicUrl).href;
+      const shell = staticAssets?.get('/index.html')?.body.toString('utf8');
+      const html = shell ? injectOpenGraph(shell, { title, summary, image, canonical, siteTitle })
+        : makeHtmlShell({ title, summary, image, canonical, siteTitle });
       response.setHeader('Cache-Control', 'public, max-age=60');
-      return response.type('html').send(makeHtmlShell({ title, summary, image, canonical, siteTitle }));
+      return response.type('html').send(html);
     } catch (error) {
       return next(error);
     }

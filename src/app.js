@@ -3,6 +3,7 @@ import { createAuthRouter } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createMediaRouter } from './routes/media.js';
 import { createPublicRouter } from './routes/public.js';
+import { createStaticMiddleware } from './lib/static.js';
 
 function csrfGuard(request, response, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next();
@@ -31,7 +32,7 @@ function csrfGuard(request, response, next) {
   return next();
 }
 
-export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch }) {
+export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, staticAssets }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy ? 1 : false);
@@ -39,7 +40,7 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch })
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    response.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; frame-ancestors 'none'");
+    response.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; media-src 'self' https: http:; script-src 'self'; style-src 'self'; frame-ancestors 'none'");
     next();
   });
   app.use(express.json({ limit: '1mb', strict: true }));
@@ -48,8 +49,9 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch })
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
   app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir }));
-  app.use(createPublicRouter({ pool, config, clock, fetchImpl }));
+  app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
+  if (staticAssets) app.use(createStaticMiddleware(staticAssets));
   app.use('/api', (request, response) => response.status(404).json({ error: 'مسیر پیدا نشد.' }));
   app.use((error, request, response, next) => {
     console.error(`Request failed: ${error.message}`);

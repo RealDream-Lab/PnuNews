@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { createApp } from '../src/app.js';
 import { hashPassword } from '../src/auth/crypto.js';
 import { createPool } from '../src/db.js';
 import { appEvents } from '../src/events.js';
 import { loadConfig } from '../src/config.js';
+import { createStaticAssets } from '../src/lib/static.js';
 
 const config = loadConfig();
 
@@ -19,9 +21,11 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
   let storedName;
   let nowPlayingRequests = 0;
   let testClock = Date.now();
+  const staticAssets = await createStaticAssets(fileURLToPath(new URL('../public/', import.meta.url)));
   const app = createApp({
     pool,
     config,
+    staticAssets,
     clock: () => testClock,
     fetchImpl: async () => {
       nowPlayingRequests += 1;
@@ -82,11 +86,23 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     );
     await pool.execute('UPDATE news SET cover_attachment_id = ? WHERE id = ?', [coverResult.insertId, provinceNewsId]);
 
+    const home = await request('/');
+    assert.equal(home.response.status, 200);
+    assert.match(home.body, /id="city-picker"/);
+    assert.equal(home.response.headers.get('cache-control'), 'no-cache');
+    const readerScript = await request('/reader/app.v1.js');
+    assert.equal(readerScript.response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+
     const configResponse = await request('/api/public/config');
     assert.equal(configResponse.response.status, 200);
+    assert.match(configResponse.response.headers.get('content-security-policy'), /media-src 'self' https: http:/);
     const selectedProvince = configResponse.body.provinces.find((item) => Number(item.id) === Number(province.id));
     assert.ok(selectedProvince.cities.some((item) => Number(item.id) === cityId));
     assert.equal(configResponse.body.radio.enabled, false);
+    const placeholder = await request('/media/placeholder/245fb5.svg');
+    assert.equal(placeholder.response.status, 200);
+    assert.match(placeholder.body, /fill="#245fb5"/);
+    assert.equal((await request('/media/placeholder/invalid.svg')).response.status, 404);
 
     const firstPage = await request(`/api/public/feed?city=${cityId}&limit=2`);
     assert.deepEqual(firstPage.body.items.map((item) => item.id), [cityNewsId, provinceNewsId]);
@@ -143,7 +159,9 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.match(og.body, /property="og:description" content="خلاصهٔ خبر"/);
     assert.ok(og.body.includes(`<meta property="og:image" content="${new URL(`/media/${storedName}-800.webp`, config.publicUrl).href}">`));
     assert.match(og.body, /name="twitter:image"/);
-    assert.match(og.body, /<html lang="fa" dir="rtl">/);
+    assert.match(og.body, /<html lang="fa" dir="rtl" data-theme="auto">/);
+    assert.match(og.body, /id="city-picker"/);
+    assert.match(og.body, /src="\/reader\/app\.v1\.js"/);
     assert.doesNotMatch(og.body, /<script>bad/);
     assert.ok(privateNewsId);
   } finally {
