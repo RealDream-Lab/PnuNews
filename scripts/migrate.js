@@ -6,7 +6,10 @@ export async function migrate(pool, migrationsDir = new URL('../migrations/', im
   const connection = await pool.getConnection();
   try {
     await connection.query("SET time_zone = '+00:00'");
-    await connection.query('SELECT GET_LOCK(?, 30) AS acquired', ['pnunews:migrations']);
+    const [lockRows] = await connection.query('SELECT GET_LOCK(?, 30) AS acquired', ['pnunews:migrations']);
+    if (Number(lockRows[0].acquired) !== 1) {
+      throw new Error('قفل مهاجرت پایگاه داده دریافت نشد.\nCould not acquire the migration lock.');
+    }
     await connection.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version VARCHAR(255) NOT NULL PRIMARY KEY,

@@ -12,7 +12,7 @@
     "migrate": "node --import ./scripts/load-env.js scripts/migrate.js",
     "seed": "node --import ./scripts/load-env.js scripts/seed.js",
     "create-admin": "node --import ./scripts/load-env.js scripts/create-super-admin.js",
-    "test": "node --test"
+    "test": "node --import ./scripts/load-env.js --test"
   },
   "dependencies": {
     "busboy": "1.6.0",
