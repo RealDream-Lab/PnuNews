@@ -8,3 +8,7 @@ uploads/*
 node_modules/
 .DS_Store
 *.log
+
+# macOS AppleDouble / metadata
+._*
+.DS_Store
