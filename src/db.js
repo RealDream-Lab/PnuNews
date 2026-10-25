@@ -1,7 +1,7 @@
 import mysql from 'mysql2/promise';
 
 export function createPool(config) {
-  return mysql.createPool({
+  const pool = mysql.createPool({
     ...config,
     waitForConnections: true,
     connectionLimit: 10,
@@ -10,4 +10,8 @@ export function createPool(config) {
     timezone: '+00:00',
     namedPlaceholders: false,
   });
+  pool.on('connection', (connection) => {
+    connection.query("SET time_zone = '+00:00'");
+  });
+  return pool;
 }
