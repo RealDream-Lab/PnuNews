@@ -2,6 +2,7 @@ import { createPool } from './src/db.js';
 import { createApp } from './src/app.js';
 import { loadConfig } from './src/config.js';
 import { migrate } from './scripts/migrate.js';
+import { createScheduler } from './src/scheduler.js';
 
 let config;
 try {
@@ -13,12 +14,16 @@ try {
 
 const pool = createPool(config.db);
 await migrate(pool);
+const scheduler = createScheduler(pool);
+await scheduler.runOnce();
+scheduler.start();
 const app = createApp({ pool, config });
 const server = app.listen(config.port, '0.0.0.0', () => {
   console.info(`PnuNews listening on port ${config.port}`);
 });
 
 async function shutdown() {
+  scheduler.stop();
   server.close(async () => {
     await pool.end();
     process.exit(0);

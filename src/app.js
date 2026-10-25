@@ -1,10 +1,14 @@
 import express from 'express';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
+import { createMediaRouter } from './routes/media.js';
 
 function csrfGuard(request, response, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next();
-  if (!request.is('application/json')) {
+  const multipartUpload = request.method === 'POST' &&
+    /^\/api\/admin\/news\/\d+\/attachments$/.test(request.path) &&
+    request.is('multipart/form-data');
+  if (!request.is('application/json') && !multipartUpload) {
     return response.status(415).json({ error: 'درخواست باید از نوع JSON باشد.' });
   }
 
@@ -37,12 +41,13 @@ export function createApp({ pool, config, clock = Date.now }) {
     response.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; frame-ancestors 'none'");
     next();
   });
-  app.use(express.json({ limit: '100kb', strict: true }));
+  app.use(express.json({ limit: '1mb', strict: true }));
   app.use(csrfGuard);
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
-  app.use('/api/admin', createAdminRouter({ pool, config }));
+  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir }));
+  app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   app.use('/api', (request, response) => response.status(404).json({ error: 'مسیر پیدا نشد.' }));
   app.use((error, request, response, next) => {
     console.error(`Request failed: ${error.message}`);

@@ -4,6 +4,8 @@ import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { normalizeFa } from '../lib/fa.js';
+import { createNewsAdminRouter } from './news-admin.js';
+import { createAttachmentDeleteRouter } from './news-attachments.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -62,9 +64,11 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
+  router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
+  router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
 
   router.get('/users', async (request, response, next) => {
     try {
