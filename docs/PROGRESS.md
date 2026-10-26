@@ -24,14 +24,15 @@
 - CSP در production دیگر HTTP media را نمی‌پذیرد. HTTPS media برای پشتیبانی از URL رادیوی قابل‌تنظیم مجاز است؛ این سیاست scheme را محدود می‌کند، نه host را.
 - ممیزی الگوهای secret و تاریخچه، secret واقعیِ قابل‌تأییدی نشان نداد؛ فایل‌های نمونه و fixtureهای تست در بررسی بودند.
 
-## Step 0 — پیش‌پرواز و smoke test محلی (در انتظار تأیید UI Safari)
+## Step 0 — پیش‌پرواز و smoke test محلی (انجام‌شده)
 
 - `PROMPT.md` در `.gitignore` است و tracked نیست؛ بررسی الگوهای secret در README و اسناد، موردی نیافت. مسیرها و نام containerهای عملیاتی در `docs/OPERATIONS.md` برای runbook لازم‌اند و credentialی در آن دیده نشد.
 - `npm test`: ۳۷ تست موفق، ۰ شکست.
-- smoke test API با دیتابیس توسعه انجام شد: ساخت super-admin از CLI، ورود و ثبت TOTP، ورود با TOTP، ساخت مدیر استان و شهرستان، رد مدیر دوم فعال همان شهرستان با HTTP 409، انتشار خبر استانی همراه تصویر JPEG پردازش‌شده به WebP و PDF، بررسی feed/detail و snapshot ناشر، دانلود فایل، و روشن/خاموش‌کردن تنظیم رادیو. داده‌های آزمون پاک و تنظیمات قبلی بازگردانده شدند.
-- picker استان-سپس-شهر، dark mode، نمایش player رادیو و صفحهٔ تنظیمات هنوز با مرورگر واقعی تأیید بصری نشده‌اند. Safari WebDriver در دسترس است اما ساخت session به‌دلیل خاموش بودن `Allow Remote Automation` در Safari رد شد؛ تنظیم macOS بدون اجازه تغییر داده نشد. پس از فعال‌سازی این گزینه می‌توان آزمون UI را ادامه داد.
+- smoke test API با دیتابیس توسعه انجام شد: ساخت super-admin از CLI، ورود و ثبت TOTP، ورود با TOTP، ساخت مدیر استان و شهرستان، رد مدیر دوم فعال همان شهرستان با HTTP 409، انتشار خبر استانی همراه تصویر JPEG پردازش‌شده به WebP و PDF، بررسی feed/detail و snapshot ناشر، دانلود فایل، و روشن/خاموش‌کردن تنظیم رادیو.
+- smoke test تعاملی در Chrome headless انجام شد: انتخاب استان و سپس شهرستان از picker، نمایش خبر در feed، تغییر تم به light و dark، ورود super-admin، ثبت TOTP و نمایش backup codes، رفتن به تنظیمات، و روشن/خاموش‌کردن رادیو و بررسی player در خواننده. این آزمون DOM/تعامل مرورگر بود و ارزیابی ظاهری دستی محسوب نمی‌شود.
+- Safari 27.0.1 در این Mac تأیید نشد: با وجود فعال‌شدن `Allow Remote Automation`، `safaridriver --enable` دو بار با `EXC_BAD_ACCESS`/`SIGSEGV` در `authorizationWithUser:password:` کرش کرد و ساخت WebDriver session نیز موفق نشد. این محدودیت ابزار سیستم است؛ هیچ نتیجه‌ای از این آزمون به‌عنوان تأیید Safari گزارش نمی‌شود.
 - در smoke test باگ CLI یافت و اصلاح شد: `scripts/create-super-admin.js` پس از خواندن secret ورودی stdin را pause نمی‌کرد و فرایند پس از ساخت مدیر باز می‌ماند.
-- فایل‌های موقت smoke test پاک شدند؛ پوشهٔ `uploads/` خالی است.
+- پس از smoke test، حساب‌ها و خبر موقت صفر بودند، تنظیم radio قبلی (`radio_enabled=0`) برگشت، فایل‌های موقت پاک شدند و `uploads/` خالی بود.
 - دامنهٔ نهایی `PUBLIC_URL` هنوز از مالک دریافت نشده است؛ در Step 7 پرسیده می‌شود.
 - push/deploy، تنظیم سرور و restart تولید انجام نشده‌اند و در این مرحله انجام نمی‌شوند.
 - CSP عمداً HTTPS media را برای رادیوی قابل‌تنظیم مجاز می‌کند؛ محدودیت host در نظر گرفته نشده است.
@@ -50,7 +51,8 @@
 - `PROMPT.md` با `.gitignore` نادیده گرفته می‌شود و tracked نیست؛ `.autostart` واقعی، `.env` واقعی، `uploads/` و `node_modules/` نیز در فهرست tracked نیستند. فایل نمونهٔ `.env.dev.example` استثنای مجاز است.
 - commit اصلاحات ممیزی: `631e3a9` — «اصلاح ساختار صفحه‌ها و محدودسازی CSP در production».
 - `npm test` پس از اصلاح توقف ورودی تعاملی CLI: ۳۷ تست موفق، ۰ شکست.
+- smoke test تعاملی Chrome headless: picker، feed، تم، ورود/TOTP، تنظیمات و player رادیو موفق؛ fixtureها پاک شدند.
 
 ## گام بعدی
 
-- برای تکمیل Step 0، مالک باید در Safari Settings → Developer گزینهٔ `Allow Remote Automation` را فعال کند و به من اطلاع دهد؛ سپس آزمون UI محلی را اجرا می‌کنم. بعد از تکمیل Step 0، به checkpoint گیت‌هاب می‌رویم: `ssh -T git@github.com`، push شاخهٔ `main` و ساخت/بررسی/push شاخهٔ `deploy`.
+- Step 0 کامل است. مرحلهٔ بعد Step 1 روی Mac است: بررسی SSH با GitHub، push شاخهٔ `main` به remote مشخص‌شده و ساخت/بررسی/push شاخهٔ `deploy`.
