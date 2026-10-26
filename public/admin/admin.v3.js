@@ -307,17 +307,134 @@ async function loadNewsList(reset = false) {
   } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
-function renderTargets(selected = []) {
-  const container = document.getElementById('editor-targets');
-  container.innerHTML = state.regions.map((region) => {
-    const checked = selected.some((id) => Number(id) === Number(region.id));
-    const prefix = region.type === 'country' ? 'کشوری' : region.type === 'province' ? 'استان' : 'شهرستان';
-    return `<label class="target-option"><input type="checkbox" value="${Number(region.id)}" ${checked ? 'checked' : ''}><span>${prefix} ${escapeHtml(region.name)}</span></label>`;
-  }).join('') || '<p class="empty-panel">مقصد مجازی در دسترس نیست.</p>';
+function faKey(value) {
+  return String(value ?? '').replace(/[يى]/g, 'ی').replace(/ك/g, 'ک').replace(/[أإآٱ]/g, 'ا').replace(/[\u200c\s]+/g, '').toLowerCase();
+}
+
+function targetModel() {
+  const user = state.user;
+  if (!user) return null;
+  if (user.role === 'city_admin') return { kind: 'city', rootId: Number(user.region_id), options: [] };
+  if (user.role === 'super_admin') {
+    const root = state.regions.find((region) => region.type === 'country');
+    if (!root) return null;
+    return {
+      kind: 'country', rootId: Number(root.id), rootLabel: 'کل کشور', someLabel: 'استان‌های مشخص', noun: 'استان',
+      options: state.regions.filter((region) => region.type === 'province'),
+    };
+  }
+  const own = state.regions.find((region) => Number(region.id) === Number(user.region_id));
+  if (!own) return null;
+  return {
+    kind: 'province', rootId: Number(own.id), rootLabel: `کل استان ${own.name}`, someLabel: 'شهرستان‌های مشخص', noun: 'شهرستان',
+    options: state.regions.filter((region) => region.type === 'city' && Number(region.parent_id) === Number(own.id)),
+  };
+}
+
+function renderTargetPicker(fieldsetId, selected = []) {
+  const fieldset = document.getElementById(fieldsetId);
+  const model = targetModel();
+  fieldset.dataset.preserved = '[]';
+  if (!model || model.kind === 'city') {
+    fieldset.hidden = true;
+    fieldset.innerHTML = '';
+    return;
+  }
+  fieldset.hidden = false;
+  const chosen = new Set(selected.map(Number));
+  const optionIds = new Set(model.options.map((region) => Number(region.id)));
+  const useSome = !chosen.has(model.rootId) && [...chosen].some((id) => optionIds.has(id));
+  const preserved = [...chosen].filter((id) => id !== model.rootId && !optionIds.has(id));
+  fieldset.dataset.preserved = JSON.stringify(preserved);
+  const hasOptions = model.options.length > 0;
+  const mode = `${fieldsetId}-mode`;
+  fieldset.innerHTML = `<legend>مقصد انتشار</legend>
+    <div class="seg" role="radiogroup" aria-label="مقصد انتشار">
+      <label class="seg-item"><input type="radio" name="${mode}" value="all" ${useSome ? '' : 'checked'}><span>${escapeHtml(model.rootLabel)}</span></label>
+      ${hasOptions ? `<label class="seg-item"><input type="radio" name="${mode}" value="some" ${useSome ? 'checked' : ''}><span>${escapeHtml(model.someLabel)}</span></label>` : ''}
+    </div>
+    <div class="target-some" ${useSome ? '' : 'hidden'}>
+      <div class="target-tools">
+        ${model.options.length > 10 ? `<label class="target-search"><input type="search" placeholder="جست‌وجوی ${model.noun}" data-target-search aria-label="جست‌وجوی ${model.noun}"></label>` : ''}
+        <button type="button" class="text-button" data-target-toggle="all">انتخاب همه</button>
+        <button type="button" class="text-button" data-target-toggle="none">پاک کردن</button>
+      </div>
+      <div class="target-grid">${model.options.map((region) => `<label class="target-chip" data-name="${escapeHtml(faKey(region.name))}"><input type="checkbox" value="${Number(region.id)}" ${chosen.has(Number(region.id)) ? 'checked' : ''}><span>${escapeHtml(region.name)}</span></label>`).join('')}</div>
+    </div>
+    <p class="target-count muted" aria-live="polite"></p>`;
+  updateTargetCount(fieldset);
+}
+
+function updateTargetCount(fieldset) {
+  const model = targetModel();
+  const count = fieldset.querySelector('.target-count');
+  if (!model || !count) return;
+  const some = fieldset.querySelector('input[type=radio][value="some"]')?.checked;
+  const picked = fieldset.querySelectorAll('.target-grid input:checked').length;
+  count.textContent = some
+    ? (picked ? `${faDigits.format(picked)} ${model.noun} انتخاب شده است.` : `حداقل یک ${model.noun} را انتخاب کنید.`)
+    : `خبر برای ${model.rootLabel} منتشر می‌شود.`;
+}
+
+function readTargets(fieldsetId) {
+  const model = targetModel();
+  if (!model) return [];
+  if (model.kind === 'city') return [model.rootId];
+  const fieldset = document.getElementById(fieldsetId);
+  if (!fieldset.querySelector('input[type=radio][value="some"]')?.checked) return [model.rootId];
+  const picked = [...fieldset.querySelectorAll('.target-grid input:checked')].map((input) => Number(input.value));
+  let preserved = [];
+  try { preserved = JSON.parse(fieldset.dataset.preserved || '[]'); } catch {}
+  return [...picked, ...preserved];
+}
+
+function requireTargets(fieldsetId) {
+  const targets = readTargets(fieldsetId);
+  if (!targets.length) throw new Error(`حداقل یک ${targetModel()?.noun || 'مقصد'} را برای انتشار انتخاب کنید.`);
+  return targets;
+}
+
+function handleTargetPickerEvent(event) {
+  const fieldset = event.target.closest('.target-picker');
+  if (!fieldset) return;
+  if (event.type === 'change' && event.target.matches('input[type=radio]')) {
+    fieldset.querySelector('.target-some').hidden = event.target.value !== 'some';
+  }
+  if (event.type === 'input' && event.target.matches('[data-target-search]')) {
+    const query = faKey(event.target.value);
+    fieldset.querySelectorAll('.target-chip').forEach((chip) => { chip.hidden = Boolean(query) && !chip.dataset.name.includes(query); });
+    return;
+  }
+  if (event.type === 'click') {
+    const toggle = event.target.closest('[data-target-toggle]');
+    if (!toggle) return;
+    const checked = toggle.dataset.targetToggle === 'all';
+    fieldset.querySelectorAll('.target-chip:not([hidden]) input').forEach((input) => { input.checked = checked; });
+  }
+  updateTargetCount(fieldset);
 }
 
 function selectedTargets() {
-  return [...document.querySelectorAll('#editor-targets input:checked')].map((input) => Number(input.value));
+  return readTargets('editor-target-fieldset');
+}
+
+function setEditorMode(status) {
+  const form = document.getElementById('news-editor');
+  const later = form.querySelector('input[name="schedule_mode"][value="later"]').checked;
+  const published = status === 'published';
+  document.getElementById('editor-when-group').hidden = published;
+  document.getElementById('editor-when').hidden = !later || published;
+  const publish = document.getElementById('editor-publish');
+  publish.hidden = published;
+  publish.textContent = later ? 'زمان‌بندی انتشار' : 'انتشار اکنون';
+  const save = document.getElementById('editor-save');
+  save.textContent = published ? 'ذخیرهٔ تغییرات' : 'ذخیرهٔ پیش‌نویس';
+  save.classList.toggle('primary', published);
+  save.classList.toggle('outline', !published);
+  const badge = document.getElementById('editor-status');
+  const known = ['draft', 'scheduled', 'published'].includes(status) ? status : 'draft';
+  badge.className = `status-badge ${known}`;
+  badge.textContent = status ? statusLabel(known) : 'جدید';
 }
 
 function setCategoryOptions(value = '') {
@@ -340,11 +457,13 @@ function resetEditor() {
   updateDateLabel('published_at');
   updateDateLabel('expires_at');
   setCategoryOptions();
-  renderTargets();
+  renderTargetPicker('editor-target-fieldset');
   state.currentNews = null;
   form.querySelectorAll('input,textarea,select,button').forEach((element) => { element.disabled = false; });
-  document.getElementById('editor-publish').disabled = false;
-  document.getElementById('editor-schedule').disabled = false;
+  form.querySelector('input[name="schedule_mode"][value="now"]').checked = true;
+  document.getElementById('editor-media').open = false;
+  document.getElementById('editor-more').open = false;
+  setEditorMode(null);
   goToView('editor');
 }
 
@@ -363,16 +482,19 @@ async function openEditor(id) {
     document.getElementById('editor-body').innerHTML = item.body_html || '';
     document.getElementById('editor-heading').textContent = item.can_edit ? 'ویرایش خبر' : 'مشاهدهٔ خبر (فقط خواندنی)';
     setCategoryOptions(item.category_id);
-    renderTargets((item.targets || []).map((target) => Number(target.id)));
+    renderTargetPicker('editor-target-fieldset', (item.targets || []).map((target) => Number(target.id)));
     state.newsDates = { published_at: item.published_at || null, expires_at: item.expires_at || null };
     updateDateLabel('published_at');
     updateDateLabel('expires_at');
+    form.querySelector(`input[name="schedule_mode"][value="${item.status === 'scheduled' ? 'later' : 'now'}"]`).checked = true;
+    document.getElementById('editor-more').open = Boolean(item.is_pinned || item.is_urgent || item.expires_at);
+    document.getElementById('editor-media').open = Boolean((item.attachments || []).length);
     document.getElementById('editor-delete').hidden = !item.can_edit;
     document.getElementById('editor-unpublish').hidden = !item.can_edit || item.status === 'draft';
     renderAttachments(item.attachments || [], item.can_edit);
     form.querySelectorAll('input,textarea,select,button').forEach((element) => { if (!element.matches('[data-action="back-news"]')) element.disabled = !item.can_edit; });
     document.getElementById('editor-publish').disabled = !item.can_edit;
-    document.getElementById('editor-schedule').disabled = !item.can_edit;
+    setEditorMode(item.status);
     goToView('editor');
   } catch (error) { showToast(error.message); }
 }
@@ -394,7 +516,7 @@ function editorPayload() {
     summary: form.elements.summary.value.trim(),
     body_html: editorBody(),
     category_id: form.elements.category_id.value || null,
-    targets: selectedTargets(),
+    targets: requireTargets('editor-target-fieldset'),
     expires_at: state.newsDates.expires_at,
   };
 }
@@ -449,18 +571,19 @@ async function handleEditorSubmit(event) {
   error.textContent = '';
   try {
     const id = await saveEditor();
-    showToast('پیش‌نویس ذخیره شد.');
+    showToast(state.currentNews?.status === 'published' ? 'تغییرات ذخیره شد.' : 'پیش‌نویس ذخیره شد.');
     await openEditor(id);
   } catch (failure) { error.textContent = failure.message; }
 }
 
-async function publishEditor(scheduled) {
+async function publishEditor() {
   const error = document.getElementById('editor-error');
   error.textContent = '';
+  const scheduled = document.querySelector('#news-editor input[name="schedule_mode"]:checked')?.value === 'later';
   try {
+    if (scheduled && !state.newsDates.published_at) throw new Error('برای زمان‌بندی، ابتدا تاریخ و ساعت انتشار را انتخاب کنید.');
     const id = await saveEditor();
     const publishedAt = scheduled ? state.newsDates.published_at : new Date().toISOString();
-    if (!publishedAt) throw new Error('برای زمان‌بندی، ابتدا تاریخ و ساعت انتشار را انتخاب کنید.');
     await api(`/api/admin/news/${id}/publish`, {
       method: 'POST', body: { published_at: publishedAt, expires_at: state.newsDates.expires_at },
     });
@@ -470,23 +593,7 @@ async function publishEditor(scheduled) {
 }
 
 function beginQuickCompose() {
-  const select = document.getElementById('quick-scope');
-  const cityList = document.getElementById('quick-cities');
-  const options = [];
-  const cityTargets = state.regions.filter((region) => region.type === 'city');
-  const broadTargets = state.regions.filter((region) => region.type !== 'city');
-  for (const target of broadTargets) options.push({ value: String(target.id), label: target.type === 'country' ? 'کل کشور' : `کل استان ${target.name}` });
-  if (cityTargets.length > 1) options.push({ value: 'selected-cities', label: 'انتخاب چند شهرستان' });
-  if (!options.length && cityTargets.length) options.push({ value: String(cityTargets[0].id), label: `شهرستان ${cityTargets[0].name}` });
-  select.innerHTML = `<option value="" selected disabled>انتخاب مقصد</option>` + options.map((option) => `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`).join('');
-  cityList.innerHTML = cityTargets.map((region) => `<label class="target-option"><input type="checkbox" value="${Number(region.id)}"><span>${escapeHtml(region.name)}</span></label>`).join('');
-  cityList.hidden = select.value !== 'selected-cities';
-}
-
-function quickTargetIds() {
-  const value = document.getElementById('quick-scope').value;
-  if (value === 'selected-cities') return [...document.querySelectorAll('#quick-cities input:checked')].map((input) => Number(input.value));
-  return value ? [Number(value)] : [];
+  renderTargetPicker('quick-target-fieldset');
 }
 
 async function submitQuickCompose(event) {
@@ -496,9 +603,8 @@ async function submitQuickCompose(event) {
   const form = event.currentTarget;
   const title = form.elements.title.value.trim();
   const summary = form.elements.summary.value.trim();
-  const targets = quickTargetIds();
-  if (!targets.length) { error.textContent = 'یک مقصد انتشار انتخاب کنید.'; return; }
   try {
+    const targets = requireTargets('quick-target-fieldset');
     const created = await api('/api/admin/news', {
       method: 'POST', body: { title, summary, body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
     });
@@ -920,14 +1026,18 @@ function bindEvents() {
   document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(true));
   document.getElementById('news-more').addEventListener('click', () => loadNewsList(false));
   document.getElementById('audit-more').addEventListener('click', () => loadAudit(false));
-  document.getElementById('editor-publish').addEventListener('click', () => publishEditor(false));
-  document.getElementById('editor-schedule').addEventListener('click', () => publishEditor(true));
+  document.getElementById('editor-publish').addEventListener('click', () => publishEditor());
+  document.querySelectorAll('#news-editor input[name="schedule_mode"]').forEach((radio) => radio.addEventListener('change', () => {
+    if (radio.checked && radio.value === 'now') { state.newsDates.published_at = null; updateDateLabel('published_at'); }
+    setEditorMode(state.currentNews?.status);
+    if (radio.checked && radio.value === 'later' && !state.newsDates.published_at) showCalendar('published_at');
+  }));
+  for (const type of ['change', 'input', 'click']) document.addEventListener(type, handleTargetPickerEvent);
   document.getElementById('editor-delete').addEventListener('click', deleteEditorNews);
   document.getElementById('editor-unpublish').addEventListener('click', unpublishEditorNews);
   document.getElementById('new-user-button').addEventListener('click', openUserForm);
   document.getElementById('new-region-button').addEventListener('click', () => { document.getElementById('region-form').hidden = false; populateRegionParents(); });
   document.querySelector('#region-form [name="type"]').addEventListener('change', populateRegionParents);
-  document.getElementById('quick-scope').addEventListener('change', () => { document.getElementById('quick-cities').hidden = document.getElementById('quick-scope').value !== 'selected-cities'; });
   document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => editorCommand(button)));
   document.getElementById('jalali-prev').addEventListener('click', () => {
     state.calendar.month -= 1;
