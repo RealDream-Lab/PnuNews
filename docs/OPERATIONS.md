@@ -92,19 +92,22 @@ docker exec -it -w /workspace/PnuNews nodejs node scripts/create-super-admin.js
 
 ### به‌روزرسانی عادی
 
-روی Mac:
+این سرور روی شاخهٔ `deploy` است؛ push کردن `main` به‌تنهایی شاخهٔ سرور را به‌روز نمی‌کند. روی Mac، پس از تغییر و تست:
 
 ```sh
 git add <فایل‌های-تغییریافته>
 git commit -m "پیام فارسی"
-git push
+git push origin main
+scripts/make-deploy-branch.sh
 ```
 
-سپس روی سرور، در شاخهٔ انتخاب‌شده:
+`make-deploy-branch.sh` وابستگی‌های تولید Linux x86_64/glibc را از `main` می‌سازد، باینری‌های sharp را بررسی می‌کند و پیش از force-push فقط شاخهٔ `deploy` تأیید می‌گیرد؛ هرگز `main` را force-push نکنید.
+
+پس از موفقیت build/push، روی سرور:
 
 ```sh
 cd /opt/docker/nodejs/workspace/PnuNews
-git pull
+git pull --ff-only
 docker exec nodejs bash /workspace/PnuNews/scripts/restart.sh
 ```
 
