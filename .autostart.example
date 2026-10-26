@@ -1,0 +1,12 @@
+PORT=3010
+NODE_ENV=production
+TZ=Asia/Tehran
+PUBLIC_URL=https://news.pnu.ac.ir
+TRUST_PROXY=1
+DB_HOST=mariadb
+DB_PORT=3306
+DB_NAME=pnu_news
+DB_USER=pnu_news
+DB_PASSWORD='CHANGE_ME'
+APP_SECRET='CHANGE_ME_64_HEX_CHARS'
+UPLOAD_DIR=/workspace/PnuNews/uploads
