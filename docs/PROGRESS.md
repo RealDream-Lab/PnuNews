@@ -80,6 +80,12 @@
 - در container `mariadb` پایگاه دادهٔ `pnu_news` با `utf8mb4` ساخته شد؛ کاربر اختصاصی `pnu_news`@`%` ساخته و دسترسی لازم به schema اعطا شد.
 - اتصال با همان کاربر تأیید شد؛ query نتیجهٔ `DATABASE() = pnu_news` و `CURRENT_USER() = pnu_news@%` داد. هیچ گذرواژه‌ای در گزارش ثبت نشده است.
 
+## Step 5 — SERVER MIGRATE / SEED / ADMIN (انجام‌شده)
+
+- environment container `nodejs` در ابتدا متغیرهای لازم پروژه را نداشت؛ برای هر فرمان `.autostart` فقط در همان process با `bash` source شد و container پیش از زمان مقرر restart نشد.
+- `migrate.js` موفق شد و `001_core.sql` را اعمال کرد؛ `seed.js` موفق شد؛ super-admin به‌صورت تعاملی ساخته شد و پیام الزام ثبت 2FA در نخستین ورود نمایش داده شد.
+- هیچ username، گذرواژه یا secretی در این گزارش ثبت نشده است.
+
 ## گام بعدی
 
-- Step 5 روی سرور است: اجرای `migrate.js`، سپس `seed.js` و در پایان ساخت تعاملی super-admin؛ خروجی هر فرمان جداگانه بررسی می‌شود.
+- Step 6 روی سرور است: با هماهنگی زمان کم‌ترافیک `nodejs` را restart کنیم، سپس logهای startup و `/healthz` داخل container را بررسی کنیم. این restart موقتاً PnuCard را هم restart می‌کند.
