@@ -22,6 +22,7 @@ function askSecret(prompt) {
     const cleanup = () => {
       process.stdin.setRawMode(false);
       process.stdin.off('keypress', onKeypress);
+      process.stdin.pause();
       process.stdout.write('\n');
     };
     const onKeypress = (character, key = {}) => {
