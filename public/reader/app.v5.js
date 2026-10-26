@@ -16,7 +16,7 @@ const state = {
   city: null,
   province: null,
   pickerProvince: null,
-  scope: 'all',
+  scope: 'all', // always "all" for now; will become a setting later
   cursor: null,
   loading: false,
   ended: false,
@@ -96,10 +96,12 @@ function updateSelectedCity() {
   if (!state.city || !state.province) {
     label.textContent = 'انتخاب شهرستان';
     description.textContent = 'برای دیدن خبرهای مرتبط، شهرستان خود را انتخاب کنید.';
+    description.hidden = false;
     return;
   }
   label.textContent = `${state.city.name} · ${state.province.name}`;
-  description.textContent = `خبرهای ${state.city.name} و استان ${state.province.name} در کنار خبرهای کشوری`;
+  description.textContent = '';
+  description.hidden = true;
 }
 
 function setCity(city, province) {
@@ -208,9 +210,9 @@ function placeholderMarkup(color, className = 'cover-placeholder') {
 const CARD_IMAGE_SIZES = '(max-width: 639px) 100vw, (max-width: 959px) 50vw, 33vw';
 const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
 
-function coverMarkup(item, featured) {
+function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt=""></div>`;
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
 function pinnedMarkup(item) {
@@ -223,15 +225,21 @@ function pinnedMarkup(item) {
 
 function cardMarkup(item, { featured = false } = {}) {
   const hasCover = Boolean(item.cover?.src);
+  const badge = `<span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(scopeName(item))}</span>`;
   const category = item.category?.name ? `<span class="card-kicker">${escapeHtml(item.category.name)}</span>` : '';
   const urgent = item.is_urgent ? '<span class="urgent-label">فوری</span>' : '';
-  const summary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
   const source = item.publisher_unit ? `<span class="card-source">${escapeHtml(item.publisher_unit)}</span><i aria-hidden="true"></i>` : '';
+  const time = `<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time>`;
+  const summary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
   const classes = ['news-card', item.is_urgent ? 'is-urgent' : '', hasCover ? '' : 'no-cover', featured ? 'is-featured' : ''].filter(Boolean).join(' ');
+  // With a cover, all meta sits on a translucent black strip over the image; only title and summary stay below it.
+  const overlay = `<div class="card-meta-overlay">${badge}${category}${urgent}<span class="overlay-end">${source}${time}</span></div>`;
+  const body = hasCover
+    ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
+    : `<div class="card-content"><div class="card-meta">${badge}${category}${urgent}</div><h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}</div></div>`;
   return `<article class="${classes}" data-news-id="${item.id}" data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured) : ''}
-    <div class="card-content"><div class="card-meta"><span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(scopeName(item))}</span>${category}${urgent}</div>
-    <h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time></div></div>
+    ${hasCover ? coverMarkup(item, featured, overlay) : ''}
+    ${body}
   </article>`;
 }
 
@@ -347,14 +355,6 @@ async function checkForNewItems() {
   } catch {}
 }
 
-function updateScopeButtons() {
-  document.querySelectorAll('.scope-chip').forEach((button) => {
-    const active = button.dataset.scope === state.scope;
-    button.classList.toggle('is-active', active);
-    button.setAttribute('aria-pressed', String(active));
-  });
-}
-
 function applyFontScale() {
   document.documentElement.classList.remove('font-scale-90', 'font-scale-95', 'font-scale-105', 'font-scale-110');
   if (state.fontScale !== 1) document.documentElement.classList.add(`font-scale-${Math.round(state.fontScale * 100)}`);
@@ -379,15 +379,13 @@ function changeFontScale(delta) {
 function initTheme() {
   const button = document.querySelector('.theme-toggle');
   const showTheme = () => {
-    const theme = document.documentElement.dataset.theme || 'auto';
-    const use = button.querySelector('use');
-    use.setAttribute('href', theme === 'dark' ? '#icon-sun' : '#icon-moon');
-    button.setAttribute('aria-label', `حالت نمایش: ${theme === 'auto' ? 'خودکار' : theme === 'dark' ? 'تیره' : 'روشن'}؛ برای تغییر کلیک کنید`);
+    const dark = document.documentElement.dataset.theme === 'dark';
+    button.querySelector('use').setAttribute('href', dark ? '#icon-sun' : '#icon-moon');
+    button.setAttribute('aria-label', dark ? 'تغییر به حالت روشن' : 'تغییر به حالت تیره');
   };
   showTheme();
   button.addEventListener('click', () => {
-    const current = document.documentElement.dataset.theme || 'auto';
-    const next = current === 'auto' ? 'light' : current === 'light' ? 'dark' : 'auto';
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('pnu.theme', next); } catch {}
     showTheme();
@@ -607,8 +605,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
 }
 
 function renderNewsPage(item, initial) {
-  const hasPerson = Boolean(item.publisher_name);
-  const byline = hasPerson ? `منتشرکننده: <strong>${escapeHtml(item.publisher_name)}</strong> — ${escapeHtml(item.publisher_unit)}` : `منتشرکننده: ${escapeHtml(item.publisher_unit)}`;
+  const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? escapeHtml(item.publisher_unit) : ''].filter(Boolean);
+  const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join(' — ')}</p>` : '';
   const category = item.category?.name ? `<span>${escapeHtml(item.category.name)}</span>` : '';
   const date = new Date(item.published_at);
   const fullDate = `${dateFormatter.format(date)} — ${timeFormatter.format(date)}`;
@@ -616,9 +614,10 @@ function renderNewsPage(item, initial) {
   const gallery = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id)).map((image) => `<div class="gallery-image-frame">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></div>`).join('');
   const files = (item.files ?? []).map((file) => `<a class="attachment-link" href="${escapeHtml(file.url)}"><span>▤ ${escapeHtml(file.original_name)}</span><span>${escapeHtml(formatBytes(file.size_bytes))}</span></a>`).join('');
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
-    <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1><p class="news-byline">${byline}</p>
+    <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1>
     <div class="news-details">${category}<time datetime="${escapeHtml(item.published_at)}">${fullDate}</time><span>${digits.format(item.view_count)} بازدید</span></div>
     <div class="news-body">${item.body_html}</div>
+    ${signature}
     ${gallery ? `<section class="news-gallery" aria-label="تصاویر خبر">${gallery}</section>` : ''}
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
     <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="#icon-share"/></svg>اشتراک‌گذاری خبر</button></div>
@@ -707,13 +706,6 @@ pickerBack.addEventListener('click', () => {
   focusPickerSearch();
 });
 pickerSearch.addEventListener('input', renderPickerList);
-document.querySelector('.scope-row').addEventListener('click', (event) => {
-  const button = event.target.closest('[data-scope]');
-  if (!button || state.scope === button.dataset.scope) return;
-  state.scope = button.dataset.scope;
-  updateScopeButtons();
-  resetFeed();
-});
 feed.addEventListener('click', (event) => {
   if (event.target.closest('[data-open-picker]')) {
     openPicker();

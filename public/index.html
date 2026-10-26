@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#1f5fbf">
   <meta name="description" content="خبرهای پیام نور بر اساس شهرستان">
   <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="/reader/styles.v2.css">
-  <script src="/shared/theme.v1.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v5.css">
+  <script src="/shared/theme.v5.js"></script>
   <title>اخبار پیام نور</title>
 </head>
 <body>
@@ -44,12 +44,6 @@
       <section class="feed-intro" aria-labelledby="feed-heading">
         <h1 id="feed-heading">خبرهای پیام نور</h1><p class="intro-copy" id="feed-description">برای دیدن خبرهای مرتبط، شهرستان خود را انتخاب کنید.</p>
       </section>
-      <div class="scope-row" role="group" aria-label="محدودهٔ خبرها">
-        <button type="button" class="scope-chip is-active" data-scope="all" aria-pressed="true">همه</button>
-        <button type="button" class="scope-chip" data-scope="country" aria-pressed="false">کشوری</button>
-        <button type="button" class="scope-chip" data-scope="province" aria-pressed="false">استان</button>
-        <button type="button" class="scope-chip" data-scope="city" aria-pressed="false">شهر</button>
-      </div>
       <div id="new-items-banner" class="new-items-banner" hidden><button type="button">خبرهای تازه آماده است؛ برای دیدن به بالای فهرست بروید</button></div>
       <section id="pinned-strip" class="pinned-strip" aria-label="خبرهای مهم" hidden></section>
       <section id="feed" class="news-feed" aria-live="polite" aria-busy="false"></section>
@@ -58,8 +52,7 @@
     </main>
     <main id="news-view" class="reader-main" hidden></main>
   </div>
-  <footer class="site-footer"><div class="footer-inner"><span>اخبار پیام نور</span></div></footer>
-  <div id="radio-root"></div>
+  <footer class="site-dock"><div class="dock-inner"><span class="dock-text">اخبار پیام نور</span><div id="radio-root"></div></div></footer>
   <dialog id="city-picker" class="city-dialog" aria-labelledby="picker-title">
     <div class="picker-panel" tabindex="-1" autofocus>
       <div class="picker-header"><div><p class="eyebrow" id="picker-step">مرحلهٔ ۱ از ۲</p><h2 id="picker-title">استان را انتخاب کنید</h2></div><button class="icon-button picker-close" type="button" aria-label="بستن پنجره"><svg class="icon"><use href="#icon-close"/></svg></button></div>
@@ -69,6 +62,6 @@
   </div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v2.js"></script>
+  <script type="module" src="/reader/app.v5.js"></script>
 </body>
 </html>

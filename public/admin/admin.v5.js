@@ -1147,8 +1147,7 @@ function bindEvents() {
   document.getElementById('message-dialog').addEventListener('click', closeMessage);
   document.getElementById('message-dialog').querySelectorAll('[data-close-message]').forEach((button) => button.addEventListener('click', closeMessage));
   const toggleTheme = () => {
-    const current = document.documentElement.dataset.theme || 'auto';
-    const next = current === 'auto' ? 'light' : current === 'light' ? 'dark' : 'auto';
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('pnu.theme', next); } catch {}
   };

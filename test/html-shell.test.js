@@ -35,7 +35,7 @@ test('reader, admin, and offline pages have balanced markup and local scripts', 
 
 test('admin document provides every JavaScript element hook exactly once', async () => {
   const markup = await readPublicFile('admin/index.html');
-  const script = await readFile(new URL('../public/admin/admin.v4.js', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../public/admin/admin.v5.js', import.meta.url), 'utf8');
   const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'admin document IDs must be unique');
   const idSet = new Set(ids);
@@ -49,4 +49,12 @@ test('offline page contains an actionable, non-empty offline message', async () 
   assert.match(markup, /<title>عدم دسترسی — اخبار پیام نور<\/title>/);
   assert.match(markup, /<h1>در حال حاضر آفلاین هستید<\/h1>/);
   assert.match(markup, /<a class="news-back" href="\/">تلاش دوباره<\/a>/);
+});
+
+test('reader shell has no scope chips, one sticky dock with the radio mount, and a two-state theme script', async () => {
+  const markup = await readPublicFile('index.html');
+  assert.doesNotMatch(markup, /scope-chip|scope-row/);
+  assert.match(markup, /<footer class="site-dock">[\s\S]*<span class="dock-text">[\s\S]*<div id="radio-root"><\/div>[\s\S]*<\/footer>/);
+  const theme = await readPublicFile('shared/theme.v5.js');
+  assert.doesNotMatch(theme, /'auto'/);
 });
