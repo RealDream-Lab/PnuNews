@@ -61,7 +61,7 @@
 - `npm test`: ۳۸ تست موفق، ۰ شکست؛ regression test checker و `bash -n scripts/make-deploy-branch.sh` هم موفق شدند.
 - `deploy` با `scripts/make-deploy-branch.sh --prepare-only` ساخته و سپس push شد. باینری sharp و libvips در شاخه از نوع ELF x86-64 هستند؛ ۲۱۳۰ فایل `node_modules/` در آن قرار دارد و بررسی مسیرهای ممنوع (`.autostart`, `.env` واقعی, `uploads/`, `PROMPT.md`) موردی نیافت.
 - push اولیه به‌علت سرعت SSH کند قطع شد؛ retry با SSH keepalive موفق شد. `main` هیچ‌گاه force-push نشده است.
-- commit گزارش Step 1 نیز به `main` push می‌شود و سپس همان تغییر مستندات به `deploy` منتقل می‌شود تا هر دو شاخهٔ GitHub همگام باشند.
+- گزارش Step 1 روی `main` ثبت و push شد؛ همان وضعیت مستندات نیز به `deploy` منتقل و push شد و هر دو ref در GitHub تأیید شدند.
 
 ## گام بعدی
 
