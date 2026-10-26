@@ -55,7 +55,7 @@ printf 'وابستگی‌های تولید Linux x86_64/glibc را نصب می�
 npm ci --prefix "$worktree" --omit=dev --os=linux --cpu=x64 --libc=glibc
 
 printf 'باینری sharp را بررسی می‌کنم...\n'
-sharp_node="$worktree/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node"
+sharp_node="$(find "$worktree/node_modules/@img/sharp-linux-x64/lib" -maxdepth 1 -type f -name 'sharp-linux-x64-*.node' -print -quit)"
 libvips_library="$(find "$worktree/node_modules/@img" -path '*/sharp-libvips-linux-x64/lib/libvips-cpp.so.*' -print -quit)"
 if [[ ! -f "$sharp_node" || -z "$libvips_library" ]]; then
   printf 'باینری‌های sharp/libvips لینوکس x64 در node_modules پیدا نشدند.\nLinux x64 sharp/libvips binaries were not found in node_modules.\n' >&2
