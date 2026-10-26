@@ -222,6 +222,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   events.on('news.changed', clearCaches);
   events.on('news.published', clearCaches);
   events.on('settings.changed', clearCaches);
+  events.on('regions.changed', clearCaches);
   router.use(['/api/public', '/n'], rateLimit);
 
   router.get('/media/placeholder/:color.svg', (request, response) => {

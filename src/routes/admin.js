@@ -4,12 +4,17 @@ import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { normalizeFa } from '../lib/fa.js';
+import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
 const MANAGE_ROUTES = new Set(['deactivate', 'activate', 'reset-password', 'reset-2fa']);
+const ADMIN_SETTING_KEYS = new Set([
+  'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url',
+  'byline_show_person', 'site_title', 'max_city_admins', 'peer_edit_enabled',
+]);
 
 function temporaryPassword() {
   return `${randomBytes(15).toString('base64url')}A7`;
@@ -69,6 +74,144 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
+
+  router.get('/categories', async (request, response, next) => {
+    try {
+      const [categories] = await pool.query('SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id');
+      return response.json({ categories });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get('/settings', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را ببیند.' });
+    try {
+      const [rows] = await pool.query('SELECT k, v FROM settings WHERE k IN (?)', [[...ADMIN_SETTING_KEYS]]);
+      return response.json({ settings: Object.fromEntries(rows.map((row) => [row.k, row.v])) });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.put('/settings', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را تغییر دهد.' });
+    const submitted = request.body ?? {};
+    const keys = Object.keys(submitted);
+    if (!keys.length || keys.some((key) => !ADMIN_SETTING_KEYS.has(key))) {
+      return response.status(400).json({ error: 'تنظیمات ارسالی معتبر نیست.' });
+    }
+    try {
+      const [rows] = await pool.query('SELECT k, v FROM settings WHERE k IN (?)', [[...ADMIN_SETTING_KEYS]]);
+      const current = Object.fromEntries(rows.map((row) => [row.k, row.v]));
+      const updates = {};
+      for (const key of keys) {
+        const value = submitted[key];
+        if (['radio_enabled', 'byline_show_person', 'peer_edit_enabled'].includes(key)) {
+          const normalized = value === true ? '1' : value === false ? '0' : String(value);
+          if (!['0', '1'].includes(normalized)) return response.status(400).json({ error: `مقدار تنظیم «${key}» باید روشن یا خاموش باشد.` });
+          updates[key] = normalized;
+        } else if (key === 'max_city_admins') {
+          const number = Number(value);
+          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران شهر باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
+          updates[key] = String(number);
+        } else if (key === 'radio_stream_url' || key === 'radio_nowplaying_url') {
+          if (typeof value !== 'string' || value.length > 2048) return response.status(400).json({ error: 'نشانی رادیو معتبر نیست.' });
+          const trimmed = value.trim();
+          if (trimmed) {
+            let url;
+            try { url = new URL(trimmed); } catch { return response.status(400).json({ error: 'نشانی رادیو باید یک URL معتبر HTTP یا HTTPS باشد.' }); }
+            if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+              return response.status(400).json({ error: 'فقط نشانی HTTP یا HTTPS بدون اطلاعات ورود پذیرفته می‌شود.' });
+            }
+            if (config.publicUrl.startsWith('https://') && url.protocol === 'http:') {
+              return response.status(400).json({ error: 'در سایت امن HTTPS، نشانی HTTP رادیو به‌دلیل محتوای ناامن پذیرفته نمی‌شود.' });
+            }
+            updates[key] = url.href;
+          } else updates[key] = '';
+        } else if (key === 'radio_title' || key === 'site_title') {
+          if (typeof value !== 'string') return response.status(400).json({ error: 'عنوان سامانه یا رادیو معتبر نیست.' });
+          const normalized = normalizeFa(value);
+          if (normalized.length > 160 || (key === 'site_title' && !normalized)) return response.status(400).json({ error: 'عنوان سامانه یا رادیو معتبر نیست.' });
+          updates[key] = normalized;
+        }
+      }
+      const candidate = { ...current, ...updates };
+      if (candidate.radio_enabled === '1') {
+        if (!candidate.radio_stream_url) return response.status(400).json({ error: 'برای فعال‌کردن رادیو، ابتدا نشانی پخش معتبر را وارد کنید.' });
+        let streamUrl;
+        try { streamUrl = new URL(candidate.radio_stream_url); } catch { return response.status(400).json({ error: 'نشانی پخش رادیو معتبر نیست.' }); }
+        if (!['http:', 'https:'].includes(streamUrl.protocol) || streamUrl.username || streamUrl.password || (config.publicUrl.startsWith('https://') && streamUrl.protocol === 'http:')) {
+          return response.status(400).json({ error: 'نشانی پخش رادیو با پروتکل امن سایت سازگار نیست.' });
+        }
+      }
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        for (const [key, value] of Object.entries(updates)) {
+          await connection.execute(
+            'INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)',
+            [key, value],
+          );
+        }
+        await writeAudit(connection, request.user.id, 'settings.update', 'settings', null, request, { changed_keys: keys });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      appEvents.emit('settings.changed');
+      return response.json({ ok: true, settings: candidate });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.get('/stats', async (request, response, next) => {
+    try {
+      const clauses = ['deleted_at IS NULL'];
+      const values = [];
+      if (request.user.role !== 'super_admin') {
+        const regions = await getRegions(pool);
+        const allowed = [...adminRegionIds(request.user, regions)];
+        if (!allowed.length) return response.json({ counts: { total: 0, draft: 0, scheduled: 0, published: 0, views: 0 }, latest: [], most_viewed: [] });
+        clauses.push(`origin_region_id IN (${allowed.map(() => '?').join(', ')})`);
+        values.push(...allowed);
+      }
+      const where = clauses.join(' AND ');
+      const [countRows, latest, mostViewed] = await Promise.all([
+        pool.execute(
+          `SELECT COUNT(*) AS total, SUM(status = 'draft') AS drafts,
+                  SUM(status = 'scheduled') AS scheduled, SUM(status = 'published') AS published,
+                  COALESCE(SUM(view_count), 0) AS views FROM news WHERE ${where}`,
+          values,
+        ),
+        pool.execute(
+          `SELECT id, title, status, published_at, view_count, updated_at FROM news
+           WHERE ${where} ORDER BY updated_at DESC, id DESC LIMIT 10`,
+          values,
+        ),
+        pool.execute(
+          `SELECT id, title, status, published_at, view_count FROM news
+           WHERE ${where} ORDER BY view_count DESC, id DESC LIMIT 10`,
+          values,
+        ),
+      ]);
+      const counts = countRows[0][0];
+      return response.json({
+        counts: {
+          total: Number(counts.total), draft: Number(counts.drafts ?? 0),
+          scheduled: Number(counts.scheduled ?? 0), published: Number(counts.published ?? 0),
+          views: Number(counts.views),
+        },
+        latest: latest[0], most_viewed: mostViewed[0],
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   router.get('/users', async (request, response, next) => {
     try {
@@ -291,6 +434,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       } finally {
         connection.release();
       }
+      appEvents.emit('regions.changed');
       return response.status(201).json({ id, type, name, parent_id: parentId, code });
     } catch (error) {
       return next(error);
@@ -333,6 +477,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       } finally {
         connection.release();
       }
+      appEvents.emit('regions.changed');
       return response.json({ ok: true });
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'نام منطقه در این شاخه تکراری است.' });
