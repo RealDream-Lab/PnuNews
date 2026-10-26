@@ -1,0 +1,21 @@
+services:
+  mariadb:
+    image: mariadb:12.3
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: pnu_news
+      MARIADB_USER: pnu_news
+      MARIADB_PASSWORD: pnu_news_dev_only
+      MARIADB_ROOT_PASSWORD: root_dev_only
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - pnunews_mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pnunews_mariadb:
