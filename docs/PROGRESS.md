@@ -53,16 +53,16 @@
 - `npm test` پس از اصلاح توقف ورودی تعاملی CLI: ۳۷ تست موفق، ۰ شکست.
 - smoke test تعاملی Chrome headless: picker، feed، تم، ورود/TOTP، تنظیمات و player رادیو موفق؛ fixtureها پاک شدند.
 
-## Step 1 — PUSH (در حال تکمیل همگام‌سازی شاخه‌ها)
+## Step 1 — PUSH (انجام‌شده)
 
 - مخزن GitHub عمومی است (`PUBLIC`). آزمون `ssh -T` موفق بود: احراز هویت با حساب `RealDream-Lab`.
-- شاخهٔ `main` با push عادی و بدون force تا commit `f6ee01d` منتشر شد.
+- شاخهٔ `main` با push عادی و بدون force منتشر شد؛ آخرین تغییر کد در commit `f6ee01d` است.
 - اجرای نخست `scripts/make-deploy-branch.sh --prepare-only` نشان داد checker نام قدیمی `sharp-linux-x64.node` را می‌خواست، در حالی‌که sharp 0.35.5 باینری نسخه‌دار `sharp-linux-x64-0.35.5.node` دارد. checker اصلاح شد و regression test اضافه شد؛ commit `f6ee01d` — «اصلاح تشخیص باینری لینوکسی sharp».
 - `npm test`: ۳۸ تست موفق، ۰ شکست؛ regression test checker و `bash -n scripts/make-deploy-branch.sh` هم موفق شدند.
-- `deploy` با commit `2e343b1` ساخته و push شد. باینری sharp و libvips در شاخه از نوع ELF x86-64 هستند؛ ۲۱۳۰ فایل `node_modules/` در آن قرار دارد و بررسی مسیرهای ممنوع (`.autostart`, `.env` واقعی, `uploads/`, `PROMPT.md`) موردی نیافت.
+- `deploy` با `scripts/make-deploy-branch.sh --prepare-only` ساخته و سپس push شد. باینری sharp و libvips در شاخه از نوع ELF x86-64 هستند؛ ۲۱۳۰ فایل `node_modules/` در آن قرار دارد و بررسی مسیرهای ممنوع (`.autostart`, `.env` واقعی, `uploads/`, `PROMPT.md`) موردی نیافت.
 - push اولیه به‌علت سرعت SSH کند قطع شد؛ retry با SSH keepalive موفق شد. `main` هیچ‌گاه force-push نشده است.
-- پس از commit این گزارش، شاخهٔ `deploy` باید با آخرین `main` همگام و refهای نهایی دوباره تأیید شوند.
+- commit گزارش Step 1 نیز به `main` push می‌شود و سپس همان تغییر مستندات به `deploy` منتقل می‌شود تا هر دو شاخهٔ GitHub همگام باشند.
 
 ## گام بعدی
 
-- پس از پایان همگام‌سازی Step 1، Step 2 روی سرور است: adopt کردن مسیر موجود `/opt/docker/nodejs/workspace/PnuNews`، تنظیم remote و checkout شاخهٔ `deploy`.
+- Step 2 روی سرور است: adopt کردن مسیر موجود `/opt/docker/nodejs/workspace/PnuNews`، تنظیم remote و checkout شاخهٔ `deploy`.
