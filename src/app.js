@@ -5,6 +5,11 @@ import { createMediaRouter } from './routes/media.js';
 import { createPublicRouter } from './routes/public.js';
 import { createStaticMiddleware } from './lib/static.js';
 
+export function contentSecurityPolicy(publicUrl) {
+  const mediaSources = publicUrl.startsWith('https://') ? "'self' https:" : "'self' https: http:";
+  return `default-src 'self'; img-src 'self' data:; media-src ${mediaSources}; script-src 'self'; style-src 'self'; frame-ancestors 'none'`;
+}
+
 function csrfGuard(request, response, next) {
   if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return next();
   const multipartUpload = request.method === 'POST' &&
@@ -40,7 +45,7 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    response.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; media-src 'self' https: http:; script-src 'self'; style-src 'self'; frame-ancestors 'none'");
+    response.setHeader('Content-Security-Policy', contentSecurityPolicy(config.publicUrl));
     next();
   });
   app.use(express.json({ limit: '1mb', strict: true }));
