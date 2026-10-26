@@ -63,6 +63,12 @@
 - push اولیه به‌علت سرعت SSH کند قطع شد؛ retry با SSH keepalive موفق شد. `main` هیچ‌گاه force-push نشده است.
 - گزارش Step 1 روی `main` ثبت و push شد؛ همان وضعیت مستندات نیز به `deploy` منتقل و push شد و هر دو ref در GitHub تأیید شدند.
 
+## Step 2 — SERVER GIT SETUP (انجام‌شده)
+
+- روی سرور، مسیر موجود `/opt/docker/nodejs/workspace/PnuNews` به مخزن GitHub متصل شد؛ `origin` همان SSH URL مورد انتظار بود و fetch هر دو شاخهٔ `main` و `deploy` موفق شد.
+- شاخهٔ محلی `deploy` از `origin/deploy` ساخته و tracking شد. `git status --short --branch` پاک است.
+- پوشهٔ موجود `uploads/` پس از checkout تأیید شد و حفظ شده است. مخزن عمومی است؛ Deploy key لازم نبود.
+
 ## گام بعدی
 
-- Step 2 روی سرور است: adopt کردن مسیر موجود `/opt/docker/nodejs/workspace/PnuNews`، تنظیم remote و checkout شاخهٔ `deploy`.
+- Step 3 روی سرور است: ساخت `.autostart` از `.autostart.example` و تکمیل تنظیمات بدون افشای secretها.
