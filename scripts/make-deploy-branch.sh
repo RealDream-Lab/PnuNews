@@ -55,7 +55,7 @@ trap cleanup EXIT INT TERM
 
 git worktree add --detach "$worktree" main
 printf 'وابستگی‌های تولید Linux x86_64/glibc را نصب می‌کنم...\n'
-npm ci --prefix "$worktree" --omit=dev --os=linux --cpu=x64 --libc=glibc
+(cd "$worktree" && npm ci --omit=dev --os=linux --cpu=x64 --libc=glibc)
 
 printf 'باینری sharp را بررسی می‌کنم...\n'
 sharp_node="$(find "$worktree/node_modules/@img/sharp-linux-x64/lib" -maxdepth 1 -type f -name 'sharp-linux-x64-*.node' -print -quit)"
