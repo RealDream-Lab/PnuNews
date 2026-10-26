@@ -69,6 +69,12 @@
 - شاخهٔ محلی `deploy` از `origin/deploy` ساخته و tracking شد. `git status --short --branch` پاک است.
 - پوشهٔ موجود `uploads/` پس از checkout تأیید شد و حفظ شده است. مخزن عمومی است؛ Deploy key لازم نبود.
 
+## Step 3 — SERVER CONFIG (انجام‌شده)
+
+- روی سرور `.autostart` از `.autostart.example` ساخته شد؛ مجوز فایل `600` است.
+- فقط به‌صورت امن بررسی شد که `APP_SECRET` یک مقدار ۶۴ رقمی hex معتبر است، `DB_PASSWORD` دیگر placeholder نیست و `PUBLIC_URL` تنظیم شده است؛ هیچ secretی در گزارش یا مخزن ثبت نشده.
+- `PUBLIC_URL` فعلی طبق اعلام مالک موقت است؛ دامنهٔ نهایی در Step 7 تأیید و پیش از ورود واقعی اعمال می‌شود. چون DB هنوز ساخته و اتصال تأیید نشده، `DB_PASSWORD` هنوز با MariaDB آزموده نشده است.
+
 ## گام بعدی
 
-- Step 3 روی سرور است: ساخت `.autostart` از `.autostart.example` و تکمیل تنظیمات بدون افشای secretها.
+- Step 4 روی سرور است: ساخت پایگاه داده و کاربر اختصاصی MariaDB، سپس تأیید اتصال با کاربر `pnu_news` بدون افشای گذرواژه.
