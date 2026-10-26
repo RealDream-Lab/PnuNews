@@ -3,7 +3,7 @@ import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
-import { normalizeFa } from '../lib/fa.js';
+import { cleanFaText } from '../lib/fa.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
@@ -131,7 +131,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           } else updates[key] = '';
         } else if (key === 'radio_title' || key === 'site_title') {
           if (typeof value !== 'string') return response.status(400).json({ error: 'عنوان سامانه یا رادیو معتبر نیست.' });
-          const normalized = normalizeFa(value);
+          const normalized = cleanFaText(value);
           if (normalized.length > 160 || (key === 'site_title' && !normalized)) return response.status(400).json({ error: 'عنوان سامانه یا رادیو معتبر نیست.' });
           updates[key] = normalized;
         }
@@ -233,7 +233,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
 
   router.post('/users', async (request, response, next) => {
     const username = typeof request.body?.username === 'string' ? request.body.username.trim() : '';
-    const fullName = normalizeFa(request.body?.full_name);
+    const fullName = cleanFaText(request.body?.full_name);
     const role = request.body?.role;
     const regionId = parseId(request.body?.region_id);
     if (!USERNAME_PATTERN.test(username) || !fullName || fullName.length > 160 || !regionId) {
@@ -303,7 +303,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       return response.status(400).json({ error: 'فقط نام کاربری و نام کامل قابل ویرایش است.' });
     }
     const username = request.body.username === undefined ? undefined : String(request.body.username).trim();
-    const fullName = request.body.full_name === undefined ? undefined : normalizeFa(request.body.full_name);
+    const fullName = request.body.full_name === undefined ? undefined : cleanFaText(request.body.full_name);
     if ((username !== undefined && !USERNAME_PATTERN.test(username)) || (fullName !== undefined && (!fullName || fullName.length > 160))) {
       return response.status(400).json({ error: 'نام کاربری یا نام کامل معتبر نیست.' });
     }
@@ -401,10 +401,27 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
     }
   });
 
+  router.get('/regions/overview', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مراکز و واحدها را مدیریت کند.' });
+    try {
+      const [rows] = await pool.query(
+        `SELECT r.id, r.parent_id, r.type, r.name, r.visibility_override,
+                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1) AS active_admins,
+                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 ORDER BY u.id LIMIT 1) AS admin_name
+         FROM regions r WHERE r.type IN ('province', 'city') ORDER BY r.sort_order, r.id`,
+      );
+      return response.json({
+        units: rows.map((row) => ({ ...row, id: Number(row.id), parent_id: Number(row.parent_id), active_admins: Number(row.active_admins) })),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.post('/regions', async (request, response, next) => {
     if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مناطق را مدیریت کند.' });
     const type = request.body?.type;
-    const name = normalizeFa(request.body?.name);
+    const name = cleanFaText(request.body?.name);
     const parentId = request.body?.parent_id === null ? null : parseId(request.body?.parent_id);
     const code = request.body?.code ? String(request.body.code).trim() : null;
     if (!['province', 'city'].includes(type) || !name || name.length > 160 || (code && code.length > 40)) {
@@ -449,7 +466,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
     if (!keys.length || keys.some((key) => !['name', 'visibility_override'].includes(key))) {
       return response.status(400).json({ error: 'فقط نام و وضعیت نمایش منطقه قابل ویرایش است.' });
     }
-    const name = request.body.name === undefined ? undefined : normalizeFa(request.body.name);
+    const name = request.body.name === undefined ? undefined : cleanFaText(request.body.name);
     const visibility = request.body.visibility_override;
     if ((name !== undefined && (!name || name.length > 160)) || (visibility !== undefined && !VISIBILITY_VALUES.has(visibility))) {
       return response.status(400).json({ error: 'نام یا وضعیت نمایش معتبر نیست.' });

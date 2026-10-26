@@ -20,7 +20,8 @@ test('search content is plain Persian text and hostile numeric entities do not t
     summary: 'متن خلاصه',
     body_html: '<h2>عنوان</h2><p>متن &amp; پیوند</p><p>&#999999999999;</p>',
   });
-  assert.equal(content.title, 'یادداشت 12');
+  assert.equal(content.title, 'یادداشت ۱۲');
+  assert.match(content.search_text, /یادداشت 12/);
   assert.doesNotMatch(content.search_text, /<|>/);
   assert.match(content.search_text, /عنوان متن/);
   assert.doesNotThrow(() => plainTextFromHtml('&#x110000;'));

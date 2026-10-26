@@ -20,7 +20,9 @@ const state = {
   toastTimer: null,
   activeView: '',
   busy: false,
+  units: { items: [], open: new Set(), editing: null },
 };
+const faCollator = new Intl.Collator('fa', { sensitivity: 'base' });
 const faDigits = new Intl.NumberFormat('fa-IR');
 const dateDisplay = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', day: 'numeric', month: 'long', year: 'numeric' });
 const dateTimeDisplay = new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -700,23 +702,99 @@ async function handleUserAction(button) {
   } catch (error) { showToast(error.message); }
 }
 
+const VISIBILITY_LABELS = {
+  city: [['auto', 'خودکار (با وجود مدیر فعال)'], ['show', 'همیشه نمایش'], ['hide', 'پنهان']],
+  province: [['auto', 'نمایش در سایت'], ['hide', 'پنهان']],
+};
+
+function unitState(unit, cities = []) {
+  if (unit.visibility_override === 'hide') return { key: 'hidden', label: 'پنهان', active: false };
+  if (unit.type === 'city') {
+    if (unit.active_admins > 0) return { key: 'active', label: 'فعال', active: true };
+    if (unit.visibility_override === 'show') return { key: 'forced', label: 'نمایش اجباری', active: true };
+    return { key: 'inactive', label: 'بدون مدیر', active: false };
+  }
+  return cities.some((city) => unitState(city).active)
+    ? { key: 'active', label: 'فعال', active: true }
+    : { key: 'inactive', label: 'فعال نشده', active: false };
+}
+
+function unitBadge(info) {
+  const cls = info.key === 'active' ? 'published' : info.key === 'forced' ? 'draft' : info.key === 'inactive' ? 'scheduled' : '';
+  return `<span class="status-badge ${cls}">${info.label}</span>`;
+}
+
+function unitEditForm(unit) {
+  const options = VISIBILITY_LABELS[unit.type].map(([value, label]) => `<option value="${value}" ${unit.visibility_override === value ? 'selected' : ''}>${label}</option>`).join('');
+  return `<form class="unit-edit" data-unit-form="${unit.id}">
+    <label>نام ${unit.type === 'province' ? 'استان' : 'شهرستان'}<input name="name" value="${escapeHtml(unit.name)}" maxlength="160" required></label>
+    <label>نمایش در سایت<select name="visibility">${options}</select></label>
+    <div class="unit-edit-actions"><button class="button primary" type="submit">ذخیره</button><button class="button outline" type="button" data-unit-cancel>انصراف</button></div>
+  </form>`;
+}
+
+function cityRow(city) {
+  if (state.units.editing === city.id) return `<div class="unit-row is-editing">${unitEditForm(city)}</div>`;
+  const info = unitState(city);
+  const admin = city.active_admins > 0 ? `مدیر: ${escapeHtml(city.admin_name || '—')}` : 'مدیری ثبت نشده';
+  return `<div class="unit-row"><div class="unit-main"><span class="unit-name">${escapeHtml(city.name)}</span><small class="muted">${admin}</small></div>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${city.id}">ویرایش</button></div>`;
+}
+
+function renderUnits() {
+  const container = document.getElementById('regions-tree');
+  const summary = document.getElementById('regions-summary');
+  const all = state.units.items;
+  const provinces = all.filter((unit) => unit.type === 'province').sort((a, b) => faCollator.compare(a.name, b.name));
+  const citiesOf = (provinceId) => all.filter((unit) => unit.type === 'city' && unit.parent_id === provinceId).sort((a, b) => faCollator.compare(a.name, b.name));
+  const allCities = all.filter((unit) => unit.type === 'city');
+  const activeCities = allCities.filter((city) => unitState(city).active).length;
+  const activeProvinces = provinces.filter((province) => unitState(province, citiesOf(province.id)).active).length;
+  summary.innerHTML = [
+    [activeProvinces, `از ${faDigits.format(provinces.length)} استان فعال`],
+    [activeCities, `از ${faDigits.format(allCities.length)} شهرستان فعال`],
+  ].map(([value, label]) => `<div class="units-stat"><strong>${faDigits.format(value)}</strong><span>${label}</span></div>`).join('');
+
+  const query = faKey(document.getElementById('regions-search').value);
+  const filter = document.querySelector('input[name="regions_filter"]:checked')?.value || 'all';
+  const wantActive = (active) => filter === 'all' || (filter === 'active') === active;
+  const html = [];
+  for (const province of provinces) {
+    const cities = citiesOf(province.id);
+    const info = unitState(province, cities);
+    const provinceMatches = !query || faKey(province.name).includes(query);
+    const visibleCities = cities.filter((city) => (provinceMatches || faKey(city.name).includes(query)) && (filter === 'all' || wantActive(unitState(city).active)));
+    const showProvince = (provinceMatches || visibleCities.length) && (filter === 'all' ? true : (wantActive(info.active) || visibleCities.length));
+    if (!showProvince) continue;
+    const shownCities = filter === 'all' && provinceMatches ? cities : visibleCities;
+    const activeCount = cities.filter((city) => unitState(city).active).length;
+    const open = state.units.open.has(province.id) || Boolean(query) || filter !== 'all' || state.units.editing === province.id || cities.some((city) => city.id === state.units.editing);
+    const heading = state.units.editing === province.id
+      ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
+      : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} شهرستان فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
+    html.push(`<details class="unit-province" data-province="${province.id}" ${open ? 'open' : ''}>${state.units.editing === province.id ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-cities">${shownCities.map(cityRow).join('') || '<p class="empty-panel">شهرستانی برای نمایش نیست.</p>'}</div></details>`);
+  }
+  container.innerHTML = html.join('') || '<p class="empty-panel">موردی پیدا نشد.</p>';
+}
+
 async function loadRegions() {
-  const panel = document.getElementById('regions-tree');
-  panel.innerHTML = '<p class="empty-panel">در حال دریافت مناطق…</p>';
+  const container = document.getElementById('regions-tree');
+  if (!state.units.items.length) container.innerHTML = '<p class="empty-panel">در حال دریافت فهرست…</p>';
   try {
-    const data = await api('/api/admin/regions');
-    state.regions = data.regions;
-    const provinces = state.regions.filter((region) => region.type === 'province');
-    panel.innerHTML = provinces.map((province) => `<section class="tree-province"><div class="tree-province-heading"><label>استان <input class="region-name" data-region-id="${Number(province.id)}" value="${escapeHtml(province.name)}"></label><button class="mini-button" data-save-region="${Number(province.id)}">ذخیرهٔ نام</button></div>${state.regions.filter((region) => region.type === 'city' && Number(region.parent_id) === Number(province.id)).map((city) => `<div class="tree-city"><label>شهرستان <input class="region-name" data-region-id="${Number(city.id)}" value="${escapeHtml(city.name)}"></label><label class="visibility-control">نمایش<select data-region-visibility="${Number(city.id)}"><option value="auto" ${city.visibility_override === 'auto' ? 'selected' : ''}>خودکار</option><option value="show" ${city.visibility_override === 'show' ? 'selected' : ''}>نمایش</option><option value="hide" ${city.visibility_override === 'hide' ? 'selected' : ''}>پنهان</option></select></label><button class="mini-button" data-save-region="${Number(city.id)}">ذخیرهٔ نام</button></div>`).join('')}</section>`).join('');
+    const [overview, targets] = await Promise.all([api('/api/admin/regions/overview'), api('/api/admin/regions')]);
+    state.units.items = overview.units;
+    state.regions = targets.regions;
+    renderUnits();
     populateRegionParents();
-  } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
+  } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
 function populateRegionParents() {
   const form = document.getElementById('region-form');
-  const type = form.elements.type.value;
-  const parents = type === 'province' ? state.regions.filter((region) => region.type === 'country') : state.regions.filter((region) => region.type === 'province');
-  form.elements.parent_id.innerHTML = parents.map((region) => `<option value="${Number(region.id)}">${escapeHtml(region.name)}</option>`).join('');
+  const isProvince = form.elements.type.value === 'province';
+  document.getElementById('region-parent-label').hidden = isProvince;
+  form.elements.parent_id.innerHTML = state.units.items.filter((unit) => unit.type === 'province')
+    .sort((a, b) => faCollator.compare(a.name, b.name))
+    .map((unit) => `<option value="${unit.id}">${escapeHtml(unit.name)}</option>`).join('');
 }
 
 async function submitRegion(event) {
@@ -724,32 +802,33 @@ async function submitRegion(event) {
   const form = event.currentTarget;
   const message = document.getElementById('region-error');
   message.textContent = '';
+  const isProvince = form.elements.type.value === 'province';
   try {
-    await api('/api/admin/regions', { method: 'POST', body: {
-      type: form.elements.type.value, name: form.elements.name.value, parent_id: Number(form.elements.parent_id.value),
-    } });
+    const rootId = state.regions.find((region) => region.type === 'country')?.id;
+    const parentId = isProvince ? Number(rootId) : Number(form.elements.parent_id.value);
+    await api('/api/admin/regions', { method: 'POST', body: { type: form.elements.type.value, name: form.elements.name.value, parent_id: parentId } });
+    if (!isProvince) state.units.open.add(parentId);
     form.hidden = true;
-    showToast('منطقه ساخته شد.');
+    form.reset();
+    showToast(isProvince ? 'استان افزوده شد.' : 'شهرستان افزوده شد.');
     await loadRegions();
   } catch (error) { message.textContent = error.message; }
 }
 
-async function saveRegionName(id) {
-  const input = document.querySelector(`.region-name[data-region-id="${id}"]`);
+async function saveUnit(form) {
+  const id = Number(form.dataset.unitForm);
+  const unit = state.units.items.find((item) => item.id === id);
+  const body = {};
+  if (form.elements.name.value.trim() !== unit.name) body.name = form.elements.name.value;
+  if (form.elements.visibility.value !== unit.visibility_override) body.visibility_override = form.elements.visibility.value;
+  state.units.editing = null;
+  if (!Object.keys(body).length) { renderUnits(); return; }
   try {
-    await api(`/api/admin/regions/${id}`, { method: 'PATCH', body: { name: input.value } });
-    showToast('نام منطقه ذخیره شد.');
-    await loadRegions();
+    await api(`/api/admin/regions/${id}`, { method: 'PATCH', body });
+    showToast('تغییرات ذخیره شد.');
   } catch (error) { showToast(error.message); }
-}
-
-async function saveRegionVisibility(id, value) {
-  try {
-    await api(`/api/admin/regions/${id}`, { method: 'PATCH', body: { visibility_override: value } });
-    showToast('وضعیت نمایش ذخیره شد.');
-    await loadRegions();
-    setScopeBanner();
-  } catch (error) { showToast(error.message); }
+  await loadRegions();
+  setScopeBanner();
 }
 
 async function loadSettings() {
@@ -820,7 +899,7 @@ async function loadAudit(reset = false) {
 }
 
 function entityLabel(entity) {
-  return ({ news: 'خبر', user: 'کاربر', region: 'منطقه', settings: 'تنظیمات' })[entity] || 'سامانه';
+  return ({ news: 'خبر', user: 'کاربر', region: 'مرکز یا واحد', settings: 'تنظیمات' })[entity] || 'سامانه';
 }
 
 function auditAction(action) {
@@ -829,7 +908,7 @@ function auditAction(action) {
     'news.create': 'ساخت خبر', 'news.update': 'ویرایش خبر', 'news.delete': 'حذف خبر',
     'news.publish': 'انتشار خبر', 'news.schedule': 'زمان‌بندی خبر', 'news.unpublish': 'لغو انتشار',
     'user.create': 'ساخت کاربر', 'user.deactivate': 'غیرفعال‌سازی کاربر', 'user.activate': 'فعال‌سازی کاربر',
-    'settings.update': 'تغییر تنظیمات', 'region.update': 'ویرایش منطقه', 'region.create': 'ساخت منطقه',
+    'settings.update': 'تغییر تنظیمات', 'region.update': 'ویرایش مرکز یا واحد', 'region.create': 'افزودن مرکز یا واحد',
   };
   return labels[action] || 'رویداد دیگر';
 }
@@ -1096,15 +1175,39 @@ function bindEvents() {
     if (removeButton) return removeAttachment(removeButton);
     const userAction = event.target.closest('[data-user-action]');
     if (userAction) return handleUserAction(userAction);
-    const saveRegion = event.target.closest('[data-save-region]');
-    if (saveRegion) return saveRegionName(Number(saveRegion.dataset.saveRegion));
     if (event.target.closest('[data-action="cancel-user"]')) document.getElementById('user-form').hidden = true;
     if (event.target.closest('[data-action="cancel-region"]')) document.getElementById('region-form').hidden = true;
   });
-  document.getElementById('regions-tree').addEventListener('change', (event) => {
-    const select = event.target.closest('[data-region-visibility]');
-    if (select) saveRegionVisibility(Number(select.dataset.regionVisibility), select.value);
+  const regionsTree = document.getElementById('regions-tree');
+  regionsTree.addEventListener('click', (event) => {
+    const edit = event.target.closest('[data-unit-edit]');
+    if (edit) {
+      event.preventDefault();
+      state.units.editing = Number(edit.dataset.unitEdit);
+      renderUnits();
+      document.querySelector('.unit-edit input[name="name"]')?.focus();
+      return;
+    }
+    if (event.target.closest('[data-unit-cancel]')) {
+      event.preventDefault();
+      state.units.editing = null;
+      renderUnits();
+    }
   });
+  regionsTree.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-unit-form]');
+    if (!form) return;
+    event.preventDefault();
+    saveUnit(form);
+  });
+  regionsTree.addEventListener('toggle', (event) => {
+    const province = event.target.closest?.('[data-province]');
+    if (!province) return;
+    const id = Number(province.dataset.province);
+    if (province.open) state.units.open.add(id); else state.units.open.delete(id);
+  }, true);
+  document.getElementById('regions-search').addEventListener('input', renderUnits);
+  document.getElementById('regions-filter').addEventListener('change', renderUnits);
 
   document.getElementById('message-content').addEventListener('click', async (event) => {
     if (!event.target.closest('[data-copy-secret]')) return;

@@ -89,7 +89,7 @@ test('admin settings validate radio URLs, audit changes, and scope dashboard sta
     assert.equal(saved.response.status, 200);
     assert.equal(saved.body.settings.radio_enabled, '1');
     const publicConfig = await api('/api/public/config');
-    assert.deepEqual(publicConfig.body.radio, { enabled: true, title: 'رادیوی پیکربندی شده', stream_url: 'https://stream.example/live' });
+    assert.deepEqual(publicConfig.body.radio, { enabled: true, title: 'رادیوی پیکربندی‌شده', stream_url: 'https://stream.example/live' });
 
     async function insertNews(originRegionId, title, viewCount, status) {
       const [result] = await pool.execute(

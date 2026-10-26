@@ -68,3 +68,40 @@
 .date-field button{width:45px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);font-size:1.2rem;cursor:pointer}
 .editor-form .upload-field,.quick-form .upload-field{font-size:.84rem}
 @media(max-width:1023px){.editor-layout{grid-template-columns:minmax(0,1fr)}.side-card{position:static}}
+
+/* ---------- Centers and units (provinces / cities) ---------- */
+.seg-item{display:block;position:relative;font-size:.86rem;font-weight:500}
+.inline-form .span-2{grid-column:1/-1}
+.form-actions{grid-column:1/-1;display:flex;gap:.6rem;flex-wrap:wrap}
+.units-summary{display:flex;gap:.75rem;flex-wrap:wrap;margin:0 0 1rem}
+.units-stat{display:flex;align-items:baseline;gap:.5rem;padding:.55rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.units-stat strong{font-size:1.5rem;line-height:1.3;color:var(--primary)}
+.units-stat span{color:var(--muted);font-size:.86rem}
+.units-toolbar{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem}
+.units-search{flex:1 1 260px;display:block}
+.units-search input{width:100%;min-height:45px;border:1px solid var(--border);border-radius:10px;padding:.5rem .85rem;background:var(--surface);color:var(--text);font:inherit}
+.units-search input:focus{outline:none;border-color:var(--primary)}
+.units-toolbar .seg{flex:0 1 300px;min-width:240px}
+.units-list{display:grid;gap:.6rem}
+.unit-province{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+.unit-province>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.75rem;padding:.8rem 1rem}
+.unit-province>summary::-webkit-details-marker{display:none}
+.unit-province>summary::before{content:"";flex:none;width:.5rem;height:.5rem;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(135deg)}
+.unit-province[open]>summary::before{transform:rotate(45deg)}
+.unit-province[open]>summary{border-bottom:1px solid var(--border);background:var(--soft)}
+.unit-province>summary.is-editing{cursor:default}
+.unit-province>summary.is-editing::before{display:none}
+.unit-name{font-weight:500}
+.unit-meta{margin-inline-start:auto;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.unit-cities{display:grid}
+.unit-row{display:flex;align-items:center;gap:.75rem;padding:.55rem 1rem}
+.unit-row+.unit-row{border-top:1px solid var(--border)}
+.unit-main{flex:1;min-width:0;display:grid;line-height:1.5}
+.unit-main small{font-size:.78rem}
+.unit-row.is-editing,.unit-province-edit{padding:.8rem 1rem;background:var(--primary-soft)}
+.unit-edit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.75rem;align-items:end;width:100%}
+.unit-edit label{display:grid;gap:.3rem;font-size:.82rem;font-weight:500}
+.unit-edit input,.unit-edit select{width:100%;min-height:42px;border:1px solid var(--border);border-radius:9px;padding:.35rem .7rem;background:var(--surface);color:var(--text);font:inherit}
+.unit-edit-actions{display:flex;gap:.5rem}
+.unit-edit-actions .button{min-height:42px}
+@media(max-width:767px){.unit-edit{grid-template-columns:1fr}.unit-meta{display:none}.unit-province>summary .status-badge{margin-inline-start:auto}.units-toolbar .seg{flex:1 1 100%}}

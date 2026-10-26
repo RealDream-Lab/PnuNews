@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1f5fbf">
-  <link rel="stylesheet" href="/admin/styles.v3.css">
+  <link rel="stylesheet" href="/admin/styles.v4.css">
   <script src="/shared/theme.v1.js"></script>
   <title>مدیریت خبرها — اخبار پیام نور</title>
 </head>
@@ -86,7 +86,7 @@
           <button type="button" data-view="dashboard"><svg class="icon"><use href="#admin-icon-home"/></svg>داشبورد</button>
           <button type="button" data-view="news"><svg class="icon"><use href="#admin-icon-news"/></svg>مدیریت خبرها</button>
           <button type="button" data-view="users"><svg class="icon"><use href="#admin-icon-users"/></svg>مدیریت کاربران</button>
-          <button type="button" data-view="regions" data-super-only><svg class="icon"><use href="#admin-icon-map"/></svg>مدیریت مناطق</button>
+          <button type="button" data-view="regions" data-super-only><svg class="icon"><use href="#admin-icon-map"/></svg>مراکز و واحدها</button>
           <button type="button" data-view="settings" data-super-only><svg class="icon"><use href="#admin-icon-settings"/></svg>تنظیمات</button>
           <button type="button" data-view="audit"><svg class="icon"><use href="#admin-icon-audit"/></svg>گزارش رویدادها</button>
           <button type="button" data-view="stats"><svg class="icon"><use href="#admin-icon-chart"/></svg>آمار بازدید</button>
@@ -168,24 +168,32 @@
             <label>نام کامل<input name="full_name" required maxlength="160"></label>
             <label>نام کاربری<input name="username" required maxlength="80"></label>
             <label>نقش<select name="role"></select></label>
-            <label>منطقه<select name="region_id"></select></label>
+            <label>مرکز یا واحد<select name="region_id"></select></label>
             <button class="button primary" type="submit">ساخت و دریافت گذرواژهٔ موقت</button>
             <button class="button outline" data-action="cancel-user" type="button">انصراف</button>
             <p id="user-error" class="form-error"></p>
           </form>
         </section>
         <section id="regions-view" class="admin-view" data-panel="regions" hidden>
-          <div class="view-heading"><div><p class="eyebrow">ساختار قابل نمایش</p><h1>مدیریت مناطق</h1></div><button id="new-region-button" class="button primary" type="button">＋ منطقهٔ تازه</button></div>
-          <div id="regions-tree" class="panel tree-panel"></div>
+          <div class="view-heading"><div><p class="eyebrow">استان‌ها و شهرستان‌ها</p><h1>مراکز و واحدها</h1></div><button id="new-region-button" class="button primary" type="button">＋ افزودن</button></div>
           <form id="region-form" class="panel inline-form" hidden>
-            <h2>ایجاد استان یا شهرستان</h2>
-            <label>نام منطقه<input name="name" maxlength="160" required></label>
-            <label>نوع<select name="type"><option value="province">استان</option><option value="city">شهرستان</option></select></label>
-            <label>منطقهٔ بالادست<select name="parent_id"></select></label>
-            <button class="button primary" type="submit">ایجاد منطقه</button>
-            <button class="button outline" data-action="cancel-region" type="button">انصراف</button>
-            <p id="region-error" class="form-error"></p>
+            <h2>افزودن مرکز یا واحد</h2>
+            <label>نوع<select name="type"><option value="province">استان</option><option value="city" selected>شهرستان</option></select></label>
+            <label id="region-parent-label">استان مربوطه<select name="parent_id"></select></label>
+            <label class="span-2">نام<input name="name" maxlength="160" required placeholder="مثلاً نجف‌آباد"></label>
+            <div class="form-actions"><button class="button primary" type="submit">افزودن</button><button class="button outline" data-action="cancel-region" type="button">انصراف</button></div>
+            <p id="region-error" class="form-error" role="alert"></p>
           </form>
+          <div id="regions-summary" class="units-summary"></div>
+          <div class="units-toolbar">
+            <label class="units-search"><input id="regions-search" type="search" placeholder="جست‌وجوی استان یا شهرستان" autocomplete="off" aria-label="جست‌وجوی استان یا شهرستان"></label>
+            <div id="regions-filter" class="seg" role="radiogroup" aria-label="فیلتر وضعیت">
+              <label class="seg-item"><input type="radio" name="regions_filter" value="all" checked><span>همه</span></label>
+              <label class="seg-item"><input type="radio" name="regions_filter" value="active"><span>فعال</span></label>
+              <label class="seg-item"><input type="radio" name="regions_filter" value="inactive"><span>فعال‌نشده</span></label>
+            </div>
+          </div>
+          <div id="regions-tree" class="units-list"></div>
         </section>
         <section id="settings-view" class="admin-view" data-panel="settings" hidden>
           <div class="view-heading"><div><p class="eyebrow">شخصی‌سازی و رادیو</p><h1>تنظیمات سامانه</h1></div></div>
@@ -261,6 +269,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v3.js"></script>
+  <script type="module" src="/admin/admin.v4.js"></script>
 </body>
 </html>
