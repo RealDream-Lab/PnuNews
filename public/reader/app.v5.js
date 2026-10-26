@@ -11,6 +11,7 @@ const sentinel = document.getElementById('feed-sentinel');
 const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
 const radioRoot = document.getElementById('radio-root');
+const installRoot = document.getElementById('install-root');
 const state = {
   config: null,
   city: null,
@@ -577,7 +578,6 @@ async function initializeReader({ newsOnly = false } = {}) {
   }
   state.refreshTimer = setInterval(refreshConfig, 15_000);
   setInterval(checkForNewItems, 60_000);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 async function loadNewsPage(id, { initial = false } = {}) {
@@ -671,6 +671,75 @@ function returnToFeed() {
   const scrollY = Number(history.state?.readerScrollY) || 0;
   requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
+
+// ---------- Service worker & install suggestion ----------
+const INSTALL_SNOOZE_KEY = 'pnu.installDismissedAt';
+const INSTALL_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+let deferredInstall = null;
+
+function isStandalone() {
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+function installSnoozed() {
+  try {
+    const at = Number(localStorage.getItem(INSTALL_SNOOZE_KEY));
+    return Boolean(at) && Date.now() - at < INSTALL_SNOOZE_MS;
+  } catch { return false; }
+}
+
+function snoozeInstall() {
+  try { localStorage.setItem(INSTALL_SNOOZE_KEY, String(Date.now())); } catch {}
+}
+
+function isIosSafari() {
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return ios && /safari/i.test(ua) && !/crios|fxios|edgios|opios/i.test(ua);
+}
+
+function hideInstallBanner() {
+  installRoot?.replaceChildren();
+}
+
+function showInstallBanner(mode) {
+  if (!installRoot || installRoot.childElementCount || isStandalone() || installSnoozed()) return;
+  const text = mode === 'ios'
+    ? 'در Safari روی دکمهٔ اشتراک‌گذاری و سپس «افزودن به صفحهٔ اصلی» بزنید.'
+    : 'برای دسترسی سریع‌تر، برنامه را روی دستگاه خود نصب کنید.';
+  const action = mode === 'ios' ? '' : '<button type="button" class="button-primary" data-install-accept>نصب</button>';
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-icon-192.v1.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  deferredInstall = event;
+  setTimeout(() => { if (deferredInstall) showInstallBanner('prompt'); }, 6000);
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  hideInstallBanner();
+});
+if (isIosSafari() && !isStandalone()) setTimeout(() => showInstallBanner('ios'), 8000);
+installRoot?.addEventListener('click', async (event) => {
+  if (event.target.closest('[data-install-dismiss]')) {
+    snoozeInstall();
+    hideInstallBanner();
+    return;
+  }
+  if (!event.target.closest('[data-install-accept]') || !deferredInstall) return;
+  const promptEvent = deferredInstall;
+  deferredInstall = null;
+  hideInstallBanner();
+  try {
+    await promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
+    if (outcome !== 'accepted') snoozeInstall();
+  } catch {}
+});
 
 document.getElementById('city-button').addEventListener('click', openPicker);
 document.addEventListener('error', (event) => {

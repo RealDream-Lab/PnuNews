@@ -125,6 +125,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 #radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
 #radio-root:empty{display:none}
 
+.install-banner{max-width:1120px;margin-inline:auto;display:flex;align-items:center;gap:.7rem;padding:.6rem max(var(--pad),env(safe-area-inset-right,0px)) .6rem max(var(--pad),env(safe-area-inset-left,0px));border-bottom:1px solid var(--border);color:var(--text)}
+.install-banner img{width:40px;height:40px;border-radius:10px;flex:none}
+.install-text{flex:1;min-width:0;line-height:1.5}
+.install-text strong{display:block;font-size:.9rem}
+.install-text span{display:block;font-size:.78rem;color:var(--muted)}
+.install-banner .button-primary{min-height:38px;padding:.2rem 1.1rem;flex:none}
+.install-banner .icon-button{width:34px;height:34px;border-radius:10px;flex:none}
+
 /* ---------- City picker ---------- */
 .city-dialog{position:fixed;inset:0;border:0;padding:0;background:transparent;color:var(--text);width:min(100%,560px);max-width:none;max-height:none;height:min(82vh,700px);margin:auto;overflow:visible}
 .city-dialog::backdrop{background:rgba(7,16,31,.55)}

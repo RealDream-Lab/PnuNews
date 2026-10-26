@@ -58,3 +58,31 @@ test('reader shell has no scope chips, one sticky dock with the radio mount, and
   const theme = await readPublicFile('shared/theme.v5.js');
   assert.doesNotMatch(theme, /'auto'/);
 });
+
+test('web app manifest declares installable PNG icons and every referenced file exists', async () => {
+  const manifest = JSON.parse(await readPublicFile('manifest.webmanifest'));
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.start_url, '/');
+  for (const purpose of ['any', 'maskable']) {
+    for (const size of ['192x192', '512x512']) {
+      assert.ok(manifest.icons.some((icon) => icon.purpose === purpose && icon.sizes === size && icon.type === 'image/png'), `${purpose} ${size} icon`);
+    }
+  }
+  for (const icon of manifest.icons) assert.ok((await readFile(new URL(`../public${icon.src}`, import.meta.url))).length > 0, icon.src);
+});
+
+test('service worker precache list only names files that exist in public/', async () => {
+  const worker = await readPublicFile('sw.js');
+  const list = worker.match(/SHELL_ASSETS = \[([\s\S]*?)\];/)[1];
+  const assets = [...list.matchAll(/'([^']+)'/g)].map((match) => match[1]).filter((asset) => asset !== '/');
+  assert.ok(assets.length > 5);
+  for (const asset of assets) await readPublicFile(asset.slice(1));
+});
+
+test('reader and offline pages link the manifest and icons', async () => {
+  for (const name of ['index.html', 'offline.html']) {
+    const markup = await readPublicFile(name);
+    assert.match(markup, /rel="manifest"/, name);
+    assert.match(markup, /rel="apple-touch-icon" href="\/icons\/apple-touch-icon\.v1\.png"/, name);
+  }
+});
