@@ -123,9 +123,9 @@ function updateSelectedCity() {
   const label = document.getElementById("selected-city-label");
   const description = document.getElementById("feed-description");
   if (!state.city || !state.province) {
-    label.textContent = "انتخاب شهرستان";
+    label.textContent = "انتخاب مرکز / واحد دانشگاهی";
     description.textContent =
-      "برای دیدن خبرهای مرتبط، شهرستان خود را انتخاب کنید.";
+      "برای دیدن خبرهای مرتبط، مرکز / واحد دانشگاهی خود را انتخاب کنید.";
     description.hidden = false;
     return;
   }
@@ -166,8 +166,8 @@ function renderPickerList() {
     ? `مراکز دانشگاهی ${province.name}`
     : "استان خود را انتخاب کنید";
   pickerSearch.placeholder = province
-    ? "جست‌وجوی شهرستان"
-    : "جست‌وجوی استان یا شهرستان";
+    ? "جست‌وجوی مرکز / واحد دانشگاهی"
+    : "جست‌وجوی استان یا مرکز / واحد دانشگاهی";
   if (!state.config) {
     searchField.hidden = true;
     pickerList.innerHTML = pickerNotice("در حال دریافت فهرست مناطق…");
@@ -196,7 +196,9 @@ function renderPickerList() {
   );
   const provinceItems = provinces.map((item) => {
     const count = item.cities.length;
-    const meta = count ? `${digits.format(count)} شهرستان` : "فعال نشده";
+    const meta = count
+      ? `${digits.format(count)} مرکز / واحد دانشگاهی`
+      : "فعال نشده";
     return `<button class="picker-option${count ? "" : " is-inactive"}" type="button" data-province-id="${item.id}"><span class="picker-name">${escapeHtml(item.name)}</span><span class="picker-meta">${meta}</span><svg class="icon"><use href="#icon-chevron"/></svg></button>`;
   });
   const cityItems = query
@@ -355,7 +357,7 @@ function resetFeed({ scroll = false } = {}) {
   if (!state.city) {
     feedMessage.textContent = "";
     feed.innerHTML =
-      '<div class="empty-state"><p>برای دیدن خبرها، ابتدا شهرستان خود را انتخاب کنید.</p><button type="button" class="button-primary" data-open-picker>انتخاب شهرستان</button></div>';
+      '<div class="empty-state"><p>برای دیدن خبرها، ابتدا مرکز / واحد دانشگاهی خود را انتخاب کنید.</p><button type="button" class="button-primary" data-open-picker>انتخاب مرکز / واحد دانشگاهی</button></div>';
     return;
   }
   feedMessage.textContent = "";
@@ -677,7 +679,7 @@ async function refreshConfig() {
       updateSelectedCity();
       resetFeed();
       feedMessage.textContent =
-        "شهرستان قبلی دیگر در دسترس نیست؛ لطفاً شهرستان دیگری انتخاب کنید.";
+        "مرکز / واحد دانشگاهی قبلی دیگر در دسترس نیست؛ لطفاً مرکز / واحد دانشگاهی دیگری انتخاب کنید.";
       openPicker();
     } else if (selected) {
       state.city = selected.city;

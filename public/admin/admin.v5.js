@@ -128,7 +128,7 @@ function roleLabel(role) {
     {
       super_admin: "مدیر ارشد",
       province_admin: "مدیر استان",
-      city_admin: "مدیر شهرستان",
+      city_admin: "مدیر مرکز / واحد دانشگاهی",
     }[role] || "مدیر"
   );
 }
@@ -148,7 +148,7 @@ function scopeText() {
     return "شما برای کل کشور منتشر می‌کنید.";
   if (region?.type === "province")
     return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای شهرستان ${region?.name || "خود"} منتشر می‌کنید.`;
+  return `شما برای مرکز / واحد دانشگاهی ${region?.name || "خود"} منتشر می‌کنید.`;
 }
 
 function setScopeBanner() {
@@ -523,7 +523,7 @@ function targetModel() {
     rootId: Number(own.id),
     rootLabel: `کل استان ${own.name}`,
     someLabel: "مراکز دانشگاهی مشخص",
-    noun: "شهرستان",
+    noun: "مرکز / واحد دانشگاهی",
     options: state.regions.filter(
       (region) =>
         region.type === "city" && Number(region.parent_id) === Number(own.id),
@@ -1101,7 +1101,7 @@ function unitEditForm(unit) {
     )
     .join("");
   return `<form class="unit-edit" data-unit-form="${unit.id}">
-    <label>نام ${unit.type === "province" ? "استان" : "شهرستان"}<input name="name" value="${escapeHtml(unit.name)}" maxlength="160" required></label>
+    <label>نام ${unit.type === "province" ? "استان" : "مرکز / واحد دانشگاهی"}<input name="name" value="${escapeHtml(unit.name)}" maxlength="160" required></label>
     <label>نمایش در سایت<select name="visibility">${options}</select></label>
     <div class="unit-edit-actions"><button class="button primary" type="submit">ذخیره</button><button class="button outline" type="button" data-unit-cancel>انصراف</button></div>
   </form>`;
@@ -1138,7 +1138,10 @@ function renderUnits() {
   ).length;
   summary.innerHTML = [
     [activeProvinces, `از ${faDigits.format(provinces.length)} استان فعال`],
-    [activeCities, `از ${faDigits.format(allCities.length)} شهرستان فعال`],
+    [
+      activeCities,
+      `از ${faDigits.format(allCities.length)} مرکز / واحد دانشگاهی فعال`,
+    ],
   ]
     .map(
       ([value, label]) =>
@@ -1180,7 +1183,7 @@ function renderUnits() {
     const heading =
       state.units.editing === province.id
         ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
-        : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} شهرستان فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
+        : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} مرکز / واحد دانشگاهی فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
     html.push(
       `<details class="unit-province" data-province="${province.id}" ${open ? "open" : ""}>${state.units.editing === province.id ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-cities">${shownCities.map(cityRow).join("") || '<p class="empty-panel">شهرستانی برای نمایش نیست.</p>'}</div></details>`,
     );
@@ -1244,7 +1247,9 @@ async function submitRegion(event) {
     if (!isProvince) state.units.open.add(parentId);
     form.hidden = true;
     form.reset();
-    showToast(isProvince ? "استان افزوده شد." : "شهرستان افزوده شد.");
+    showToast(
+      isProvince ? "استان افزوده شد." : "مرکز / واحد دانشگاهی افزوده شد.",
+    );
     await loadRegions();
   } catch (error) {
     message.textContent = error.message;
