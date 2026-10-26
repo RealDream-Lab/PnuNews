@@ -35,7 +35,7 @@ test('reader, admin, and offline pages have balanced markup and local scripts', 
 
 test('admin document provides every JavaScript element hook exactly once', async () => {
   const markup = await readPublicFile('admin/index.html');
-  const script = await readFile(new URL('../public/admin/admin.v1.js', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../public/admin/admin.v2.js', import.meta.url), 'utf8');
   const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'admin document IDs must be unique');
   const idSet = new Set(ids);

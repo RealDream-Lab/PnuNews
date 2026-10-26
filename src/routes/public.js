@@ -93,21 +93,20 @@ async function loadVisibleCity(pool, cityId) {
 }
 
 async function visibleRegions(pool) {
-  const [rows] = await pool.query(
-    `SELECT province.id AS province_id, province.name AS province_name,
-            city.id AS city_id, city.name AS city_name
-     FROM regions province
-     JOIN regions city ON city.parent_id = province.id AND city.type = 'city'
-     WHERE province.type = 'province' AND city.visibility_override <> 'hide'
+  const [provinceRows] = await pool.query(
+    `SELECT id, name FROM regions WHERE type = 'province' AND visibility_override <> 'hide'`,
+  );
+  const [cityRows] = await pool.query(
+    `SELECT city.id AS city_id, city.name AS city_name, city.parent_id AS province_id
+     FROM regions city
+     WHERE city.type = 'city' AND city.visibility_override <> 'hide'
        AND (city.visibility_override = 'show' OR EXISTS (
          SELECT 1 FROM users u WHERE u.region_id = city.id AND u.role = 'city_admin' AND u.is_active = 1
        ))`,
   );
-  const provinces = new Map();
-  for (const row of rows) {
-    const id = Number(row.province_id);
-    if (!provinces.has(id)) provinces.set(id, { id, name: row.province_name, cities: [] });
-    provinces.get(id).cities.push({ id: Number(row.city_id), name: row.city_name });
+  const provinces = new Map(provinceRows.map((row) => [Number(row.id), { id: Number(row.id), name: row.name, cities: [] }]));
+  for (const row of cityRows) {
+    provinces.get(Number(row.province_id))?.cities.push({ id: Number(row.city_id), name: row.city_name });
   }
   return [...provinces.values()]
     .map((province) => ({ ...province, cities: province.cities.sort((left, right) => faCollator.compare(left.name, right.name)) }))
@@ -200,11 +199,11 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v1.css">
+<link rel="stylesheet" href="/reader/styles.v2.css">
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v1.js"></script>
+<script type="module" src="/reader/app.v2.js"></script>
 </body>
 </html>`;
 }

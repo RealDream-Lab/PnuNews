@@ -90,7 +90,7 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.equal(home.response.status, 200);
     assert.match(home.body, /id="city-picker"/);
     assert.equal(home.response.headers.get('cache-control'), 'no-cache');
-    const readerScript = await request('/reader/app.v1.js');
+    const readerScript = await request('/reader/app.v2.js');
     assert.equal(readerScript.response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
 
     const configResponse = await request('/api/public/config');
@@ -98,6 +98,8 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.match(configResponse.response.headers.get('content-security-policy'), /media-src 'self' https: http:/);
     const selectedProvince = configResponse.body.provinces.find((item) => Number(item.id) === Number(province.id));
     assert.ok(selectedProvince.cities.some((item) => Number(item.id) === cityId));
+    assert.equal(configResponse.body.provinces.length, 31, 'every province is listed, even without an admin');
+    assert.ok(configResponse.body.provinces.some((item) => item.cities.length === 0), 'provinces without a city admin are listed with no cities');
     assert.equal(configResponse.body.radio.enabled, false);
     const placeholder = await request('/media/placeholder/245fb5.svg');
     assert.equal(placeholder.response.status, 200);
@@ -161,7 +163,7 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.match(og.body, /name="twitter:image"/);
     assert.match(og.body, /<html lang="fa" dir="rtl" data-theme="auto">/);
     assert.match(og.body, /id="city-picker"/);
-    assert.match(og.body, /src="\/reader\/app\.v1\.js"/);
+    assert.match(og.body, /src="\/reader\/app\.v2\.js"/);
     assert.doesNotMatch(og.body, /<script>bad/);
     assert.ok(privateNewsId);
   } finally {

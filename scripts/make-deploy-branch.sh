@@ -6,7 +6,9 @@ usage() {
 Usage: scripts/make-deploy-branch.sh [--prepare-only]
 
 Builds local branch deploy from committed main plus Linux x86_64/glibc
-production dependencies. By default, asks before force-pushing deploy to origin.
+production dependencies. The new deploy commit has origin/deploy as a parent, so
+the server can update with a plain "git pull --ff-only" and no force-push is needed.
+By default, asks before pushing deploy to origin.
 --prepare-only builds and verifies the branch without contacting GitHub.
 USAGE
 }
@@ -37,6 +39,7 @@ fi
 
 printf 'بررسی می‌کنم که main محلی شامل origin/main باشد...\n'
 git fetch origin main
+git fetch origin deploy 2>/dev/null || true
 git merge-base --is-ancestor origin/main main || {
   printf 'origin/main جلوتر از main محلی است؛ ابتدا تغییرات را ادغام کنید.\norigin/main is not an ancestor of local main; integrate it first.\n' >&2
   exit 1
@@ -63,9 +66,14 @@ if [[ ! -f "$sharp_node" || -z "$libvips_library" ]]; then
 fi
 printf 'باینری‌های sharp/libvips لینوکس x64 حاضرند.\nLinux x64 sharp/libvips binaries are present.\n'
 
-git -C "$worktree" switch -C deploy
-git -C "$worktree" add -f node_modules
-git -C "$worktree" -c core.filemode=true commit -m 'افزودن وابستگی‌های لینوکس برای استقرار'
+git -C "$worktree" -c core.filemode=true add -f node_modules
+deploy_tree="$(git -C "$worktree" write-tree)"
+parents=(-p main)
+if git rev-parse --verify --quiet refs/remotes/origin/deploy >/dev/null; then
+  parents=(-p refs/remotes/origin/deploy -p main)
+fi
+deploy_commit="$(git -C "$worktree" commit-tree "$deploy_tree" "${parents[@]}" -m 'به‌روزرسانی شاخهٔ استقرار از main همراه وابستگی‌های لینوکس')"
+git branch -f deploy "$deploy_commit"
 printf 'شاخهٔ محلی deploy آماده شد.\nLocal deploy branch is ready.\n'
 
 if [[ "$prepare_only" == true ]]; then
@@ -81,11 +89,11 @@ if [[ "$ssh_result" != Hi\ * ]]; then
   exit 1
 fi
 
-printf 'این کار deploy را با --force به origin push می‌کند. ادامه؟ [y/N] '
+printf 'این کار deploy را (بدون force) به origin push می‌کند. ادامه؟ [y/N] '
 IFS= read -r answer
 if [[ "$answer" != y && "$answer" != Y ]]; then
   printf 'push لغو شد؛ شاخهٔ محلی deploy آماده است.\nPush cancelled; local deploy branch is ready.\n'
   exit 0
 fi
 
-git push --force origin deploy
+git push origin deploy

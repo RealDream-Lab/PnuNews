@@ -18,7 +18,7 @@ export async function migrate(pool, migrationsDir = new URL('../migrations/', im
     `);
     const [appliedRows] = await connection.query('SELECT version FROM schema_migrations');
     const applied = new Set(appliedRows.map((row) => row.version));
-    const names = (await readdir(migrationsDir)).filter((name) => name.endsWith('.sql')).sort();
+    const names = (await readdir(migrationsDir)).filter((name) => name.endsWith('.sql') && !name.startsWith('.')).sort();
 
     for (const name of names) {
       if (applied.has(name)) continue;

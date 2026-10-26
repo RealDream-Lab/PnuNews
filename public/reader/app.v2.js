@@ -6,6 +6,7 @@ const pickerList = document.getElementById('picker-list');
 const pickerSearch = document.getElementById('picker-search');
 const pickerBack = document.getElementById('picker-back');
 const feedMessage = document.getElementById('feed-message');
+const searchField = document.querySelector('.search-field');
 const sentinel = document.getElementById('feed-sentinel');
 const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
@@ -21,7 +22,8 @@ const state = {
   ended: false,
   entries: [],
   spacer: null,
-  removedCardCount: 0,
+  spacerHeight: 0,
+  pinnedIds: new Set(),
   firstId: null,
   newsId: null,
   refreshTimer: null,
@@ -50,10 +52,17 @@ function escapeHtml(value) {
 
 function normalizeSearch(value) {
   return String(value ?? '').toLowerCase()
+    .replace(/[\u064b-\u065f\u0670]/g, '')
     .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
-    .replace(/[٠-٩۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit) >= 0 ? '۰۱۲۳۴۵۶۷۸۹'.indexOf(digit) : '٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x660))
+    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x6f0))
     .replace(/ـ/g, '').replace(/[\u200c\u200e\u200f]/g, ' ')
     .replace(/\s+/g, ' ').trim();
+}
+
+function searchKey(value) {
+  return normalizeSearch(value).replace(/ /g, '');
 }
 
 function showToast(message) {
@@ -103,33 +112,69 @@ function setCity(city, province) {
   resetFeed();
 }
 
+function pickerNotice(title, detail = '') {
+  return `<div class="picker-notice"><strong>${escapeHtml(title)}</strong>${detail ? `<span>${escapeHtml(detail)}</span>` : ''}</div>`;
+}
+
+function cityOption(city, caption = '') {
+  const selected = state.city && Number(state.city.id) === Number(city.id);
+  return `<button class="picker-option${selected ? ' is-selected' : ''}" type="button" data-city-id="${city.id}"><span class="picker-name">${escapeHtml(city.name)}</span>${caption ? `<span class="picker-meta">${escapeHtml(caption)}</span>` : ''}${selected ? '<svg class="icon"><use href="#icon-check"/></svg>' : ''}</button>`;
+}
+
 function renderPickerList() {
-  const query = normalizeSearch(pickerSearch.value);
-  const isCities = Boolean(state.pickerProvince);
-  pickerBack.hidden = !isCities;
-  document.getElementById('picker-title').textContent = isCities ? `شهرستان‌های ${state.pickerProvince.name}` : 'استان را انتخاب کنید';
-  pickerSearch.placeholder = isCities ? 'جست‌وجوی شهرستان' : 'جست‌وجوی استان';
-  let items;
-  if (isCities) {
-    items = state.pickerProvince.cities
-      .filter((city) => !query || normalizeSearch(city.name).includes(query))
-      .map((city) => `<button class="picker-option" type="button" role="option" data-city-id="${city.id}"><span>${escapeHtml(city.name)}</span><span class="picker-province-caption">انتخاب شهرستان</span></button>`);
-  } else {
-    items = (state.config?.provinces ?? [])
-      .filter((province) => !query || normalizeSearch(province.name).includes(query))
-      .map((province) => `<button class="picker-option" type="button" role="option" data-province-id="${province.id}"><span>${escapeHtml(province.name)}</span><svg class="icon"><use href="#icon-chevron"/></svg></button>`);
+  const province = state.pickerProvince;
+  const query = searchKey(pickerSearch.value);
+  pickerBack.hidden = !province;
+  document.getElementById('picker-step').textContent = province ? 'مرحلهٔ ۲ از ۲' : 'مرحلهٔ ۱ از ۲';
+  document.getElementById('picker-title').textContent = province ? `شهرستان‌های ${province.name}` : 'استان خود را انتخاب کنید';
+  pickerSearch.placeholder = province ? 'جست‌وجوی شهرستان' : 'جست‌وجوی استان یا شهرستان';
+  if (!state.config) {
+    searchField.hidden = true;
+    pickerList.innerHTML = pickerNotice('در حال دریافت فهرست مناطق…');
+    return;
   }
-  pickerList.innerHTML = items.length ? items.join('') : '<p class="empty-state">موردی پیدا نشد.</p>';
+  if (province && !province.cities.length) {
+    searchField.hidden = true;
+    pickerList.innerHTML = pickerNotice('فعلاً برای استان شما فعال نشده است.', 'پس از فعال شدن، شهرستان خود را از همین‌جا انتخاب کنید.');
+    return;
+  }
+  searchField.hidden = false;
+  if (province) {
+    const cities = province.cities.filter((city) => !query || searchKey(city.name).includes(query));
+    pickerList.innerHTML = cities.length ? cities.map((city) => cityOption(city)).join('') : pickerNotice('شهرستانی با این نام پیدا نشد.');
+    return;
+  }
+  const provinces = state.config.provinces.filter((item) => !query || searchKey(item.name).includes(query));
+  const provinceItems = provinces.map((item) => {
+    const count = item.cities.length;
+    const meta = count ? `${digits.format(count)} شهرستان` : 'فعال نشده';
+    return `<button class="picker-option${count ? '' : ' is-inactive'}" type="button" data-province-id="${item.id}"><span class="picker-name">${escapeHtml(item.name)}</span><span class="picker-meta">${meta}</span><svg class="icon"><use href="#icon-chevron"/></svg></button>`;
+  });
+  const cityItems = query
+    ? state.config.provinces.flatMap((item) => item.cities.filter((city) => searchKey(city.name).includes(query)).map((city) => cityOption(city, item.name)))
+    : [];
+  const parts = [];
+  if (provinceItems.length) parts.push(...(cityItems.length ? ['<p class="picker-group-title">استان‌ها</p>'] : []), ...provinceItems);
+  if (cityItems.length) parts.push('<p class="picker-group-title">شهرستان‌ها</p>', ...cityItems);
+  pickerList.innerHTML = parts.length ? parts.join('') : pickerNotice('موردی پیدا نشد.');
+}
+
+function focusPickerSearch() {
+  if (!searchField.hidden && matchMedia('(pointer: fine)').matches) pickerSearch.focus();
 }
 
 function openPicker() {
-  if (!state.config) return;
+  if (!state.config) {
+    showToast('در حال دریافت فهرست مناطق…');
+    return;
+  }
   const selected = state.city ? findCity(state.city.id) : null;
   state.pickerProvince = selected?.province ?? null;
   pickerSearch.value = '';
   renderPickerList();
   if (!picker.open) picker.showModal();
-  pickerSearch.focus();
+  pickerList.scrollTop = 0;
+  focusPickerSearch();
 }
 
 function scopeName(item) {
@@ -160,26 +205,33 @@ function placeholderMarkup(color, className = 'cover-placeholder') {
   return `<img class="${className}" src="/media/placeholder/${safeColorCode(color)}.svg" width="16" height="9" alt="" aria-hidden="true">`;
 }
 
-function coverMarkup(item) {
-  const placeholder = placeholderMarkup(item.cover?.dominant_color);
-  if (!item.cover?.src) return `<div class="card-cover-frame">${placeholder}</div>`;
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 767px) 100vw, (max-width: 899px) 50vw, 33vw" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt=""></div>`;
+const CARD_IMAGE_SIZES = '(max-width: 639px) 100vw, (max-width: 959px) 50vw, 33vw';
+const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
+
+function coverMarkup(item, featured) {
+  const placeholder = placeholderMarkup(item.cover.dominant_color);
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt=""></div>`;
 }
 
-function cardMarkup(item, pinned = false) {
+function pinnedMarkup(item) {
+  const thumbnail = item.cover?.src
+    ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
+    : '';
+  const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
+  return `<article class="${classes}" data-news-id="${item.id}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
+}
+
+function cardMarkup(item, { featured = false } = {}) {
+  const hasCover = Boolean(item.cover?.src);
   const category = item.category?.name ? `<span class="card-kicker">${escapeHtml(item.category.name)}</span>` : '';
   const urgent = item.is_urgent ? '<span class="urgent-label">فوری</span>' : '';
   const summary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
-  if (pinned) {
-    const thumbnail = item.cover?.src
-      ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
-      : `<div class="pinned-cover-frame">${placeholderMarkup(item.cover?.dominant_color)}</div>`;
-    return `<article class="pinned-card" data-news-id="${item.id}" tabindex="0" role="link">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
-  }
-  return `<article class="news-card${item.is_urgent ? ' is-urgent' : ''}" data-news-id="${item.id}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${coverMarkup(item)}
-    <div class="card-content"><div class="card-meta">${category}${urgent}<span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(scopeName(item))}</span></div>
-    <h2>${escapeHtml(item.title)}</h2>${summary}<p class="card-date">${relativeDate(item.published_at)}</p></div>
+  const source = item.publisher_unit ? `<span class="card-source">${escapeHtml(item.publisher_unit)}</span><i aria-hidden="true"></i>` : '';
+  const classes = ['news-card', item.is_urgent ? 'is-urgent' : '', hasCover ? '' : 'no-cover', featured ? 'is-featured' : ''].filter(Boolean).join(' ');
+  return `<article class="${classes}" data-news-id="${item.id}" data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
+    ${hasCover ? coverMarkup(item, featured) : ''}
+    <div class="card-content"><div class="card-meta"><span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(scopeName(item))}</span>${category}${urgent}</div>
+    <h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time></div></div>
   </article>`;
 }
 
@@ -197,7 +249,8 @@ function clearFeed() {
   feed.replaceChildren();
   state.entries = [];
   state.spacer = null;
-  state.removedCardCount = 0;
+  state.spacerHeight = 0;
+  state.pinnedIds = new Set();
   state.cursor = null;
   state.ended = false;
   state.firstId = null;
@@ -209,7 +262,8 @@ function clearFeed() {
 function resetFeed({ scroll = false } = {}) {
   clearFeed();
   if (!state.city) {
-    feedMessage.textContent = 'برای نمایش خبرها، ابتدا شهرستان خود را انتخاب کنید.';
+    feedMessage.textContent = '';
+    feed.innerHTML = '<div class="empty-state"><p>برای دیدن خبرها، ابتدا شهرستان خود را انتخاب کنید.</p><button type="button" class="button-primary" data-open-picker>انتخاب شهرستان</button></div>';
     return;
   }
   feedMessage.textContent = '';
@@ -220,31 +274,21 @@ function resetFeed({ scroll = false } = {}) {
   loadMore();
 }
 
-function updateSpacerHeight() {
-  if (!state.spacer) return;
-  const cardHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-height')) || 410;
-  const gap = Number.parseFloat(getComputedStyle(feed).rowGap) || 0;
-  const spacerHeight = state.removedCardCount * cardHeight + Math.max(0, state.removedCardCount - 1) * gap;
-  const width = Math.max(1, feed.clientWidth);
-  state.spacer.height = Math.max(1, Math.round(spacerHeight * 1000 / width));
-}
-
 function recycleFeed() {
   const excess = state.entries.length - 60;
   if (excess <= 0) return;
   const removed = state.entries.splice(0, excess);
-  state.removedCardCount += removed.length;
+  const before = feed.getBoundingClientRect().height;
   for (const entry of removed) entry.node.remove();
   if (!state.spacer) {
-    state.spacer = document.createElement('img');
+    state.spacer = document.createElement('div');
     state.spacer.className = 'feed-spacer';
-    state.spacer.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-    state.spacer.width = 1000;
-    state.spacer.alt = '';
     state.spacer.setAttribute('aria-hidden', 'true');
     feed.prepend(state.spacer);
   }
-  updateSpacerHeight();
+  state.spacer.style.height = `${state.spacerHeight}px`;
+  state.spacerHeight += before - feed.getBoundingClientRect().height;
+  state.spacer.style.height = `${Math.max(0, state.spacerHeight)}px`;
 }
 
 async function loadMore() {
@@ -257,23 +301,27 @@ async function loadMore() {
   try {
     const data = await getJson(`/api/public/feed?${params}`);
     feed.querySelectorAll('.news-skeleton').forEach((node) => node.remove());
-    if (!state.cursor && Array.isArray(data.pinned) && data.pinned.length) {
-      pinnedStrip.innerHTML = data.pinned.map((item) => cardMarkup(item, true)).join('');
-      pinnedStrip.hidden = false;
-    } else if (!state.cursor) pinnedStrip.hidden = true;
+    const isFirstPage = !state.cursor;
+    if (isFirstPage) {
+      const pinned = Array.isArray(data.pinned) ? data.pinned : [];
+      state.pinnedIds = new Set(pinned.map((item) => Number(item.id)));
+      pinnedStrip.hidden = !pinned.length;
+      if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
+    }
     for (const item of data.items) {
+      if (state.firstId == null) state.firstId = item.id;
+      if (state.pinnedIds.has(Number(item.id))) continue;
       const template = document.createElement('template');
-      template.innerHTML = cardMarkup(item);
+      template.innerHTML = cardMarkup(item, { featured: isFirstPage && state.entries.length === 0 && Boolean(item.cover?.src) });
       const node = template.content.firstElementChild;
       feed.append(node);
       state.entries.push({ id: item.id, node });
-      if (state.firstId == null) state.firstId = item.id;
     }
     state.cursor = data.next_cursor;
     state.ended = !data.next_cursor;
     state.loading = false;
     feed.setAttribute('aria-busy', 'false');
-    if (state.entries.length) {
+    if (state.entries.length || !pinnedStrip.hidden) {
       feedMessage.textContent = state.ended ? 'همین بود؛ خبر تازه‌ای برای نمایش نیست.' : '';
     } else {
       feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
@@ -460,6 +508,7 @@ function initRadioEvents() {
 async function refreshConfig() {
   try {
     const nextConfig = await getJson('/api/public/config');
+    const regionsChanged = JSON.stringify(nextConfig.provinces) !== JSON.stringify(state.config?.provinces);
     state.config = nextConfig;
     const currentNewsTitle = state.newsId ? document.querySelector('#news-view h1')?.textContent : null;
     document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام نور'}` : nextConfig.site_title || 'اخبار پیام نور';
@@ -470,7 +519,7 @@ async function refreshConfig() {
       state.province = null;
       try { localStorage.removeItem('pnu.city'); } catch {}
       updateSelectedCity();
-      clearFeed();
+      resetFeed();
       feedMessage.textContent = 'شهرستان قبلی دیگر در دسترس نیست؛ لطفاً شهرستان دیگری انتخاب کنید.';
       openPicker();
     } else if (selected) {
@@ -480,7 +529,10 @@ async function refreshConfig() {
     }
     renderRadio(nextConfig.radio);
     if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
-    renderPickerList();
+    if (regionsChanged) {
+      if (state.pickerProvince) state.pickerProvince = nextConfig.provinces.find((item) => Number(item.id) === Number(state.pickerProvince.id)) ?? null;
+      if (picker.open) renderPickerList();
+    }
   } catch (error) {
     if (!state.config) feedMessage.textContent = 'ارتباط با سرور برقرار نشد. پس از اتصال دوباره تلاش کنید.';
   }
@@ -517,12 +569,11 @@ async function initializeReader({ newsOnly = false } = {}) {
           try { localStorage.removeItem('pnu.city'); } catch {}
         }
         updateSelectedCity();
-        feedMessage.textContent = 'برای نمایش خبرها، ابتدا شهرستان خود را انتخاب کنید.';
+        resetFeed();
         openPicker();
       }
     }
     renderRadio(config.radio);
-    if (!newsOnly) renderPickerList();
   } catch {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
   }
@@ -629,25 +680,31 @@ document.addEventListener('error', (event) => {
 }, true);
 document.querySelector('.picker-close').addEventListener('click', () => picker.close());
 picker.addEventListener('click', (event) => {
-  if (event.target === picker) picker.close();
+  if (event.target === picker) {
+    picker.close();
+    return;
+  }
   const provinceButton = event.target.closest('[data-province-id]');
   if (provinceButton) {
-    state.pickerProvince = state.config.provinces.find((province) => Number(province.id) === Number(provinceButton.dataset.provinceId));
+    state.pickerProvince = state.config.provinces.find((province) => Number(province.id) === Number(provinceButton.dataset.provinceId)) ?? null;
     pickerSearch.value = '';
     renderPickerList();
-    pickerSearch.focus();
+    pickerList.scrollTop = 0;
+    focusPickerSearch();
+    return;
   }
   const cityButton = event.target.closest('[data-city-id]');
-  if (cityButton && state.pickerProvince) {
-    const city = state.pickerProvince.cities.find((item) => Number(item.id) === Number(cityButton.dataset.cityId));
-    if (city) setCity(city, state.pickerProvince);
+  if (cityButton) {
+    const found = findCity(cityButton.dataset.cityId);
+    if (found) setCity(found.city, found.province);
   }
 });
 pickerBack.addEventListener('click', () => {
   state.pickerProvince = null;
   pickerSearch.value = '';
   renderPickerList();
-  pickerSearch.focus();
+  pickerList.scrollTop = 0;
+  focusPickerSearch();
 });
 pickerSearch.addEventListener('input', renderPickerList);
 document.querySelector('.scope-row').addEventListener('click', (event) => {
@@ -658,6 +715,10 @@ document.querySelector('.scope-row').addEventListener('click', (event) => {
   resetFeed();
 });
 feed.addEventListener('click', (event) => {
+  if (event.target.closest('[data-open-picker]')) {
+    openPicker();
+    return;
+  }
   const card = event.target.closest('[data-news-id]');
   if (card) navigateToNews(card.dataset.newsId);
 });
@@ -689,7 +750,6 @@ newsView.addEventListener('click', (event) => {
     else location.assign('/');
   }
 });
-window.addEventListener('resize', updateSpacerHeight, { passive: true });
 window.addEventListener('popstate', () => {
   const match = /^\/n\/(\d+)$/.exec(location.pathname);
   if (match) loadNewsPage(match[1]);
