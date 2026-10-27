@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { appEvents, emitNewsPublished } from './events.js';
 import { detectImageMime, processImage } from './lib/images.js';
 import { normalizeNewsInput } from './news/content.js';
@@ -128,7 +128,8 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
   }
 
   async function importOne(item, setup) {
-    const [existing] = await pool.execute('SELECT id FROM news WHERE source_url = ?', [item.link]);
+    const sourceHash = createHash('sha256').update(item.link).digest('hex');
+    const [existing] = await pool.execute('SELECT id FROM news WHERE source_hash = ?', [sourceHash]);
     if (existing.length) return false;
     const now = new Date(clock());
     const published = item.timestamp_ms && item.timestamp_ms < now.getTime() ? new Date(item.timestamp_ms) : now;
@@ -145,10 +146,10 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
       await connection.beginTransaction();
       const [news] = await connection.execute(
         `INSERT INTO news (title, summary, body_html, search_text, category_id, status, published_at, origin_region_id,
-                           published_by_user_id, publisher_name, publisher_unit, created_by, updated_by, source_url)
-         VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?)`,
+                           published_by_user_id, publisher_name, publisher_unit, created_by, updated_by, source_url, source_hash)
+         VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [text.title, text.summary, text.body_html, text.search_text, setup.categoryId, published, setup.countryId,
-          setup.botId, BOT_NAME, BOT_UNIT, setup.botId, setup.botId, item.link],
+          setup.botId, BOT_NAME, BOT_UNIT, setup.botId, setup.botId, item.link, sourceHash],
       );
       const newsId = Number(news.insertId);
       await connection.execute('INSERT INTO news_targets (news_id, region_id) VALUES (?, ?)', [newsId, setup.countryId]);
@@ -189,8 +190,15 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
       if (!items.length) throw new Error('سرور رادیو فهرست خبر خالی برگرداند.');
       result.total = items.length;
       const setup = await ensureSetup();
+      let failures = 0;
       for (const item of [...items].reverse()) { // oldest first, so ids follow the publishing order
-        if (await importOne(item, setup)) result.created += 1;
+        try {
+          if (await importOne(item, setup)) result.created += 1;
+        } catch (error) {
+          failures += 1;
+          result.error = `ثبت ${failures} خبر ناموفق بود: ${error.message}`;
+          logger.error?.(`[portal-news] ${error.message}`);
+        }
       }
     } catch (error) {
       result.error = error.message;
