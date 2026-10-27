@@ -62,7 +62,11 @@ test('reader shell has no scope chips, one sticky dock with the radio mount, and
 test('web app manifest declares installable PNG icons and every referenced file exists', async () => {
   const manifest = JSON.parse(await readPublicFile('manifest.webmanifest'));
   assert.equal(manifest.display, 'standalone');
-  assert.deepEqual(manifest.display_override, ['fullscreen', 'standalone']);
+  assert.equal(manifest.display_override, undefined, 'desktop manifest must not force full screen');
+  const mobile = JSON.parse(await readPublicFile('manifest-mobile.webmanifest'));
+  assert.deepEqual(mobile.display_override, ['fullscreen', 'standalone']);
+  assert.deepEqual({ ...mobile, display_override: undefined }, { ...manifest, display_override: undefined });
+  assert.match(await readPublicFile('index.html'), /id="app-manifest"[\s\S]*manifest-switch\.v1\.js/);
   assert.equal(manifest.start_url, '/');
   for (const purpose of ['any', 'maskable']) {
     for (const size of ['192x192', '512x512']) {

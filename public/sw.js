@@ -8,6 +8,7 @@ const SHELL_ASSETS = [
   '/reader/styles.v8.css',
   '/reader/app.v8.js',
   '/shared/theme.v8.js',
+  '/shared/manifest-switch.v1.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
 
   '/fonts/Vazirmatn-Bold.v1.woff2',
