@@ -408,6 +408,17 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           await connection.rollback();
           return response.status(404).json({ error: 'کاربر پیدا نشد.' });
         }
+        if (target.role === 'province_admin') {
+          const [subordinates] = await connection.execute(
+            `SELECT COUNT(*) AS total FROM users u JOIN regions r ON r.id = u.region_id
+             WHERE u.role = 'city_admin' AND r.parent_id = ?`,
+            [target.region_id],
+          );
+          if (Number(subordinates[0].total) > 0) {
+            await connection.rollback();
+            return response.status(409).json({ error: 'این مدیر استان هنوز مدیر زیرمجموعه دارد؛ ابتدا مدیران مراکز دانشگاهی این استان را حذف کنید.' });
+          }
+        }
         // Superior: a city admin's news go to the active province admin of the same province;
         // otherwise (province admin, or no province admin) to the person performing the deletion.
         successor = { id: request.user.id, full_name: request.user.full_name };

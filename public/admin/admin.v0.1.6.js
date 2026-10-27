@@ -679,9 +679,10 @@ async function loadUsers() {
       if (!grouped.has(parentId)) grouped.set(parentId, []);
       grouped.get(parentId).push(user);
     }
+    const subordinateCount = (user) => user.role === 'province_admin' ? users.filter((item) => item.role === 'city_admin' && Number(item.parent_region_id) === Number(user.region_id)).length : 0;
     panel.innerHTML = [...grouped.entries()].map(([parentId, entries]) => {
       const parent = state.regions.find((region) => Number(region.id) === parentId);
-      return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>${user.role !== 'super_admin' && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}">حذف کاربر</button>` : ''}</div></div>`).join('')}</section>`;
+      return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>${user.role !== 'super_admin' && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ''}</div></div>`).join('')}</section>`;
     }).join('');
   } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
@@ -726,6 +727,10 @@ async function handleUserAction(button) {
   const action = button.dataset.userAction;
   if (!id || !action) return;
   const isDelete = action === 'delete';
+  if (isDelete && Number(button.dataset.subordinates) > 0) {
+    showMessage('حذف ممکن نیست', `«${button.dataset.userName || 'این مدیر'}» هنوز ${faDigits.format(Number(button.dataset.subordinates))} مدیر زیرمجموعه دارد. ابتدا مدیران زیرمجموعه را حذف کنید، سپس این مدیر را حذف کنید.`);
+    return;
+  }
   const label = button.textContent.trim();
   const confirmed = isDelete
     ? await confirmDialog({ title: `حذف «${button.dataset.userName || 'کاربر'}»؟`, text: 'این کاربر برای همیشه حذف می‌شود و این کار قابل بازگشت نیست. خبرهایی که او ساخته یا منتشر کرده به مدیر بالادستش منتقل می‌شود.', tone: 'danger', confirmText: 'بله، حذف شود' })
