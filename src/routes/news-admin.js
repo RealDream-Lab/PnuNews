@@ -214,7 +214,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
     if (request.body?.status && request.body.status !== 'draft') return response.status(400).json({ error: 'خبر را پس از ذخیره از مسیر انتشار منتشر کنید.' });
     const categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
-    if (request.body?.category_id != null && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
+    if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
     try {
       const regions = await loadRegions(pool);
       const targets = await validateTargets(pool, request.user, request.body?.targets ?? [], regions);
@@ -292,7 +292,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       });
       if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
       const categoryId = request.body?.category_id === undefined ? context.news.category_id : request.body.category_id == null ? null : idValue(request.body.category_id);
-      if (request.body?.category_id !== undefined && request.body.category_id != null && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
+      if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
       // A category that was deactivated after this news was written may stay on it; only a *change* needs an active one.
       if (categoryId && Number(categoryId) !== Number(context.news.category_id)) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);

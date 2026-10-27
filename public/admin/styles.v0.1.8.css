@@ -149,7 +149,6 @@ select option{background:var(--surface);color:var(--text)}
 .volume-control .icon{width:1rem;height:1rem}
 .radio-volume{width:82px;accent-color:var(--primary)}
 @media(max-width:767px){
-  .site-dock{padding-bottom:calc(4.4rem + var(--safe-bottom))}
   .dock-inner{flex-direction:column;gap:.2rem;padding-block:.4rem}
   .dock-text{font-size:.74rem;line-height:1.5}
   #radio-root{order:-1;flex:none;width:100%}
@@ -217,3 +216,43 @@ progress::-moz-progress-bar{background:var(--primary);border-radius:999px}
 .admin-shell{display:flex;flex-direction:column}
 .admin-shell>.admin-layout{flex:1 1 auto;min-height:0}
 .admin-shell>.site-dock{flex:none}
+
+/* ---------- Same size and same chevron for every collapsible control ---------- */
+html select:not([multiple]),.more-block>summary{min-height:45px;font-size:.9rem;font-weight:500;border-radius:10px}
+html select:not([multiple]){padding-inline-start:.8rem}
+.more-block{border-radius:10px}
+.more-block>summary{padding:.4rem .8rem;line-height:1.5}
+.more-block>summary::after,.unit-province>summary::before{content:"";flex:none;width:1.1rem;height:1.1rem;border:0;margin:0;background-color:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center/contain no-repeat;transform:none}
+.more-block[open]>summary::after{transform:rotate(180deg);margin:0}
+.unit-province>summary::before{transform:rotate(90deg);color:var(--muted)}
+.unit-province[open]>summary::before{transform:none}
+
+/* ---------- Upload boxes: equal height whatever the text or the screen width ---------- */
+.media-zones{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.media-zones>.zone{grid-row:span 2;grid-template-rows:subgrid;gap:.5rem}
+.media-zones>.upload-total{grid-column:1/-1}
+.dropzone{min-height:11.5rem;height:100%}
+@media(min-width:1280px){.media-zones{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}}
+
+/* ---------- Saved attachments, grouped with thumbnails ---------- */
+.attachment-list{display:grid;gap:.9rem;padding:.9rem;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.attachment-list>h2{font-size:.95rem;margin:0}
+.attachment-group h3{display:flex;align-items:center;gap:.5rem;margin:0 0 .45rem;font-size:.84rem;font-weight:700;color:var(--muted)}
+.attachment-group h3 span{padding:0 .5rem;border-radius:999px;background:var(--soft);font-weight:500;font-size:.74rem}
+.attachment-group ul{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+.attachment-row{display:flex;align-items:center;gap:.75rem;padding:.45rem .6rem;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.attachment-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:10px;background:var(--soft);color:var(--muted)}
+.attachment-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.attachment-thumb .icon{width:1.5rem;height:1.5rem}
+.attachment-info{flex:1;min-width:0;display:grid;line-height:1.5}
+.attachment-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem;font-weight:500}
+.attachment-info small{color:var(--muted);font-size:.75rem}
+.attachment-row .mini-button{flex:none}
+
+/* ---------- Footer stays on screen, like on the reader page ---------- */
+.admin-shell>.site-dock{position:sticky;bottom:0;z-index:11}
+@media(max-width:767px){
+  .admin-shell{padding-bottom:calc(3.9rem + var(--safe-bottom))}
+  .admin-shell>.site-dock{bottom:calc(3.9rem + var(--safe-bottom));padding-bottom:0}
+  .admin-content{padding-bottom:1rem}
+}

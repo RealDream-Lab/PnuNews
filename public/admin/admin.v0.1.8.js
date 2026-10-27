@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.7.js';
+import { initDock } from '/shared/dock.v0.1.8.js';
 import {
   JALALI_MONTHS,
 
@@ -479,10 +479,15 @@ function setEditorMode(status) {
   badge.textContent = status ? statusLabel(known) : 'جدید';
 }
 
+function categoryOptionsHtml(value = '') {
+  const usable = state.categories.filter((category) => category.is_active !== false || Number(category.id) === Number(value));
+  const placeholder = usable.length ? 'انتخاب دسته‌بندی…' : 'ابتدا یک دسته‌بندی بسازید';
+  return `<option value="" disabled>${placeholder}</option>` + usable.map((category) => `<option value="${Number(category.id)}">${escapeHtml(category.name)}${category.is_active === false ? ' (غیرفعال)' : ''}</option>`).join('');
+}
+
 function setCategoryOptions(value = '') {
   const select = document.querySelector('#news-editor [name="category_id"]');
-  const usable = state.categories.filter((category) => category.is_active !== false || Number(category.id) === Number(value));
-  select.innerHTML = '<option value="">بدون دسته‌بندی</option>' + usable.map((category) => `<option value="${Number(category.id)}">${escapeHtml(category.name)}${category.is_active === false ? ' (غیرفعال)' : ''}</option>`).join('');
+  select.innerHTML = categoryOptionsHtml(value);
   select.value = value == null ? '' : String(value);
 }
 
@@ -546,7 +551,24 @@ async function openEditor(id) {
 function renderAttachments(attachments, editable) {
   const panel = document.getElementById('editor-attachments');
   panel.hidden = !attachments.length;
-  panel.innerHTML = attachments.length ? `<h2>پیوست‌های ثبت‌شده</h2>${attachments.map((item) => `<div class="attachment-row">${item.kind === 'file' ? `<a href="${escapeHtml(item.url)}">▤ ${escapeHtml(item.original_name)}</a>` : `<a href="${escapeHtml(item.src)}" target="_blank" rel="noopener">تصویر: ${escapeHtml(item.original_name)}</a>`}<span>${faDigits.format(item.size_bytes)} بایت</span>${editable ? `<button class="mini-button danger-text" type="button" data-remove-attachment="${Number(item.id)}">حذف</button>` : ''}</div>`).join('')}` : '';
+  if (!attachments.length) { panel.innerHTML = ''; return; }
+  const groups = [
+    ['تصویر جلد', attachments.filter((item) => item.kind === 'cover')],
+    ['تصاویر دیگر', attachments.filter((item) => item.kind === 'image')],
+    ['فایل‌های پیوست', attachments.filter((item) => item.kind === 'file')],
+  ].filter(([, items]) => items.length);
+  const row = (item) => {
+    const isFile = item.kind === 'file';
+    const href = isFile ? item.url : item.src;
+    const thumb = isFile
+      ? '<svg class="icon" aria-hidden="true"><use href="#admin-icon-file"/></svg>'
+      : `<img src="${escapeHtml(String(item.src).replace('-800.webp', '-400.webp'))}" alt="" loading="lazy">`;
+    return `<li class="attachment-row"><a class="attachment-thumb" href="${escapeHtml(href)}" target="_blank" rel="noopener" aria-label="باز کردن">${thumb}</a>`
+      + `<div class="attachment-info"><span class="attachment-name" title="${escapeHtml(item.original_name)}">${escapeHtml(item.original_name)}</span><small>${formatBytes(item.size_bytes)}</small></div>`
+      + (editable ? `<button class="mini-button danger" type="button" data-remove-attachment="${Number(item.id)}">حذف</button>` : '')
+      + '</li>';
+  };
+  panel.innerHTML = '<h2>پیوست‌های ثبت‌شده</h2>' + groups.map(([title, items]) => `<section class="attachment-group"><h3>${title} <span>${faDigits.format(items.length)}</span></h3><ul>${items.map(row).join('')}</ul></section>`).join('');
 }
 
 function editorBody() {
@@ -555,11 +577,12 @@ function editorBody() {
 
 function editorPayload() {
   const form = document.getElementById('news-editor');
+  if (!form.elements.category_id.value) throw new Error('دسته‌بندی خبر را انتخاب کنید.');
   return {
     title: form.elements.title.value.trim(),
     summary: form.elements.summary.value.trim(),
     body_html: editorBody(),
-    category_id: form.elements.category_id.value || null,
+    category_id: form.elements.category_id.value ? Number(form.elements.category_id.value) : null,
     targets: requireTargets('editor-target-fieldset'),
     expires_at: state.newsDates.expires_at,
   };
@@ -895,6 +918,9 @@ async function publishEditor() {
 }
 
 function beginQuickCompose() {
+  const select = document.querySelector('#quick-form [name="category_id"]');
+  select.innerHTML = categoryOptionsHtml();
+  select.value = '';
   renderTargetPicker('quick-target-fieldset');
 }
 
@@ -908,7 +934,7 @@ async function submitQuickCompose(event) {
   try {
     const targets = requireTargets('quick-target-fieldset');
     const created = await api('/api/admin/news', {
-      method: 'POST', body: { title, summary, body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
+      method: 'POST', body: { title, summary, category_id: Number(form.elements.category_id.value), body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
     });
     const cover = form.elements.cover.files[0];
     if (cover) {
