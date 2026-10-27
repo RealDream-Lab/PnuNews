@@ -90,7 +90,7 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.equal(home.response.status, 200);
     assert.match(home.body, /id="city-picker"/);
     assert.equal(home.response.headers.get('cache-control'), 'no-cache');
-    const readerScript = await request('/reader/app.v6.js');
+    const readerScript = await request('/reader/app.v7.js');
     assert.equal(readerScript.response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
 
     const configResponse = await request('/api/public/config');
@@ -163,7 +163,7 @@ test('public API exposes visible-city feeds, keyset pages, publisher details, ra
     assert.match(og.body, /name="twitter:image"/);
     assert.match(og.body, /<html lang="fa" dir="rtl" data-theme="auto">/);
     assert.match(og.body, /id="city-picker"/);
-    assert.match(og.body, /src="\/reader\/app\.v6\.js"/);
+    assert.match(og.body, /src="\/reader\/app\.v7\.js"/);
     assert.doesNotMatch(og.body, /<script>bad/);
     assert.ok(privateNewsId);
   } finally {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f5fbf">
-  <meta name="description" content="خبرهای پیام نور بر اساس شهرستان">
+  <meta name="description" content="خبرهای پیام نور بر اساس مرکز دانشگاهی">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/pnu-mark.v2.svg" type="image/svg+xml">
   <link rel="icon" href="/icons/favicon-32.v1.png" sizes="32x32" type="image/png">
@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="stylesheet" href="/reader/styles.v6.css">
-  <script src="/shared/theme.v6.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v7.css">
+  <script src="/shared/theme.v7.js"></script>
   <title>اخبار پیام نور</title>
 </head>
 <body>
@@ -37,7 +37,7 @@
       <a class="brand" href="/" aria-label="صفحهٔ اصلی اخبار پیام نور"><span class="brand-mark">پ</span><span class="brand-name" id="site-title">اخبار پیام نور</span></a>
       <div class="header-actions">
         <button class="city-button" id="city-button" type="button" aria-haspopup="dialog" aria-controls="city-picker">
-          <svg class="icon"><use href="#icon-location"/></svg><span id="selected-city-label">انتخاب شهرستان</span><svg class="icon city-chevron"><use href="#icon-chevron"/></svg>
+          <svg class="icon"><use href="#icon-location"/></svg><span id="selected-city-label">انتخاب مرکز دانشگاهی</span><svg class="icon city-chevron"><use href="#icon-chevron"/></svg>
         </button>
         <div class="font-controls" dir="ltr" role="group" aria-label="اندازهٔ نوشته">
           <button class="font-down" type="button" aria-label="کوچک کردن اندازهٔ نوشته">A−</button>
@@ -50,7 +50,7 @@
   <div class="page-shell">
     <main id="app" class="reader-main">
       <section class="feed-intro" aria-labelledby="feed-heading">
-        <h1 id="feed-heading">خبرهای پیام نور</h1><p class="intro-copy" id="feed-description">برای دیدن خبرهای مرتبط، شهرستان خود را انتخاب کنید.</p>
+        <h1 id="feed-heading">خبرهای پیام نور</h1><p class="intro-copy" id="feed-description">برای دیدن خبرهای مرتبط، مرکز دانشگاهی خود را انتخاب کنید.</p>
       </section>
       <div id="new-items-banner" class="new-items-banner" hidden><button type="button">خبرهای تازه آماده است؛ برای دیدن به بالای فهرست بروید</button></div>
       <section id="pinned-strip" class="pinned-strip" aria-label="خبرهای مهم" hidden></section>
@@ -65,11 +65,11 @@
     <div class="picker-panel" tabindex="-1" autofocus>
       <div class="picker-header"><div><p class="eyebrow" id="picker-step">مرحلهٔ ۱ از ۲</p><h2 id="picker-title">استان را انتخاب کنید</h2></div><button class="icon-button picker-close" type="button" aria-label="بستن پنجره"><svg class="icon"><use href="#icon-close"/></svg></button></div>
       <button id="picker-back" class="picker-back" type="button" hidden><svg class="icon"><use href="#icon-chevron"/></svg><span>بازگشت به استان‌ها</span></button>
-      <label class="search-field"><svg class="icon"><use href="#icon-search"/></svg><input id="picker-search" type="search" autocomplete="off" placeholder="جست‌وجو" aria-label="جست‌وجوی استان یا شهرستان"></label>
+      <label class="search-field"><svg class="icon"><use href="#icon-search"/></svg><input id="picker-search" type="search" autocomplete="off" placeholder="جست‌وجو" aria-label="جست‌وجوی استان یا مرکز دانشگاهی"></label>
       <div id="picker-list" class="picker-list" aria-label="فهرست مناطق"></div>
   </div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v6.js"></script>
+  <script type="module" src="/reader/app.v7.js"></script>
 </body>
 </html>

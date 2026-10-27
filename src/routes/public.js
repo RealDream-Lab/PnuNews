@@ -199,11 +199,11 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v6.css">
+<link rel="stylesheet" href="/reader/styles.v7.css">
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v6.js"></script>
+<script type="module" src="/reader/app.v7.js"></script>
 </body>
 </html>`;
 }
@@ -262,7 +262,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     const cityId = idValue(request.query.city);
     const scope = String(request.query.scope ?? 'all');
     const requestedLimit = Number(request.query.limit ?? 12);
-    if (!cityId) return response.status(400).json({ error: 'برای دریافت خبر باید یک شهرستان انتخاب کنید.' });
+    if (!cityId) return response.status(400).json({ error: 'برای دریافت خبر باید یک مرکز دانشگاهی انتخاب کنید.' });
     if (!FEED_SCOPES.has(scope)) return response.status(400).json({ error: 'دامنهٔ نمایش معتبر نیست.' });
     if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 12) {
       return response.status(400).json({ error: 'تعداد خبر در هر صفحه باید بین ۱ تا ۱۲ باشد.' });
@@ -271,7 +271,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
     try {
       const city = await loadVisibleCity(pool, cityId);
-      if (!city) return response.status(400).json({ error: 'شهرستان انتخاب‌شده در دسترس نیست.' });
+      if (!city) return response.status(400).json({ error: 'مرکز دانشگاهی انتخاب‌شده در دسترس نیست.' });
       const key = `feed:${cityId}:${scope}:${requestedLimit}:${request.query.cursor ?? ''}`;
       const result = await cache.get(key, async () => {
         const [rows, pinnedRows] = await Promise.all([

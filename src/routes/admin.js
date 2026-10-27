@@ -113,7 +113,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           updates[key] = normalized;
         } else if (key === 'max_city_admins') {
           const number = Number(value);
-          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران شهر باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
+          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران مرکز دانشگاهی باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
           updates[key] = String(number);
         } else if (key === 'radio_stream_url' || key === 'radio_nowplaying_url') {
           if (typeof value !== 'string' || value.length > 2048) return response.status(400).json({ error: 'نشانی رادیو معتبر نیست.' });
@@ -271,7 +271,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           );
           if (Number(countRows[0].active_count) >= maxAdmins) {
             await connection.rollback();
-            return response.status(409).json({ error: `برای این شهر حداکثر ${maxAdmins} مدیر فعال مجاز است؛ ابتدا مدیر فعلی را غیرفعال کنید.` });
+            return response.status(409).json({ error: `برای این مرکز دانشگاهی حداکثر ${maxAdmins} مدیر فعال مجاز است؛ ابتدا مدیر فعلی را غیرفعال کنید.` });
           }
         }
         const [result] = await connection.execute(
@@ -431,7 +431,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       const [parents] = await pool.execute('SELECT id, type FROM regions WHERE id = ?', [parentId]);
       const parent = parents[0];
       const validParent = (type === 'province' && parent?.type === 'country') || (type === 'city' && parent?.type === 'province');
-      if (!validParent) return response.status(400).json({ error: 'استان باید زیرمجموعهٔ کشور و شهر باید زیرمجموعهٔ استان باشد.' });
+      if (!validParent) return response.status(400).json({ error: 'استان باید زیرمجموعهٔ کشور و مرکز دانشگاهی باید زیرمجموعهٔ استان باشد.' });
       const connection = await pool.getConnection();
       let id;
       try {
