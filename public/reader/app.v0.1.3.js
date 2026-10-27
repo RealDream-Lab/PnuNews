@@ -41,7 +41,7 @@ let intersectionObserver = null;
 
 const digits = new Intl.NumberFormat('fa-IR');
 
-// Footer shows the version of the code that is actually running (taken from this file's versioned name, e.g. app.v0.1.2.js).
+// Footer shows the version of the code that is actually running (taken from this file's versioned name, e.g. app.v0.1.3.js).
 const appVersion = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1];
 const dockText = document.querySelector('.dock-text');
 if (appVersion && dockText) {
