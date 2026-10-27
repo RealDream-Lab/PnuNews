@@ -17,7 +17,7 @@ npm run create-admin
 npm run dev
 ```
 
-`npm run create-admin` تعاملی است و گذرواژه را هنگام تایپ نمایش نمی‌دهد. سرویس محلی در `http://localhost:3010` و پنل مدیریت در `/admin` در دسترس است. آزمون‌ها با `npm test` اجرا می‌شوند.
+`npm run create-admin` تعاملی است و گذرواژه را هنگام تایپ نمایش نمی‌دهد. سرویس محلی در `http://localhost:3010` و پنل مدیریت در `/admin` در دسترس است.
 
 ## استقرار
 

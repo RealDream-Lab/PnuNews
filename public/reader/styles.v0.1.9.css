@@ -3,9 +3,9 @@
 @font-face{font-family:Vazirmatn;src:url('/fonts/Vazirmatn-Bold.v1.woff2') format('woff2');font-weight:700;font-display:swap}
 
 /* ---------- Tokens ---------- */
-:root{color-scheme:light;--bg:#f4f7fb;--surface:#fff;--surface-soft:#eef3fa;--text:#0e1a2b;--muted:#5b6b80;--border:#e2e8f0;--primary:#1f5fbf;--primary-soft:#e9f1fc;--teal:#087b78;--teal-soft:#e5f5f3;--amber:#815500;--amber-soft:#fff4dc;--urgent:#c0433b;--urgent-soft:#fff0ee;--radius:18px;--font-scale:1;--pad:20px;--safe-bottom:env(safe-area-inset-bottom,0px);font-family:Vazirmatn,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:calc(16px * var(--font-scale));line-height:1.9;background:var(--bg);color:var(--text);font-synthesis:none;text-rendering:optimizeLegibility}
-:root[data-theme="dark"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227}
-@media(prefers-color-scheme:dark){:root[data-theme="auto"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227}}
+:root{color-scheme:light;--bg:#f4f7fb;--surface:#fff;--surface-soft:#eef3fa;--text:#0e1a2b;--muted:#5b6b80;--border:#e2e8f0;--primary:#1f5fbf;--primary-soft:#e9f1fc;--teal:#087b78;--teal-soft:#e5f5f3;--amber:#815500;--amber-soft:#fff4dc;--urgent:#c0433b;--urgent-soft:#fff0ee;--radius:18px;--font-scale:1;--pad:20px;--safe-bottom:env(safe-area-inset-bottom,0px);--status-bar:#1f5fbf;font-family:Vazirmatn,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:calc(16px * var(--font-scale));line-height:1.9;background:var(--bg);color:var(--text);font-synthesis:none;text-rendering:optimizeLegibility}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227;--status-bar:#0b1220}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227;--status-bar:#0b1220}}
 :root.font-scale-90{--font-scale:.9}:root.font-scale-95{--font-scale:.95}:root.font-scale-105{--font-scale:1.05}:root.font-scale-110{--font-scale:1.1}
 
 /* ---------- Base ---------- */
@@ -30,11 +30,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 @media(prefers-color-scheme:dark){:root[data-theme="auto"] .button-primary{color:#07111f}}
 @media(hover:hover){.city-button:hover,.icon-button:hover,.picker-back:hover,.share-button:hover,.audio-button:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}}
 
+/* Behind a transparent system status bar (installed iOS app / notches) so its light icons stay readable; zero height elsewhere. */
+body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-inset-top,0px);background:var(--status-bar);z-index:60;pointer-events:none}
+
 /* ---------- Header ---------- */
 .site-header{position:sticky;top:0;z-index:15;background:var(--bg);border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
 .header-inner{max-width:1120px;margin-inline:auto;min-height:64px;padding-inline:max(var(--pad),env(safe-area-inset-right,0px)) max(var(--pad),env(safe-area-inset-left,0px));display:flex;align-items:center;gap:.75rem}
 .brand{display:inline-flex;align-items:center;gap:.65rem;font-weight:700;font-size:1.1rem;white-space:nowrap;flex:none}
-.brand-mark{width:38px;height:38px;border-radius:13px;background:var(--primary);color:#fff;display:grid;place-items:center;font-size:1.2rem;line-height:1}
+.brand-mark{width:38px;height:38px;border-radius:13px;background:none;display:grid;place-items:center;line-height:1;overflow:hidden}.brand-mark img{width:100%;height:100%;display:block;object-fit:contain}
 :root[data-theme="dark"] .brand-mark{color:#07111f}
 @media(prefers-color-scheme:dark){:root[data-theme="auto"] .brand-mark{color:#07111f}}
 .header-actions{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:.5rem}
@@ -78,13 +81,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 .news-card.is-urgent::before{background:var(--urgent)}
 .card-cover-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--surface-soft)}
 .card-cover-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.card-meta-overlay{position:absolute;inset:auto 0 0 0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:.2rem .5rem;padding:.4rem .75rem;background:rgba(0,0,0,.55);color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6;pointer-events:none}
-.card-meta-overlay .scope-badge,.card-meta-overlay .scope-badge[data-scope]{background:rgba(255,255,255,.22);color:#fff}
-.card-meta-overlay .card-kicker{color:#fff}
-.card-meta-overlay .urgent-label{color:#ffb4ab}
-.card-meta-overlay .overlay-end{margin-inline-start:auto;display:inline-flex;align-items:center;gap:.4rem;min-width:0;max-width:100%}
-.card-meta-overlay .card-source{max-width:11rem}
-.card-meta-overlay time{white-space:nowrap}
+.card-meta-overlay{position:absolute;inset:auto 0 0 0;z-index:3;display:flex;flex-direction:column;gap:0;padding:.35rem .75rem;background:rgba(0,0,0,.55);color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6;pointer-events:none}
+.overlay-row{display:flex;align-items:center;gap:.5rem;min-width:0;white-space:nowrap}
+.card-meta-overlay .scope-badge,.card-meta-overlay .scope-badge[data-scope]{min-width:0;overflow:hidden;text-overflow:ellipsis;background:rgba(255,255,255,.22);color:#fff}
+.card-meta-overlay .card-kicker{flex:none;color:#fff}
+.card-meta-overlay .urgent-label{flex:none;color:#ffb4ab}
+.card-meta-overlay .card-source{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.card-meta-overlay time{flex:none;white-space:nowrap}
 .card-meta-overlay i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.7;flex:none}
 .card-content{flex:1;display:flex;flex-direction:column;gap:.35rem;padding:.85rem 1.05rem 1rem}
 .card-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;color:var(--muted);font-size:.77rem;line-height:1.6}
@@ -125,7 +128,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 #radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
 #radio-root:empty{display:none}
 
-.install-banner{max-width:1120px;margin-inline:auto;display:flex;align-items:center;gap:.7rem;padding:.6rem max(var(--pad),env(safe-area-inset-right,0px)) .6rem max(var(--pad),env(safe-area-inset-left,0px));border-bottom:1px solid var(--border);color:var(--text)}
+.floating-banners{position:fixed;z-index:25;inset-inline:0;bottom:calc(var(--dock-height,64px) + .75rem);display:flex;flex-direction:column;align-items:center;gap:.6rem;padding-inline:max(.75rem,env(safe-area-inset-right,0px)) max(.75rem,env(safe-area-inset-left,0px));pointer-events:none}
+.floating-banners>div{width:100%;max-width:520px;pointer-events:auto}
+.floating-banners>div:empty{display:none}
+.install-banner{display:flex;align-items:center;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 6px 22px rgba(7,16,31,.16)}
+:root[data-theme="dark"] .install-banner{box-shadow:0 6px 22px rgba(0,0,0,.45)}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"] .install-banner{box-shadow:0 6px 22px rgba(0,0,0,.45)}}
 .install-banner img{width:40px;height:40px;border-radius:10px;flex:none}
 .install-text{flex:1;min-width:0;line-height:1.5}
 .install-text strong{display:block;font-size:.9rem}
