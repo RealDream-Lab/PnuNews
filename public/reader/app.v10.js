@@ -13,6 +13,7 @@ const newItemsBanner = document.getElementById('new-items-banner');
 const radioRoot = document.getElementById('radio-root');
 const installRoot = document.getElementById('install-root');
 const updateRoot = document.getElementById('update-root');
+
 const state = {
   config: null,
   city: null,
@@ -39,6 +40,16 @@ let radioAudio = null;
 let intersectionObserver = null;
 
 const digits = new Intl.NumberFormat('fa-IR');
+
+// Footer shows the version of the code that is actually running (taken from this file's versioned name).
+const appVersion = /app\.v(\d+)\.js/.exec(import.meta.url)?.[1];
+const dockText = document.querySelector('.dock-text');
+if (appVersion && dockText) {
+  const versionLabel = document.createElement('span');
+  versionLabel.className = 'dock-version';
+  versionLabel.textContent = ` · نسخه ${digits.format(Number(appVersion))}`;
+  dockText.append(versionLabel);
+}
 const dateFormatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
   timeZone: 'Asia/Tehran', day: 'numeric', month: 'long', year: 'numeric',
 });
