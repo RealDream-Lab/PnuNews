@@ -65,6 +65,7 @@ function publicItem(row) {
     view_count: Number(row.view_count),
     publisher_name: row.publisher_name,
     publisher_unit: row.publisher_unit,
+    source_url: row.source_url || null,
     scope: { type: row.scope_type, id: Number(row.scope_region_id), name: row.scope_name },
     cover: image ? { ...image, dominant_color: row.cover_dominant_color, width: row.cover_width, height: row.cover_height } : null,
   };
@@ -138,7 +139,7 @@ async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
   const [rows] = await pool.execute(
     `SELECT n.id, n.title, n.summary, n.category_id, c.name AS category_name,
             n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
-            n.publisher_name, n.publisher_unit,
+            n.publisher_name, n.publisher_unit, n.source_url,
             cover.stored_name AS cover_stored_name, cover.width AS cover_width,
             cover.height AS cover_height, cover.dominant_color AS cover_dominant_color,
             matched.id AS scope_region_id, matched.type AS scope_type, matched.name AS scope_name
@@ -199,12 +200,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.9.css">
-<script src="/shared/theme.v0.1.9.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.10.css">
+<script src="/shared/theme.v0.1.10.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.9.js"></script>
+<script type="module" src="/reader/app.v0.1.10.js"></script>
 </body>
 </html>`;
 }
@@ -301,7 +302,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       const [rows] = await pool.execute(
         `SELECT n.id, n.title, n.summary, n.body_html, n.category_id, c.name AS category_name,
                 n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
-                n.publisher_name, n.publisher_unit, n.cover_attachment_id,
+                n.publisher_name, n.publisher_unit, n.source_url, n.cover_attachment_id,
                 settings.v AS byline_show_person
          FROM news n LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN settings ON settings.k = 'byline_show_person'

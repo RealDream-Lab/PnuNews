@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.9.js';
+import { initDock } from '/shared/dock.v0.1.10.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -226,12 +226,27 @@ function coverMarkup(item, featured, overlay = '') {
   return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
+// Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
+function externalAttributes(item) {
+  return typeof item.source_url === 'string' && item.source_url.startsWith('https://')
+    ? ` data-source-url="${escapeHtml(item.source_url)}" data-external="true"` : '';
+}
+
+function openCard(card) {
+  const address = card.dataset.sourceUrl;
+  if (address && address.startsWith('https://')) {
+    window.open(address, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  navigateToNews(card.dataset.newsId);
+}
+
 function pinnedMarkup(item) {
   const thumbnail = item.cover?.src
     ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
-  return `<article class="${classes}" data-news-id="${item.id}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
+  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
 }
 
 function cardMarkup(item, { featured = false } = {}) {
@@ -251,7 +266,7 @@ function cardMarkup(item, { featured = false } = {}) {
   const body = hasCover
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
     : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}</div></div>`;
-  return `<article class="${classes}" data-news-id="${item.id}" data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
+  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
     ${hasCover ? coverMarkup(item, featured, overlay) : ''}
     ${body}
   </article>`;
@@ -725,22 +740,22 @@ feed.addEventListener('click', (event) => {
     return;
   }
   const card = event.target.closest('[data-news-id]');
-  if (card) navigateToNews(card.dataset.newsId);
+  if (card) openCard(card);
 });
 pinnedStrip.addEventListener('click', (event) => {
   const card = event.target.closest('[data-news-id]');
-  if (card) navigateToNews(card.dataset.newsId);
+  if (card) openCard(card);
 });
 feed.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-news-id]')) {
     event.preventDefault();
-    navigateToNews(event.target.dataset.newsId);
+    openCard(event.target);
   }
 });
 pinnedStrip.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-news-id]')) {
     event.preventDefault();
-    navigateToNews(event.target.dataset.newsId);
+    openCard(event.target);
   }
 });
 newItemsBanner.addEventListener('click', () => resetFeed({ scroll: true }));

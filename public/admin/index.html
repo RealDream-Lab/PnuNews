@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v2.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v2.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v2.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.9.css">
-  <script src="/shared/theme.v0.1.9.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.10.css">
+  <script src="/shared/theme.v0.1.10.js"></script>
   <title>مدیریت خبرها — اخبار پیام نور</title>
 </head>
 <body>
@@ -270,6 +270,13 @@
             <button class="button primary" type="submit">ذخیرهٔ تنظیمات</button>
             <p id="settings-error" class="form-error" role="alert"></p>
           </form>
+          <div class="panel portal-panel">
+            <h2>خبرخوان خودکار پورتال</h2>
+            <p class="muted">هر ۱۰ دقیقه ۲۰ خبر اخیر «اخبار اصلی» pnu.ac.ir بررسی و خبرهای تازه به‌عنوان خبر کشوری و با نام «ربات خبرخوان» منتشر می‌شود. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست.</p>
+            <label class="check-row"><input type="checkbox" id="portal-enabled">دریافت خودکار فعال باشد</label>
+            <p id="portal-status" class="muted"></p>
+            <div class="settings-inline"><button id="portal-run" class="button outline" type="button">همین حالا بگیر</button></div>
+          </div>
         </section>
         <section id="audit-view" class="admin-view" data-panel="audit" hidden>
           <div class="view-heading"><div><p class="eyebrow">ردپای تغییرها</p><h1>گزارش رویدادها</h1></div></div>
@@ -329,6 +336,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.9.js"></script>
+  <script type="module" src="/admin/admin.v0.1.10.js"></script>
 </body>
 </html>

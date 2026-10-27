@@ -37,7 +37,7 @@ function csrfGuard(request, response, next) {
   return next();
 }
 
-export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, staticAssets }) {
+export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, staticAssets, portalImporter = null }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy ? 1 : false);
@@ -53,7 +53,7 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
-  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir }));
+  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter }));
   app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));

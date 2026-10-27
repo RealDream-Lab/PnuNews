@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.9.js';
+import { initDock } from '/shared/dock.v0.1.10.js';
 import {
   JALALI_MONTHS,
 
@@ -314,18 +314,18 @@ async function loadDashboard() {
 
 function compactNews(item, action = 'edit-news') {
   const date = item.published_at || item.updated_at || item.created_at;
-  return `<article class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.title)}</strong><small>${statusLabel(item.status)} · ${formatDate(date)} · ${faDigits.format(item.view_count || 0)} بازدید</small></div><div class="compact-actions"><button class="mini-button" type="button" data-action="${action}" data-id="${Number(item.id)}">مشاهده</button></div></article>`;
+  return `<article class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.title)}${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ''}</strong><small>${statusLabel(item.status)} · ${formatDate(date)} · ${faDigits.format(item.view_count || 0)} بازدید</small></div><div class="compact-actions"><button class="mini-button" type="button" data-action="${action}" data-id="${Number(item.id)}">مشاهده</button></div></article>`;
 }
 
 function renderNewsTable(items) {
   if (!items.length) return '<p class="empty-panel">خبری با این فیلتر پیدا نشد.</p>';
   return `<table class="table"><thead><tr><th>عنوان</th><th>مبدأ و مقصد</th><th>دسته‌بندی</th><th>وضعیت</th><th>بازدید</th><th>آخرین تغییر</th><th></th></tr></thead><tbody>${items.map((item) => `<tr>
-    <td><strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(item.summary || '')}</small></td>
+    <td><strong>${escapeHtml(item.title)}</strong>${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ''}<br><small>${escapeHtml(item.summary || '')}</small></td>
     <td>${escapeHtml(item.origin_region_name)}<br><small>${escapeHtml(scopeLabel(item.targets))}</small></td>
     <td>${escapeHtml(item.category_name || '—')}</td>
     <td><span class="status-badge ${escapeHtml(item.status)}">${statusLabel(item.status)}</span>${item.is_urgent ? '<span class="urgent-label"> · فوری</span>' : ''}</td>
     <td>${faDigits.format(item.view_count)}</td><td>${formatDate(item.updated_at)}</td>
-    <td><button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">بازکردن</button></td>
+    <td><button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">${item.source_url ? 'مشاهده' : 'بازکردن'}</button></td>
   </tr>`).join('')}</tbody></table>`;
 }
 
@@ -533,7 +533,7 @@ async function openEditor(id) {
     form.elements.is_pinned.checked = Boolean(item.is_pinned);
     form.elements.is_urgent.checked = Boolean(item.is_urgent);
     document.getElementById('editor-body').innerHTML = item.body_html || '';
-    document.getElementById('editor-heading').textContent = item.can_edit ? 'ویرایش خبر' : 'مشاهدهٔ خبر (فقط خواندنی)';
+    document.getElementById('editor-heading').textContent = item.source_url ? 'خبر خودکار پورتال (فقط خواندنی)' : item.can_edit ? 'ویرایش خبر' : 'مشاهدهٔ خبر (فقط خواندنی)';
     setCategoryOptions(item.category_id);
     renderTargetPicker('editor-target-fieldset', (item.targets || []).map((target) => Number(target.id)));
     state.newsDates = { published_at: item.published_at || null, expires_at: item.expires_at || null };
@@ -542,11 +542,13 @@ async function openEditor(id) {
     form.querySelector(`input[name="schedule_mode"][value="${item.status === 'scheduled' ? 'later' : 'now'}"]`).checked = true;
     document.getElementById('editor-more').open = Boolean(item.is_pinned || item.is_urgent || item.expires_at);
     document.getElementById('editor-media').open = Boolean((item.attachments || []).length);
-    document.getElementById('editor-delete').hidden = !item.can_edit;
+    const canDeleteImported = Boolean(item.source_url) && state.user.role === 'super_admin';
+    document.getElementById('editor-delete').hidden = !(item.can_edit || canDeleteImported);
     document.getElementById('editor-unpublish').hidden = !item.can_edit || item.status === 'draft';
     renderAttachments(item.attachments || [], item.can_edit);
     form.querySelectorAll('input,textarea,select,button').forEach((element) => { if (!element.matches('[data-action="back-news"]')) element.disabled = !item.can_edit; });
     document.getElementById('editor-publish').disabled = !item.can_edit;
+    if (canDeleteImported) document.getElementById('editor-delete').disabled = false;
     setEditorMode(item.status);
     goToView('editor');
   } catch (error) { showToast(error.message); }
@@ -1338,7 +1340,43 @@ function bindCategoryEvents() {
   });
 }
 
+// ---------- Automatic portal news ----------
+function describePortalRun(run) {
+  if (!run) return 'هنوز اجرایی ثبت نشده است.';
+  const when = formatDate(run.at);
+  if (run.error) return `آخرین اجرا (${when}) ناموفق بود: ${run.error}`;
+  return `آخرین اجرا: ${when} · ${faDigits.format(run.created)} خبر تازه از ${faDigits.format(run.total)} خبر صفحهٔ پورتال`;
+}
+
+async function loadPortalStatus() {
+  try {
+    const status = await api('/api/admin/portal-news');
+    document.getElementById('portal-enabled').checked = status.enabled;
+    document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
+  } catch (error) { document.getElementById('portal-status').textContent = error.message; }
+}
+
+async function togglePortal(event) {
+  try {
+    await api('/api/admin/portal-news', { method: 'POST', body: { enabled: event.target.checked } });
+    showToast(event.target.checked ? 'دریافت خودکار خبر فعال شد.' : 'دریافت خودکار خبر خاموش شد.');
+  } catch (error) { event.target.checked = !event.target.checked; showToast(error.message); }
+}
+
+async function runPortal(event) {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = 'در حال دریافت…';
+  try {
+    const status = await api('/api/admin/portal-news', { method: 'POST', body: { run: true } });
+    document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
+    showToast(status.result?.error ? 'دریافت ناموفق بود.' : `${faDigits.format(status.result?.created ?? 0)} خبر تازه دریافت شد.`);
+  } catch (error) { showToast(error.message); }
+  finally { button.disabled = false; button.textContent = 'همین حالا بگیر'; }
+}
+
 async function loadSettings() {
+  loadPortalStatus();
   try {
     const { settings } = await api('/api/admin/settings');
     state.settings = settings;
@@ -1618,6 +1656,8 @@ function bindEvents() {
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
   bindCategoryEvents();
   bindUploadZones();
+  document.getElementById('portal-enabled').addEventListener('change', togglePortal);
+  document.getElementById('portal-run').addEventListener('click', runPortal);
   document.getElementById('radio-test').addEventListener('click', testRadio);
   document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(true));
   document.getElementById('news-more').addEventListener('click', () => loadNewsList(false));

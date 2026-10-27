@@ -70,12 +70,28 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
+
+  // Automatic portal news: status, on/off switch and "fetch now" (main admin only).
+  router.get('/portal-news', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
+    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
+    try { return response.json(await portalImporter.status()); } catch (error) { return next(error); }
+  });
+  router.post('/portal-news', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
+    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
+    try {
+      if (typeof request.body?.enabled === 'boolean') await portalImporter.setEnabled(request.body.enabled);
+      const result = request.body?.run === true ? await portalImporter.runOnce({ force: true }) : null;
+      return response.json({ ...(await portalImporter.status()), result });
+    } catch (error) { return next(error); }
+  });
 
   router.get('/settings', async (request, response, next) => {
     if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را ببیند.' });
@@ -182,12 +198,12 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count, updated_at FROM news
+          `SELECT id, title, status, published_at, view_count, updated_at, source_url FROM news
            WHERE ${where} ORDER BY updated_at DESC, id DESC LIMIT 10`,
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count FROM news
+          `SELECT id, title, status, published_at, view_count, source_url FROM news
            WHERE ${where} ORDER BY view_count DESC, id DESC LIMIT 10`,
           values,
         ),
@@ -213,7 +229,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.created_by, u.is_active,
                 u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
                 r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id
-         FROM users u JOIN regions r ON r.id = u.region_id ORDER BY r.sort_order, u.role, u.username`,
+         FROM users u JOIN regions r ON r.id = u.region_id WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, u.username`,
       );
       const users = request.user.role === 'super_admin'
         ? rows

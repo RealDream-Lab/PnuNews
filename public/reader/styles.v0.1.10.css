@@ -224,3 +224,5 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(max-width:479px){.brand-name{display:none}}
 @media(max-width:340px){.font-controls .font-down{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.news-card[data-external=true] h2::after,.pinned-card[data-external=true] h2::after{content:" ↗";color:var(--muted);font-size:.8em;font-weight:400}

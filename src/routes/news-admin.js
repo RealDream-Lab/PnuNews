@@ -103,7 +103,7 @@ async function getPolicyNews(pool, user, id) {
   if (!news) return null;
   news._regions = regions;
   const canView = canViewNews(user, news, regions);
-  return { news, regions, canView, canEdit: canView && editorCanEdit(user, news, peerEditEnabled) };
+  return { news, regions, canView, canEdit: canView && !news.source_url && editorCanEdit(user, news, peerEditEnabled) };
 }
 
 function publisherUnit(user, region) {
@@ -173,7 +173,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const [items] = await pool.execute(
         `SELECT n.id, n.title, n.summary, n.category_id, n.status, n.published_at, n.expires_at,
                 n.is_pinned, n.is_urgent, n.view_count, n.origin_region_id, n.publisher_name,
-                n.publisher_unit, n.created_by, n.updated_at, r.name AS origin_region_name,
+                n.publisher_unit, n.source_url, n.created_by, n.updated_at, r.name AS origin_region_name,
                 r.type AS origin_region_type, c.name AS category_name,
                 cover.stored_name AS cover_stored_name, cover.dominant_color AS cover_dominant_color
          FROM news n JOIN regions r ON r.id = n.origin_region_id
