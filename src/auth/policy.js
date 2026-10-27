@@ -114,11 +114,12 @@ export function canCreateUser(actor, role, region, regions) {
   return false;
 }
 
-const MANAGE_ACTIONS = new Set(['view', 'patch', 'deactivate', 'activate', 'reset_password', 'reset_2fa']);
+const MANAGE_ACTIONS = new Set(['view', 'patch', 'deactivate', 'activate', 'reset_password', 'reset_2fa', 'delete']);
 
 export function canManageUser(actor, targetUser, action, regions) {
   if (!actor || !targetUser || actor.id == null || targetUser.id == null || Number(actor.id) === Number(targetUser.id)) return false;
   if (!MANAGE_ACTIONS.has(action)) return false;
+  if (action === 'delete' && targetUser.role === ROLE.SUPER_ADMIN) return false;
   if (actor.role === ROLE.SUPER_ADMIN) return true;
   if (actor.role !== ROLE.PROVINCE_ADMIN || targetUser.role !== ROLE.CITY_ADMIN) return false;
   const targetRegion = regionById(regions, targetUser.region_id);

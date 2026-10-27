@@ -7,6 +7,7 @@ import { cleanFaText } from '../lib/fa.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
+import { createCategoryAdminRouter } from './categories-admin.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -74,15 +75,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
-
-  router.get('/categories', async (request, response, next) => {
-    try {
-      const [categories] = await pool.query('SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id');
-      return response.json({ categories });
-    } catch (error) {
-      return next(error);
-    }
-  });
+  router.use('/categories', createCategoryAdminRouter({ pool }));
 
   router.get('/settings', async (request, response, next) => {
     if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را ببیند.' });
@@ -113,7 +106,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           updates[key] = normalized;
         } else if (key === 'max_city_admins') {
           const number = Number(value);
-          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران شهر باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
+          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران مرکز دانشگاهی باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
           updates[key] = String(number);
         } else if (key === 'radio_stream_url' || key === 'radio_nowplaying_url') {
           if (typeof value !== 'string' || value.length > 2048) return response.status(400).json({ error: 'نشانی رادیو معتبر نیست.' });
@@ -271,7 +264,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
           );
           if (Number(countRows[0].active_count) >= maxAdmins) {
             await connection.rollback();
-            return response.status(409).json({ error: `برای این شهر حداکثر ${maxAdmins} مدیر فعال مجاز است؛ ابتدا مدیر فعلی را غیرفعال کنید.` });
+            return response.status(409).json({ error: `برای این مرکز دانشگاهی حداکثر ${maxAdmins} مدیر فعال مجاز است؛ ابتدا مدیر فعلی را غیرفعال کنید.` });
           }
         }
         const [result] = await connection.execute(
@@ -391,6 +384,70 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
     });
   }
 
+  router.delete('/users/:id', async (request, response, next) => {
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ کاربر معتبر نیست.' });
+    try {
+      const regions = await getRegions(pool);
+      const target = await loadManagedUser(pool, id, request.user, regions, 'delete');
+      if (!target) return response.status(404).json({ error: 'کاربر پیدا نشد یا اجازهٔ حذف او را ندارید.' });
+      const connection = await pool.getConnection();
+      let successor;
+      let movedNews = 0;
+      try {
+        await connection.beginTransaction();
+        const [lockedRows] = await connection.execute('SELECT id, role, region_id FROM users WHERE id = ? FOR UPDATE', [id]);
+        if (!lockedRows[0]) {
+          await connection.rollback();
+          return response.status(404).json({ error: 'کاربر پیدا نشد.' });
+        }
+        if (target.role === 'province_admin') {
+          const [subordinates] = await connection.execute(
+            `SELECT COUNT(*) AS total FROM users u JOIN regions r ON r.id = u.region_id
+             WHERE u.role = 'city_admin' AND r.parent_id = ?`,
+            [target.region_id],
+          );
+          if (Number(subordinates[0].total) > 0) {
+            await connection.rollback();
+            return response.status(409).json({ error: 'این مدیر استان هنوز مدیر زیرمجموعه دارد؛ ابتدا مدیران مراکز دانشگاهی این استان را حذف کنید.' });
+          }
+        }
+        // Superior: a city admin's news go to the active province admin of the same province;
+        // otherwise (province admin, or no province admin) to the person performing the deletion.
+        successor = { id: request.user.id, full_name: request.user.full_name };
+        if (target.role === 'city_admin' && target.parent_region_id) {
+          const [superiors] = await connection.execute(
+            `SELECT id, full_name FROM users
+             WHERE role = 'province_admin' AND region_id = ? AND is_active = 1 AND id <> ?
+             ORDER BY id LIMIT 1`,
+            [target.parent_region_id, id],
+          );
+          if (superiors[0]) successor = superiors[0];
+        }
+        const [moved] = await connection.execute('UPDATE news SET created_by = ? WHERE created_by = ?', [successor.id, id]);
+        movedNews = Number(moved.affectedRows);
+        await connection.execute('UPDATE news SET updated_by = ? WHERE updated_by = ?', [successor.id, id]);
+        await connection.execute('UPDATE news SET published_by_user_id = ? WHERE published_by_user_id = ?', [successor.id, id]);
+        await connection.execute('UPDATE users SET created_by = ? WHERE created_by = ?', [successor.id, id]);
+        await connection.execute('DELETE FROM users WHERE id = ?', [id]);
+        await writeAudit(connection, request.user.id, 'user.delete', 'user', id, request, {
+          username: target.username, role: target.role, region_id: target.region_id,
+          transferred_to: successor.id, news_transferred: movedNews,
+        });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      appEvents.emit('news.changed', { id: null });
+      return response.json({ ok: true, news_transferred: movedNews, transferred_to: { id: successor.id, full_name: successor.full_name } });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.get('/regions', async (request, response, next) => {
     try {
       const regions = await getRegions(pool);
@@ -431,7 +488,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       const [parents] = await pool.execute('SELECT id, type FROM regions WHERE id = ?', [parentId]);
       const parent = parents[0];
       const validParent = (type === 'province' && parent?.type === 'country') || (type === 'city' && parent?.type === 'province');
-      if (!validParent) return response.status(400).json({ error: 'استان باید زیرمجموعهٔ کشور و شهر باید زیرمجموعهٔ استان باشد.' });
+      if (!validParent) return response.status(400).json({ error: 'استان باید زیرمجموعهٔ کشور و مرکز دانشگاهی باید زیرمجموعهٔ استان باشد.' });
       const connection = await pool.getConnection();
       let id;
       try {
