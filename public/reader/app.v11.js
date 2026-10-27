@@ -732,11 +732,12 @@ function showInstallBanner(mode) {
 
 // A new service worker waits until the visitor accepts the update banner, then the page reloads on the new version.
 let waitingWorker = null;
+let swRegistration = null;
 let controlled = Boolean(navigator.serviceWorker?.controller);
 
 function showUpdateBanner(worker) {
+  waitingWorker = worker; // always track the newest waiting worker, even while the banner is already open
   if (!updateRoot || updateRoot.childElementCount) return;
-  waitingWorker = worker;
   updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-icon-192.v1.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
 }
 
@@ -748,6 +749,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/sw.js');
+      swRegistration = registration;
       const announce = (worker) => worker.addEventListener('statechange', () => {
         if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(worker);
       });
@@ -766,10 +768,11 @@ updateRoot?.addEventListener('click', (event) => {
     return;
   }
   const accept = event.target.closest('[data-update-accept]');
-  if (!accept || !waitingWorker) return;
+  const worker = swRegistration?.waiting ?? waitingWorker; // a newer release may have replaced the one the banner was opened for
+  if (!accept || !worker) return;
   accept.disabled = true;
   accept.textContent = 'در حال به‌روزرسانی…';
-  waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+  worker.postMessage({ type: 'SKIP_WAITING' });
   setTimeout(() => location.reload(), 4000); // safety net if the worker never reports control
 });
 window.addEventListener('beforeinstallprompt', (event) => {

@@ -1,13 +1,13 @@
-const CACHE_NAME = 'pnunews-shell-v10';
+const CACHE_NAME = 'pnunews-shell-v11';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
   '/icons/pnu-mark.v2.svg',
   '/icons/pnu-icon-192.v1.png',
-  '/reader/styles.v10.css',
-  '/reader/app.v10.js',
-  '/shared/theme.v10.js',
+  '/reader/styles.v11.css',
+  '/reader/app.v11.js',
+  '/shared/theme.v11.js',
   '/shared/manifest-switch.v1.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
 
