@@ -35,7 +35,7 @@ test('reader, admin, and offline pages have balanced markup and local scripts', 
 
 test('admin document provides every JavaScript element hook exactly once', async () => {
   const markup = await readPublicFile('admin/index.html');
-  const script = await readFile(new URL('../public/admin/admin.v7.js', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../public/admin/admin.v8.js', import.meta.url), 'utf8');
   const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'admin document IDs must be unique');
   const idSet = new Set(ids);
@@ -55,13 +55,14 @@ test('reader shell has no scope chips, one sticky dock with the radio mount, and
   const markup = await readPublicFile('index.html');
   assert.doesNotMatch(markup, /scope-chip|scope-row/);
   assert.match(markup, /<footer class="site-dock">[\s\S]*<span class="dock-text">[\s\S]*<div id="radio-root"><\/div>[\s\S]*<\/footer>/);
-  const theme = await readPublicFile('shared/theme.v7.js');
+  const theme = await readPublicFile('shared/theme.v8.js');
   assert.doesNotMatch(theme, /'auto'/);
 });
 
 test('web app manifest declares installable PNG icons and every referenced file exists', async () => {
   const manifest = JSON.parse(await readPublicFile('manifest.webmanifest'));
   assert.equal(manifest.display, 'standalone');
+  assert.deepEqual(manifest.display_override, ['fullscreen', 'standalone']);
   assert.equal(manifest.start_url, '/');
   for (const purpose of ['any', 'maskable']) {
     for (const size of ['192x192', '512x512']) {
