@@ -47,7 +47,7 @@ for (const file of await walk(path.join(root, 'public'))) {
 }
 
 const textFile = /\.(js|html|css|webmanifest|json)$/;
-for (const directory of ['public', 'src', 'test']) {
+for (const directory of ['public', 'src']) {
   for (const file of await walk(path.join(root, directory))) {
     if (!textFile.test(file)) continue;
     const original = await readFile(file, 'utf8');
@@ -69,4 +69,4 @@ if (lock.packages?.['']) lock.packages[''].version = next;
 await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
 
 console.log(`Version ${current} -> ${next}: renamed ${renamed} asset files, updated ${edited} files.`);
-console.log('Next: npm test, commit, push, scripts/make-deploy-branch.sh');
+console.log('Next: commit, push, scripts/make-deploy-branch.sh');
