@@ -35,7 +35,7 @@ test('reader, admin, and offline pages have balanced markup and local scripts', 
 
 test('admin document provides every JavaScript element hook exactly once', async () => {
   const markup = await readPublicFile('admin/index.html');
-  const script = await readFile(new URL('../public/admin/admin.v8.js', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../public/admin/admin.v9.js', import.meta.url), 'utf8');
   const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'admin document IDs must be unique');
   const idSet = new Set(ids);
@@ -55,7 +55,7 @@ test('reader shell has no scope chips, one sticky dock with the radio mount, and
   const markup = await readPublicFile('index.html');
   assert.doesNotMatch(markup, /scope-chip|scope-row/);
   assert.match(markup, /<footer class="site-dock">[\s\S]*<span class="dock-text">[\s\S]*<div id="radio-root"><\/div>[\s\S]*<\/footer>/);
-  const theme = await readPublicFile('shared/theme.v8.js');
+  const theme = await readPublicFile('shared/theme.v9.js');
   assert.doesNotMatch(theme, /'auto'/);
 });
 
@@ -90,4 +90,12 @@ test('reader and offline pages link the manifest and icons', async () => {
     assert.match(markup, /rel="manifest"/, name);
     assert.match(markup, /rel="apple-touch-icon" href="\/icons\/apple-touch-icon\.v1\.png"/, name);
   }
+});
+
+test('service worker waits for the page before taking over and the reader offers the update', async () => {
+  const worker = await readPublicFile('sw.js');
+  assert.match(worker, /event\.data\?\.type === 'SKIP_WAITING'/);
+  assert.doesNotMatch(worker.match(/addEventListener\('install'[\s\S]*?\n\}\);/)[0], /skipWaiting/);
+  assert.match(await readPublicFile('index.html'), /<div id="update-root"><\/div>/);
+  assert.match(await readPublicFile('reader/app.v9.js'), /data-update-accept/);
 });

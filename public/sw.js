@@ -1,13 +1,13 @@
-const CACHE_NAME = 'pnunews-shell-v8';
+const CACHE_NAME = 'pnunews-shell-v9';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
   '/icons/pnu-mark.v2.svg',
   '/icons/pnu-icon-192.v1.png',
-  '/reader/styles.v8.css',
-  '/reader/app.v8.js',
-  '/shared/theme.v8.js',
+  '/reader/styles.v9.css',
+  '/reader/app.v9.js',
+  '/shared/theme.v9.js',
   '/shared/manifest-switch.v1.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
 
@@ -18,7 +18,12 @@ const FEED_CACHE = 'pnunews-last-feed-v1';
 const IMAGE_CACHE = 'pnunews-images-v1';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)));
+});
+
+// A new version waits until the page asks for it (see the update banner in reader/app).
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
