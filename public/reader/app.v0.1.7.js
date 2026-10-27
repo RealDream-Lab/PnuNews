@@ -1,3 +1,5 @@
+import { initDock } from '/shared/dock.v0.1.7.js';
+
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
 const feed = document.getElementById('feed');
@@ -10,7 +12,6 @@ const searchField = document.querySelector('.search-field');
 const sentinel = document.getElementById('feed-sentinel');
 const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
-const radioRoot = document.getElementById('radio-root');
 const installRoot = document.getElementById('install-root');
 const updateRoot = document.getElementById('update-root');
 
@@ -30,26 +31,13 @@ const state = {
   firstId: null,
   newsId: null,
   refreshTimer: null,
-  radioUrl: '',
-  radioTitle: '',
-  nowPlayingTimer: null,
   toastTimer: null,
   fontScale: 1,
 };
-let radioAudio = null;
 let intersectionObserver = null;
 
 const digits = new Intl.NumberFormat('fa-IR');
 
-// Footer shows the version of the code that is actually running (taken from this file's versioned name, e.g. app.v0.1.6.js).
-const appVersion = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1];
-const dockText = document.querySelector('.dock-text');
-if (appVersion && dockText) {
-  const versionLabel = document.createElement('span');
-  versionLabel.className = 'dock-version';
-  versionLabel.textContent = ` · نسخه ${appVersion.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit])}`;
-  dockText.append(versionLabel);
-}
 const dateFormatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
   timeZone: 'Asia/Tehran', day: 'numeric', month: 'long', year: 'numeric',
 });
@@ -84,6 +72,14 @@ function showToast(message) {
   toast.classList.add('is-visible');
   clearTimeout(state.toastTimer);
   state.toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
+}
+
+const dock = initDock({ showToast });
+
+// The install / update cards float just above the footer, whatever its height is (the radio makes it taller on phones).
+const siteDock = document.querySelector('.site-dock');
+if (siteDock && 'ResizeObserver' in window) {
+  new ResizeObserver(() => document.documentElement.style.setProperty('--dock-height', `${siteDock.offsetHeight}px`)).observe(siteDock);
 }
 
 async function getJson(url) {
@@ -410,118 +406,6 @@ function initTheme() {
   });
 }
 
-function setMediaMetadata(title, artist) {
-  if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
-  try {
-    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: state.radioTitle || 'رادیو' });
-    navigator.mediaSession.setActionHandler('play', playRadio);
-    navigator.mediaSession.setActionHandler('pause', () => radioAudio?.pause());
-  } catch {}
-}
-
-async function playRadio() {
-  if (!radioAudio || !state.radioUrl) return;
-  if (!radioAudio.src) radioAudio.src = state.radioUrl;
-  try { await radioAudio.play(); } catch { showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.'); }
-}
-
-async function refreshNowPlaying() {
-  try {
-    const data = await getJson('/api/public/radio');
-    const caption = radioRoot.querySelector('.radio-now-playing');
-    if (!caption) return;
-    const song = data.now_playing;
-    caption.textContent = song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو';
-    if (song?.title) setMediaMetadata(song.title, song.artist || state.radioTitle);
-  } catch {}
-}
-
-function renderRadio(radio) {
-  const enabled = radio?.enabled && radio.stream_url;
-  if (!enabled) {
-    if (radioAudio) {
-      radioAudio.pause();
-      radioAudio.removeAttribute('src');
-      radioAudio.load();
-    }
-    radioRoot.replaceChildren();
-    if ('mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.metadata = null;
-      } catch {}
-    }
-    state.radioUrl = '';
-    state.radioTitle = '';
-    clearInterval(state.nowPlayingTimer);
-    return;
-  }
-  const changed = state.radioUrl !== radio.stream_url;
-  if (changed && radioAudio) {
-    radioAudio.pause();
-    radioAudio.removeAttribute('src');
-    radioAudio.load();
-  }
-  state.radioUrl = radio.stream_url;
-  state.radioTitle = radio.title || 'رادیو';
-  if (!radioAudio) {
-    radioAudio = document.createElement('audio');
-    radioAudio.preload = 'none';
-    radioAudio.volume = .6;
-    try {
-      const saved = localStorage.getItem('pnu.radioVolume');
-      const volume = saved === null || saved === '' ? NaN : Number(saved);
-      if (volume >= 0 && volume <= 1) radioAudio.volume = volume;
-    } catch {}
-    radioAudio.addEventListener('play', () => {
-      const button = radioRoot.querySelector('.radio-play');
-      if (button) {
-        button.innerHTML = '<svg class="icon"><use href="#icon-pause"/></svg>';
-        button.setAttribute('aria-label', 'توقف رادیو');
-      }
-    });
-    radioAudio.addEventListener('pause', () => {
-      const button = radioRoot.querySelector('.radio-play');
-      if (button) {
-        button.innerHTML = '<svg class="icon"><use href="#icon-play"/></svg>';
-        button.setAttribute('aria-label', 'پخش رادیو');
-      }
-    });
-    radioAudio.addEventListener('error', () => showToast('پخش رادیو در دسترس نیست.'));
-  }
-  if (!radioRoot.querySelector('.radio-bar')) {
-    radioRoot.innerHTML = `<section class="radio-bar" aria-label="پخش رادیوی دانشگاه">
-      <button class="audio-button radio-play" type="button" aria-label="پخش رادیو"><svg class="icon"><use href="#icon-play"/></svg></button>
-      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing">پخش زندهٔ رادیو</span></div>
-      <label class="volume-control" aria-label="بلندی صدا"><svg class="icon"><use href="#icon-volume"/></svg><input class="radio-volume" type="range" min="0" max="1" step="0.05" aria-label="بلندی صدا"></label>
-    </section>`;
-    radioRoot.querySelector('.radio-volume').value = String(radioAudio.volume);
-  }
-  radioRoot.querySelector('.radio-title').textContent = state.radioTitle;
-  setMediaMetadata(state.radioTitle, 'رادیوی اینترنتی');
-  clearInterval(state.nowPlayingTimer);
-  refreshNowPlaying();
-  state.nowPlayingTimer = setInterval(refreshNowPlaying, 20_000);
-}
-
-function initRadioEvents() {
-  radioRoot.addEventListener('click', async (event) => {
-    const button = event.target.closest('.radio-play');
-    if (!button || !state.radioUrl || !radioAudio) return;
-    if (!radioAudio.paused) {
-      radioAudio.pause();
-      return;
-    }
-    await playRadio();
-  });
-  radioRoot.addEventListener('input', (event) => {
-    if (!event.target.matches('.radio-volume') || !radioAudio) return;
-    radioAudio.volume = Number(event.target.value);
-    try { localStorage.setItem('pnu.radioVolume', String(radioAudio.volume)); } catch {}
-  });
-}
-
 async function refreshConfig() {
   try {
     const nextConfig = await getJson('/api/public/config');
@@ -544,7 +428,7 @@ async function refreshConfig() {
       state.province = selected.province;
       updateSelectedCity();
     }
-    renderRadio(nextConfig.radio);
+    dock.renderRadio(nextConfig.radio);
     if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
     if (regionsChanged) {
       if (state.pickerProvince) state.pickerProvince = nextConfig.provinces.find((item) => Number(item.id) === Number(state.pickerProvince.id)) ?? null;
@@ -558,7 +442,6 @@ async function refreshConfig() {
 async function initializeReader({ newsOnly = false } = {}) {
   initTheme();
   initFontScale();
-  initRadioEvents();
   intersectionObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) loadMore();
   }, { rootMargin: '700px 0px' });
@@ -590,7 +473,7 @@ async function initializeReader({ newsOnly = false } = {}) {
         openPicker();
       }
     }
-    renderRadio(config.radio);
+    dock.renderRadio(config.radio);
   } catch {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
   }

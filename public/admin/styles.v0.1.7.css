@@ -122,3 +122,98 @@
 .swal-actions .button{min-width:120px}
 @keyframes swal-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.swal-dialog{animation:none}}
+
+/* ---------- Dropdowns: one look everywhere (same chevron as the other disclosure arrows) ---------- */
+html select:not([multiple]){appearance:none;-webkit-appearance:none;-moz-appearance:none;background-color:var(--surface);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6b80' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .8rem center;background-size:1.1rem;padding-left:2.5rem;padding-right:.7rem;cursor:pointer;text-overflow:ellipsis}
+:root[data-theme="dark"] select:not([multiple]){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa9bf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"] select:not([multiple]){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa9bf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")}}
+select:not([multiple]):disabled{opacity:.55;cursor:not-allowed}
+select option{background:var(--surface);color:var(--text)}
+.mini-button:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- Footer shared with the reader page ---------- */
+.site-dock{background:var(--surface);border-top:1px solid var(--border);color:var(--muted);font-size:.82rem;padding-bottom:var(--safe-bottom)}
+.dock-inner{min-height:48px;margin-inline:auto;padding:.45rem max(16px,env(safe-area-inset-right,0px)) .45rem max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:center;gap:.9rem}
+.dock-text{flex:none;white-space:nowrap}
+#radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
+#radio-root:empty{display:none}
+.radio-bar{width:100%;max-width:440px;min-height:52px;border:1px solid var(--border);border-radius:14px;background:var(--bg);color:var(--text);display:flex;align-items:center;gap:.7rem;padding:.3rem .7rem;direction:rtl}
+.audio-button{width:40px;height:40px;display:grid;place-items:center;flex:none;color:var(--primary);border:1px solid var(--border);background:var(--surface);border-radius:12px;cursor:pointer}
+.audio-button .icon{width:1.2rem;height:1.2rem}
+.audio-button:hover{border-color:var(--primary);background:var(--primary-soft)}
+.radio-info{min-width:0;flex:1;line-height:1.45}
+.radio-info strong,.radio-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.radio-info strong{font-size:.85rem}
+.radio-info span{font-size:.72rem;color:var(--muted)}
+.volume-control{display:flex;align-items:center;gap:.25rem;color:var(--muted)}
+.volume-control .icon{width:1rem;height:1rem}
+.radio-volume{width:82px;accent-color:var(--primary)}
+@media(max-width:767px){
+  .site-dock{padding-bottom:calc(4.4rem + var(--safe-bottom))}
+  .dock-inner{flex-direction:column;gap:.2rem;padding-block:.4rem}
+  .dock-text{font-size:.74rem;line-height:1.5}
+  #radio-root{order:-1;flex:none;width:100%}
+  .radio-bar{max-width:none}
+  .radio-volume{width:65px}
+}
+
+/* ---------- Progress bars (uploads) ---------- */
+progress{appearance:none;-webkit-appearance:none;display:block;width:100%;height:8px;border:0;border-radius:999px;background:var(--soft);overflow:hidden;accent-color:var(--primary)}
+progress::-webkit-progress-bar{background:var(--soft);border-radius:999px}
+progress::-webkit-progress-value{background:var(--primary);border-radius:999px;transition:width .12s ease}
+progress::-moz-progress-bar{background:var(--primary);border-radius:999px}
+.upload-progress{margin-top:-.35rem}
+
+/* ---------- Attachments: drag & drop zones ---------- */
+.media-zones{display:grid;gap:1rem;padding:.85rem}
+.zone{display:grid;gap:.5rem;min-width:0}
+.dropzone{position:relative;display:grid!important;justify-items:center;align-content:center;gap:.2rem;min-height:132px;padding:1rem .9rem;border:2px dashed var(--border);border-radius:14px;background:var(--soft);text-align:center;cursor:pointer;transition:border-color .12s ease,background-color .12s ease}
+.dropzone:hover,.dropzone:focus-within{border-color:var(--primary)}
+.dropzone.is-dragover{border-color:var(--primary);background:var(--primary-soft)}
+.dropzone:has(.dropzone-input:disabled){opacity:.55;cursor:not-allowed}
+.dropzone-input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.dropzone-input:disabled{cursor:not-allowed}
+.dropzone-icon{width:1.7rem;height:1.7rem;color:var(--primary);margin-bottom:.15rem}
+.dropzone strong{font-size:.92rem;font-weight:700}
+.dropzone span{color:var(--muted);font-size:.82rem;line-height:1.6;font-weight:400}
+.dropzone small{color:var(--muted);font-size:.74rem;line-height:1.6;font-weight:400}
+.upload-queue{list-style:none;margin:0;padding:0;display:grid;gap:.45rem}
+.upload-queue:empty{display:none}
+.upload-item{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:.7rem;align-items:center;padding:.5rem .6rem;border:1px solid var(--border);border-radius:11px;background:var(--surface)}
+.upload-item.is-failed{border-color:var(--danger)}
+.upload-thumb{width:44px;height:44px;border-radius:9px;background:var(--soft);display:grid;place-items:center;overflow:hidden;color:var(--muted)}
+.upload-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.upload-meta{min-width:0;display:grid;gap:.25rem}
+.upload-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.84rem;font-weight:500;line-height:1.5}
+.upload-status{display:flex;justify-content:space-between;gap:.5rem;color:var(--muted);font-size:.74rem;line-height:1.5}
+.upload-item.is-done .upload-status{color:var(--success)}
+.upload-item.is-failed .upload-status{color:var(--danger)}
+.upload-remove{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted)}
+.upload-remove:hover{border-color:var(--danger);color:var(--danger)}
+.upload-remove:disabled{opacity:.4;cursor:not-allowed}
+.upload-remove .icon{width:1rem;height:1rem}
+.upload-total{display:grid;gap:.4rem;padding:.7rem .8rem;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.upload-total-text{display:flex;justify-content:space-between;gap:.5rem;font-size:.82rem;font-weight:500}
+@media(min-width:1280px){.media-zones{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.upload-total{grid-column:1/-1}}
+
+/* ---------- Categories manager ---------- */
+.category-hint{margin:0 0 1rem}
+.category-list{padding:0;overflow:hidden}
+.category-row{display:flex;align-items:center;gap:.75rem;padding:.65rem 1rem}
+.category-row+.category-row{border-top:1px solid var(--border)}
+.category-main{flex:1;min-width:0;display:grid;line-height:1.5}
+.category-name{font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.category-main small{color:var(--muted);font-size:.78rem}
+.category-row.is-inactive .category-name{color:var(--muted)}
+.category-actions{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.category-row.is-editing{background:var(--primary-soft)}
+.category-edit{display:flex;gap:.6rem;align-items:flex-end;width:100%}
+.category-edit label{flex:1;display:grid;gap:.3rem;font-size:.82rem;font-weight:500}
+.category-edit input{width:100%;min-height:42px;border:1px solid var(--border);border-radius:9px;padding:.35rem .7rem;background:var(--surface);color:var(--text)}
+.category-edit .button{min-height:42px}
+@media(max-width:767px){.category-row{flex-wrap:wrap}.category-actions{width:100%;justify-content:flex-start}.category-edit{flex-direction:column;align-items:stretch}}
+
+/* The footer sits at the bottom of the page without making short pages scroll. */
+.admin-shell{display:flex;flex-direction:column}
+.admin-shell>.admin-layout{flex:1 1 auto;min-height:0}
+.admin-shell>.site-dock{flex:none}

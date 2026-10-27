@@ -1,3 +1,4 @@
+import { initDock } from '/shared/dock.v0.1.7.js';
 import {
   JALALI_MONTHS,
 
@@ -21,6 +22,9 @@ const state = {
   activeView: '',
   busy: false,
   units: { items: [], open: new Set(), editing: null },
+  categoryAdmin: { items: [], editing: null },
+  uploads: { cover: [], images: [], files: [] },
+  uploadSeq: 0,
 };
 const faCollator = new Intl.Collator('fa', { sensitivity: 'base' });
 const faDigits = new Intl.NumberFormat('fa-IR');
@@ -55,6 +59,8 @@ function showMessage(title, message, secret = '') {
   content.innerHTML = `<p class="eyebrow">اطلاع‌رسانی</p><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${secret ? `<div class="temp-secret"><code dir="ltr">${escapeHtml(secret)}</code><button class="button outline" type="button" data-copy-secret>کپی</button></div>` : ''}`;
   dialog.showModal();
 }
+
+const dock = initDock({ showToast });
 
 // SweetAlert-style dialogs (no external library; the CSP only allows our own files).
 function askDialog({ title, text = '', tone = 'warning', confirmText = 'تأیید', cancelText = 'انصراف', input = null }) {
@@ -249,6 +255,7 @@ function goToView(view) {
   else if (actualView === 'news') loadNewsList(true);
   else if (actualView === 'users') loadUsers();
   else if (actualView === 'regions') loadRegions();
+  else if (actualView === 'categories') loadCategories();
   else if (actualView === 'settings') loadSettings();
   else if (actualView === 'audit') loadAudit(true);
   else if (actualView === 'stats') loadStats();
@@ -282,6 +289,7 @@ async function prepareWorkspace() {
   document.getElementById('user-chip').textContent = `${state.user.full_name} · ${placeLabel}`;
   setScopeBanner();
   beginQuickCompose();
+  dock.loadRadio();
   document.querySelectorAll('[data-super-only]').forEach((element) => { element.hidden = state.user.role !== 'super_admin'; });
   document.getElementById('new-user-button').hidden = state.user.role === 'city_admin';
   if (matchMedia('(max-width: 767px)').matches) goToView('mobile-compose');
@@ -473,7 +481,8 @@ function setEditorMode(status) {
 
 function setCategoryOptions(value = '') {
   const select = document.querySelector('#news-editor [name="category_id"]');
-  select.innerHTML = '<option value="">بدون دسته‌بندی</option>' + state.categories.map((category) => `<option value="${Number(category.id)}">${escapeHtml(category.name)}</option>`).join('');
+  const usable = state.categories.filter((category) => category.is_active !== false || Number(category.id) === Number(value));
+  select.innerHTML = '<option value="">بدون دسته‌بندی</option>' + usable.map((category) => `<option value="${Number(category.id)}">${escapeHtml(category.name)}${category.is_active === false ? ' (غیرفعال)' : ''}</option>`).join('');
   select.value = value == null ? '' : String(value);
 }
 
@@ -497,6 +506,7 @@ function resetEditor() {
   form.querySelector('input[name="schedule_mode"][value="now"]').checked = true;
   document.getElementById('editor-media').open = false;
   document.getElementById('editor-more').open = false;
+  resetUploads();
   setEditorMode(null);
   goToView('editor');
 }
@@ -555,20 +565,265 @@ function editorPayload() {
   };
 }
 
+// ---------- Attachments: drag & drop zones with upload progress ----------
+const UPLOAD_RULES = {
+  imageBytes: 12 * 1024 * 1024,
+  fileBytes: 15 * 1024 * 1024,
+  maxImages: 10, // cover + other images, counted together with the ones already saved on the news
+  maxFiles: 8,
+  fileExtensions: new Set(['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt', 'csv']),
+};
+
+function formatBytes(bytes) {
+  if (bytes >= 1024 * 1024) return `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 1 }).format(bytes / 1024 / 1024)} مگابایت`;
+  return `${new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 0 }).format(Math.max(1, bytes / 1024))} کیلوبایت`;
+}
+
+function uploadPercent(entry) {
+  return faDigits.format(Math.round(entry.percent)) + '٪';
+}
+
+function uploadStatusText(entry) {
+  if (entry.status === 'uploading') return entry.processing ? 'در حال پردازش روی سرور…' : `در حال ارسال… ${uploadPercent(entry)}`;
+  if (entry.status === 'done') return 'ارسال شد';
+  if (entry.status === 'failed') return entry.error || 'ارسال ناموفق بود';
+  return `آمادهٔ ارسال · ${formatBytes(entry.file.size)}`;
+}
+
+function resetUploads() {
+  state.uploads = { cover: [], images: [], files: [] };
+  for (const zone of Object.keys(state.uploads)) renderUploadQueue(zone);
+  document.getElementById('upload-total').hidden = true;
+}
+
+function renderUploadQueue(zone) {
+  const list = document.querySelector(`[data-queue="${zone}"]`);
+  const locked = document.querySelector(`[data-zone="${zone}"] .dropzone-input`)?.disabled;
+  list.innerHTML = state.uploads[zone].map((entry) => `<li class="upload-item is-${entry.status}" data-upload-id="${entry.id}">`
+    + `<div class="upload-thumb">${entry.thumb ? `<img src="${entry.thumb}" alt="">` : '<svg class="icon" aria-hidden="true"><use href="#admin-icon-file"/></svg>'}</div>`
+    + `<div class="upload-meta"><span class="upload-name" title="${escapeHtml(entry.file.name)}">${escapeHtml(entry.file.name)}</span>`
+    + `<progress max="100" value="${Math.round(entry.percent)}"${entry.status === 'uploading' || entry.status === 'done' ? '' : ' hidden'}></progress>`
+    + `<div class="upload-status"><span>${escapeHtml(uploadStatusText(entry))}</span></div></div>`
+    + `<button type="button" class="upload-remove" data-upload-remove="${entry.id}" aria-label="حذف از فهرست"${locked || state.busy ? ' disabled' : ''}><svg class="icon" aria-hidden="true"><use href="#admin-icon-close"/></svg></button></li>`).join('');
+}
+
+// Progress events fire many times per second, so only the affected row is touched.
+function updateUploadItem(entry) {
+  const row = document.querySelector(`[data-upload-id="${entry.id}"]`);
+  if (!row) return;
+  row.className = `upload-item is-${entry.status}`;
+  const bar = row.querySelector('progress');
+  bar.hidden = !(entry.status === 'uploading' || entry.status === 'done');
+  bar.value = Math.round(entry.percent);
+  row.querySelector('.upload-status span').textContent = uploadStatusText(entry);
+}
+
+function allUploadEntries() {
+  return [...state.uploads.cover, ...state.uploads.images, ...state.uploads.files];
+}
+
+function updateUploadTotal() {
+  const entries = allUploadEntries();
+  const total = entries.reduce((sum, entry) => sum + entry.file.size, 0) || 1;
+  const loaded = entries.reduce((sum, entry) => sum + entry.file.size * (entry.status === 'done' ? 1 : entry.percent / 100), 0);
+  const percent = Math.min(100, Math.round((loaded / total) * 100));
+  const finished = entries.filter((entry) => entry.status === 'done' || entry.status === 'failed').length;
+  document.getElementById('upload-total-bar').value = percent;
+  document.getElementById('upload-total-percent').textContent = `${faDigits.format(percent)}٪`;
+  document.getElementById('upload-total-label').textContent = `در حال ارسال پیوست‌ها… ${faDigits.format(Math.min(finished + 1, entries.length))} از ${faDigits.format(entries.length)}`;
+}
+
+async function makeThumbnail(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { resizeWidth: 96, resizeQuality: 'low' });
+    const canvas = document.createElement('canvas');
+    canvas.width = 88;
+    canvas.height = 88;
+    const side = Math.min(bitmap.width, bitmap.height);
+    canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 88, 88);
+    bitmap.close?.();
+    return canvas.toDataURL('image/jpeg', .7);
+  } catch { return null; }
+}
+
+function savedAttachmentCounts() {
+  const saved = state.currentNews?.attachments || [];
+  return {
+    images: saved.filter((item) => item.kind === 'image' || item.kind === 'cover').length,
+    files: saved.filter((item) => item.kind === 'file').length,
+  };
+}
+
+function addUploadFiles(zone, fileList) {
+  const picked = [...fileList];
+  if (!picked.length) return;
+  const problems = [];
+  const accepted = [];
+  const sameFile = (entry, file) => entry.file.name === file.name && entry.file.size === file.size && entry.file.lastModified === file.lastModified;
+  const saved = savedAttachmentCounts();
+  for (const file of picked) {
+    if (zone === 'files') {
+      const extension = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
+      if (!UPLOAD_RULES.fileExtensions.has(extension)) { problems.push(`«${file.name}» از نوع‌های مجاز نیست.`); continue; }
+      if (file.size > UPLOAD_RULES.fileBytes) { problems.push(`«${file.name}» بزرگ‌تر از ۱۵ مگابایت است.`); continue; }
+    } else {
+      if (!file.type.startsWith('image/')) { problems.push(`«${file.name}» تصویر نیست.`); continue; }
+      if (file.size > UPLOAD_RULES.imageBytes) { problems.push(`«${file.name}» بزرگ‌تر از ۱۲ مگابایت است.`); continue; }
+    }
+    if (state.uploads[zone].some((entry) => sameFile(entry, file)) || accepted.some((other) => other === file)) continue;
+    accepted.push(file);
+  }
+  let chosen = accepted;
+  if (zone === 'cover') {
+    if (chosen.length > 1) problems.push('فقط یک تصویر جلد می‌توان انتخاب کرد؛ نخستین تصویر برداشته شد.');
+    chosen = chosen.slice(0, 1);
+    state.uploads.cover = [];
+  } else {
+    const used = zone === 'files'
+      ? saved.files + state.uploads.files.length
+      : saved.images + state.uploads.cover.length + state.uploads.images.length;
+    const limit = zone === 'files' ? UPLOAD_RULES.maxFiles : UPLOAD_RULES.maxImages;
+    const room = Math.max(0, limit - used);
+    if (chosen.length > room) {
+      problems.push(zone === 'files' ? 'برای هر خبر حداکثر ۸ فایل پیوست می‌توان گذاشت.' : 'برای هر خبر حداکثر ۱۰ تصویر (با احتساب جلد) می‌توان گذاشت.');
+      chosen = chosen.slice(0, room);
+    }
+  }
+  for (const file of chosen) {
+    const entry = { id: String(++state.uploadSeq), file, status: 'queued', percent: 0, processing: false, error: '', thumb: null };
+    state.uploads[zone].push(entry);
+    if (zone !== 'files') {
+      makeThumbnail(file).then((thumb) => {
+        if (!thumb) return;
+        entry.thumb = thumb;
+        const image = document.querySelector(`[data-upload-id="${entry.id}"] .upload-thumb`);
+        if (image) image.innerHTML = `<img src="${thumb}" alt="">`;
+      });
+    }
+  }
+  renderUploadQueue(zone);
+  if (problems.length) showToast(problems[0]);
+  if (chosen.length) document.getElementById('editor-media').open = true;
+}
+
+function uploadWithProgress(path, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', path);
+    request.withCredentials = true;
+    request.setRequestHeader('accept', 'application/json');
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && event.total) onProgress?.(event.loaded / event.total);
+    });
+    request.addEventListener('load', () => {
+      let payload = {};
+      try { payload = JSON.parse(request.responseText); } catch {}
+      if (request.status >= 200 && request.status < 300) resolve(payload);
+      else reject(new Error(payload.error || 'ارسال فایل ناموفق بود.'));
+    });
+    request.addEventListener('error', () => reject(new Error('ارتباط با سرور قطع شد؛ اتصال اینترنت را بررسی کنید.')));
+    request.addEventListener('timeout', () => reject(new Error('مهلت ارسال تمام شد؛ دوباره تلاش کنید.')));
+    request.addEventListener('abort', () => reject(new Error('ارسال لغو شد.')));
+    request.send(formData);
+  });
+}
+
+// Files are sent one by one, so every file gets its own progress bar and one bad file does not block the others.
 async function uploadEditorFiles(newsId) {
-  const form = document.getElementById('news-editor');
-  const cover = form.elements.cover.files[0];
-  const images = [...form.elements.images.files];
-  const files = [...form.elements.files.files];
-  if (!cover && !images.length && !files.length) return;
-  const formData = new FormData();
-  if (cover) formData.append('cover', cover);
-  for (const image of images) formData.append('image', image);
-  for (const file of files) formData.append('file', file);
-  await api(`/api/admin/news/${newsId}/attachments`, { method: 'POST', formData });
-  form.elements.cover.value = '';
-  form.elements.images.value = '';
-  form.elements.files.value = '';
+  const jobs = [
+    ...state.uploads.cover.map((entry) => ({ entry, field: 'cover' })),
+    ...state.uploads.images.map((entry) => ({ entry, field: 'image' })),
+    ...state.uploads.files.map((entry) => ({ entry, field: 'file' })),
+  ];
+  if (!jobs.length) return;
+  document.getElementById('editor-media').open = true;
+  document.getElementById('upload-total').hidden = false;
+  document.querySelectorAll('#editor-media .dropzone-input, #editor-media .upload-remove').forEach((element) => { element.disabled = true; });
+  updateUploadTotal();
+  let failed = 0;
+  for (const { entry, field } of jobs) {
+    entry.status = 'uploading';
+    entry.percent = 0;
+    entry.processing = false;
+    entry.error = '';
+    updateUploadItem(entry);
+    updateUploadTotal();
+    const formData = new FormData();
+    formData.append(field, entry.file, entry.file.name);
+    try {
+      await uploadWithProgress(`/api/admin/news/${newsId}/attachments`, formData, (ratio) => {
+        entry.percent = Math.min(99, ratio * 100);
+        entry.processing = ratio >= 1;
+        updateUploadItem(entry);
+        updateUploadTotal();
+      });
+      entry.status = 'done';
+      entry.percent = 100;
+      entry.processing = false;
+    } catch (error) {
+      entry.status = 'failed';
+      entry.error = error.message;
+      failed += 1;
+    }
+    updateUploadItem(entry);
+    updateUploadTotal();
+  }
+  for (const zone of Object.keys(state.uploads)) {
+    state.uploads[zone] = state.uploads[zone].filter((entry) => entry.status !== 'done');
+    renderUploadQueue(zone);
+  }
+  document.getElementById('upload-total').hidden = !failed;
+  if (failed) {
+    throw new Error(failed === 1
+      ? 'خبر ذخیره شد، اما یک پیوست ارسال نشد. علت را در فهرست پیوست‌ها ببینید و دوباره ذخیره کنید.'
+      : `خبر ذخیره شد، اما ${faDigits.format(failed)} پیوست ارسال نشد. علت را در فهرست پیوست‌ها ببینید و دوباره ذخیره کنید.`);
+  }
+}
+
+function bindUploadZones() {
+  const container = document.getElementById('editor-media');
+  const hasFiles = (event) => [...(event.dataTransfer?.types || [])].includes('Files');
+  const zoneOf = (event) => event.target.closest?.('[data-zone]');
+  container.addEventListener('dragenter', (event) => { if (hasFiles(event) && zoneOf(event)) { event.preventDefault(); zoneOf(event).querySelector('.dropzone').classList.add('is-dragover'); } });
+  container.addEventListener('dragover', (event) => {
+    if (!hasFiles(event) || !zoneOf(event)) return;
+    event.preventDefault();
+    const locked = zoneOf(event).querySelector('.dropzone-input').disabled;
+    event.dataTransfer.dropEffect = locked ? 'none' : 'copy';
+    zoneOf(event).querySelector('.dropzone').classList.add('is-dragover');
+  });
+  container.addEventListener('dragleave', (event) => {
+    const zone = zoneOf(event);
+    if (zone && !zone.contains(event.relatedTarget)) zone.querySelector('.dropzone').classList.remove('is-dragover');
+  });
+  container.addEventListener('drop', (event) => {
+    const zone = zoneOf(event);
+    if (!zone || !hasFiles(event)) return;
+    event.preventDefault();
+    zone.querySelector('.dropzone').classList.remove('is-dragover');
+    if (zone.querySelector('.dropzone-input').disabled) return;
+    addUploadFiles(zone.dataset.zone, event.dataTransfer.files);
+  });
+  container.addEventListener('change', (event) => {
+    const input = event.target.closest('.dropzone-input');
+    if (!input) return;
+    addUploadFiles(input.closest('[data-zone]').dataset.zone, input.files);
+    input.value = ''; // so the same file can be picked again after removing it
+  });
+  container.addEventListener('click', (event) => {
+    const remove = event.target.closest('[data-upload-remove]');
+    if (!remove) return;
+    for (const zone of Object.keys(state.uploads)) {
+      if (state.uploads[zone].some((entry) => entry.id === remove.dataset.uploadRemove)) {
+        state.uploads[zone] = state.uploads[zone].filter((entry) => entry.id !== remove.dataset.uploadRemove);
+        renderUploadQueue(zone);
+      }
+    }
+  });
+  // A file dropped beside a zone must not make the browser open it and throw the unsaved news away.
+  for (const type of ['dragover', 'drop']) {
+    window.addEventListener(type, (event) => { if (hasFiles(event) && !zoneOf(event)) event.preventDefault(); });
+  }
 }
 
 async function saveEditor() {
@@ -599,20 +854,32 @@ async function saveEditor() {
   return savedId;
 }
 
+function setEditorBusy(busy) {
+  state.busy = busy;
+  const editable = state.currentNews?.can_edit !== false;
+  for (const id of ['editor-publish', 'editor-save']) document.getElementById(id).disabled = busy || !editable;
+  document.querySelectorAll('#editor-media .dropzone-input, #editor-media .upload-remove').forEach((element) => { element.disabled = busy || !editable; });
+}
+
 async function handleEditorSubmit(event) {
   event.preventDefault();
+  if (state.busy) return;
   const error = document.getElementById('editor-error');
   error.textContent = '';
+  setEditorBusy(true);
   try {
     const id = await saveEditor();
     showToast(state.currentNews?.status === 'published' ? 'تغییرات ذخیره شد.' : 'پیش‌نویس ذخیره شد.');
     await openEditor(id);
   } catch (failure) { error.textContent = failure.message; }
+  finally { setEditorBusy(false); }
 }
 
 async function publishEditor() {
+  if (state.busy) return;
   const error = document.getElementById('editor-error');
   error.textContent = '';
+  setEditorBusy(true);
   const scheduled = document.querySelector('#news-editor input[name="schedule_mode"]:checked')?.value === 'later';
   try {
     if (scheduled && !state.newsDates.published_at) throw new Error('برای زمان‌بندی، ابتدا تاریخ و ساعت انتشار را انتخاب کنید.');
@@ -624,6 +891,7 @@ async function publishEditor() {
     showToast(scheduled ? 'انتشار خبر زمان‌بندی شد.' : 'خبر منتشر شد.');
     await openEditor(id);
   } catch (failure) { error.textContent = failure.message; }
+  finally { setEditorBusy(false); }
 }
 
 function beginQuickCompose() {
@@ -646,7 +914,12 @@ async function submitQuickCompose(event) {
     if (cover) {
       const formData = new FormData();
       formData.append('cover', cover);
-      await api(`/api/admin/news/${created.id}/attachments`, { method: 'POST', formData });
+      const bar = document.getElementById('quick-progress');
+      bar.value = 0;
+      bar.hidden = false;
+      try {
+        await uploadWithProgress(`/api/admin/news/${created.id}/attachments`, formData, (ratio) => { bar.value = Math.round(ratio * 100); });
+      } finally { bar.hidden = true; }
     }
     await api(`/api/admin/news/${created.id}/publish`, { method: 'POST', body: {} });
     form.reset();
@@ -876,6 +1149,140 @@ async function saveUnit(form) {
   setScopeBanner();
 }
 
+// ---------- Categories (main admin only) ----------
+function categoryRow(category, index, total) {
+  if (state.categoryAdmin.editing === category.id) {
+    return `<div class="category-row is-editing"><form class="category-edit" data-category-form="${category.id}"><label>نام دسته‌بندی<input name="name" maxlength="120" required autocomplete="off" value="${escapeHtml(category.name)}"></label><button class="button primary" type="submit">ذخیره</button><button class="button outline" type="button" data-category-cancel>انصراف</button></form></div>`;
+  }
+  const count = category.news_count ? `${faDigits.format(category.news_count)} خبر` : 'بدون خبر';
+  return `<div class="category-row${category.is_active ? '' : ' is-inactive'}" data-category-id="${category.id}">`
+    + `<div class="category-main"><span class="category-name">${escapeHtml(category.name)}</span><small>${count}</small></div>`
+    + `<span class="status-badge ${category.is_active ? 'published' : 'draft'}">${category.is_active ? 'فعال' : 'غیرفعال'}</span>`
+    + `<div class="category-actions">`
+    + `<button class="mini-button" type="button" data-category-move="up" data-category-id="${category.id}" aria-label="بالا بردن"${index === 0 ? ' disabled' : ''}>↑</button>`
+    + `<button class="mini-button" type="button" data-category-move="down" data-category-id="${category.id}" aria-label="پایین آوردن"${index === total - 1 ? ' disabled' : ''}>↓</button>`
+    + `<button class="mini-button" type="button" data-category-edit="${category.id}">ویرایش</button>`
+    + `<button class="mini-button" type="button" data-category-toggle="${category.id}">${category.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>`
+    + `<button class="mini-button danger" type="button" data-category-delete="${category.id}">حذف</button>`
+    + `</div></div>`;
+}
+
+function renderCategories() {
+  const panel = document.getElementById('categories-list');
+  const items = state.categoryAdmin.items;
+  panel.innerHTML = items.length
+    ? items.map((category, index) => categoryRow(category, index, items.length)).join('')
+    : '<p class="empty-panel">هنوز دسته‌بندی‌ای ثبت نشده است. با «دسته‌بندی تازه» نخستین مورد را بسازید.</p>';
+}
+
+async function loadCategories() {
+  const panel = document.getElementById('categories-list');
+  if (!state.categoryAdmin.items.length) panel.innerHTML = '<p class="empty-panel">در حال دریافت فهرست…</p>';
+  try {
+    const { categories } = await api('/api/admin/categories?manage=1');
+    state.categoryAdmin.items = categories;
+    state.categories = categories; // the news editor's dropdown uses the same list
+    renderCategories();
+  } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
+}
+
+async function submitCategory(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.getElementById('category-error');
+  message.textContent = '';
+  try {
+    await api('/api/admin/categories', { method: 'POST', body: { name: form.elements.name.value } });
+    form.hidden = true;
+    form.reset();
+    showToast('دسته‌بندی افزوده شد.');
+    await loadCategories();
+  } catch (error) { message.textContent = error.message; }
+}
+
+async function saveCategoryName(form) {
+  const id = Number(form.dataset.categoryForm);
+  const current = state.categoryAdmin.items.find((item) => item.id === id);
+  const name = form.elements.name.value.trim();
+  if (!current || name === current.name) { state.categoryAdmin.editing = null; renderCategories(); return; }
+  try {
+    await api(`/api/admin/categories/${id}`, { method: 'PATCH', body: { name } });
+    state.categoryAdmin.editing = null;
+    showToast('نام دسته‌بندی ذخیره شد.');
+    await loadCategories();
+  } catch (error) { showToast(error.message); }
+}
+
+async function moveCategory(id, direction) {
+  const ids = state.categoryAdmin.items.map((item) => item.id);
+  const index = ids.indexOf(id);
+  const target = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= ids.length) return;
+  [ids[index], ids[target]] = [ids[target], ids[index]];
+  try {
+    await api('/api/admin/categories/reorder', { method: 'POST', body: { ids } });
+    await loadCategories();
+  } catch (error) { showToast(error.message); }
+}
+
+async function toggleCategory(id) {
+  const current = state.categoryAdmin.items.find((item) => item.id === id);
+  if (!current) return;
+  try {
+    await api(`/api/admin/categories/${id}`, { method: 'PATCH', body: { is_active: !current.is_active } });
+    showToast(current.is_active ? 'دسته‌بندی غیرفعال شد.' : 'دسته‌بندی فعال شد.');
+    await loadCategories();
+  } catch (error) { showToast(error.message); }
+}
+
+async function deleteCategory(id) {
+  const current = state.categoryAdmin.items.find((item) => item.id === id);
+  if (!current) return;
+  const detail = current.news_count
+    ? `${faDigits.format(current.news_count)} خبر با این دسته‌بندی حذف نمی‌شوند و فقط «بدون دسته‌بندی» می‌شوند.`
+    : 'این دسته‌بندی خبری ندارد.';
+  if (!await confirmDialog({ title: `حذف «${current.name}»؟`, text: detail, tone: 'danger', confirmText: 'بله، حذف شود' })) return;
+  try {
+    await api(`/api/admin/categories/${id}`, { method: 'DELETE', body: {} });
+    showToast('دسته‌بندی حذف شد.');
+    await loadCategories();
+  } catch (error) { showToast(error.message); }
+}
+
+function bindCategoryEvents() {
+  document.getElementById('new-category-button').addEventListener('click', () => {
+    const form = document.getElementById('category-form');
+    form.hidden = false;
+    form.reset();
+    document.getElementById('category-error').textContent = '';
+    form.elements.name.focus();
+  });
+  document.getElementById('category-form').addEventListener('submit', submitCategory);
+  const list = document.getElementById('categories-list');
+  list.addEventListener('click', (event) => {
+    const edit = event.target.closest('[data-category-edit]');
+    if (edit) {
+      state.categoryAdmin.editing = Number(edit.dataset.categoryEdit);
+      renderCategories();
+      list.querySelector('.category-edit input')?.focus();
+      return;
+    }
+    if (event.target.closest('[data-category-cancel]')) { state.categoryAdmin.editing = null; renderCategories(); return; }
+    const move = event.target.closest('[data-category-move]');
+    if (move) { moveCategory(Number(move.dataset.categoryId), move.dataset.categoryMove); return; }
+    const toggle = event.target.closest('[data-category-toggle]');
+    if (toggle) { toggleCategory(Number(toggle.dataset.categoryToggle)); return; }
+    const remove = event.target.closest('[data-category-delete]');
+    if (remove) deleteCategory(Number(remove.dataset.categoryDelete));
+  });
+  list.addEventListener('submit', (event) => {
+    const form = event.target.closest('[data-category-form]');
+    if (!form) return;
+    event.preventDefault();
+    saveCategoryName(form);
+  });
+}
+
 async function loadSettings() {
   try {
     const { settings } = await api('/api/admin/settings');
@@ -909,6 +1316,7 @@ async function saveSettings(event) {
     } });
     state.settings = result.settings;
     showToast('تنظیمات ذخیره شد.');
+    dock.loadRadio();
   } catch (failure) { error.textContent = failure.message; }
 }
 
@@ -944,7 +1352,7 @@ async function loadAudit(reset = false) {
 }
 
 function entityLabel(entity) {
-  return ({ news: 'خبر', user: 'کاربر', region: 'مرکز یا واحد', settings: 'تنظیمات' })[entity] || 'سامانه';
+  return ({ news: 'خبر', user: 'کاربر', region: 'مرکز یا واحد', settings: 'تنظیمات', category: 'دسته‌بندی' })[entity] || 'سامانه';
 }
 
 function auditAction(action) {
@@ -954,6 +1362,8 @@ function auditAction(action) {
     'news.publish': 'انتشار خبر', 'news.schedule': 'زمان‌بندی خبر', 'news.unpublish': 'لغو انتشار',
     'user.create': 'ساخت کاربر', 'user.deactivate': 'غیرفعال‌سازی کاربر', 'user.activate': 'فعال‌سازی کاربر', 'user.delete': 'حذف کاربر',
     'settings.update': 'تغییر تنظیمات', 'region.update': 'ویرایش مرکز یا واحد', 'region.create': 'افزودن مرکز یا واحد',
+    'category.create': 'افزودن دسته‌بندی', 'category.update': 'ویرایش دسته‌بندی', 'category.reorder': 'تغییر ترتیب دسته‌بندی‌ها', 'category.delete': 'حذف دسته‌بندی',
+    'news.attachment_add': 'افزودن پیوست', 'news.attachment_delete': 'حذف پیوست',
   };
   return labels[action] || 'رویداد دیگر';
 }
@@ -1151,6 +1561,8 @@ function bindEvents() {
   document.getElementById('user-form').addEventListener('submit', submitUser);
   document.getElementById('region-form').addEventListener('submit', submitRegion);
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
+  bindCategoryEvents();
+  bindUploadZones();
   document.getElementById('radio-test').addEventListener('click', testRadio);
   document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(true));
   document.getElementById('news-more').addEventListener('click', () => loadNewsList(false));
@@ -1226,6 +1638,7 @@ function bindEvents() {
     if (userAction) return handleUserAction(userAction);
     if (event.target.closest('[data-action="cancel-user"]')) document.getElementById('user-form').hidden = true;
     if (event.target.closest('[data-action="cancel-region"]')) document.getElementById('region-form').hidden = true;
+    if (event.target.closest('[data-action="cancel-category"]')) document.getElementById('category-form').hidden = true;
   });
   const regionsTree = document.getElementById('regions-tree');
   regionsTree.addEventListener('click', (event) => {

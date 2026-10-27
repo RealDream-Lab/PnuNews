@@ -128,7 +128,12 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 #radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
 #radio-root:empty{display:none}
 
-.install-banner{max-width:1120px;margin-inline:auto;display:flex;align-items:center;gap:.7rem;padding:.6rem max(var(--pad),env(safe-area-inset-right,0px)) .6rem max(var(--pad),env(safe-area-inset-left,0px));border-bottom:1px solid var(--border);color:var(--text)}
+.floating-banners{position:fixed;z-index:25;inset-inline:0;bottom:calc(var(--dock-height,64px) + .75rem);display:flex;flex-direction:column;align-items:center;gap:.6rem;padding-inline:max(.75rem,env(safe-area-inset-right,0px)) max(.75rem,env(safe-area-inset-left,0px));pointer-events:none}
+.floating-banners>div{width:100%;max-width:520px;pointer-events:auto}
+.floating-banners>div:empty{display:none}
+.install-banner{display:flex;align-items:center;gap:.7rem;padding:.65rem .75rem;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);box-shadow:0 6px 22px rgba(7,16,31,.16)}
+:root[data-theme="dark"] .install-banner{box-shadow:0 6px 22px rgba(0,0,0,.45)}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"] .install-banner{box-shadow:0 6px 22px rgba(0,0,0,.45)}}
 .install-banner img{width:40px;height:40px;border-radius:10px;flex:none}
 .install-text{flex:1;min-width:0;line-height:1.5}
 .install-text strong{display:block;font-size:.9rem}

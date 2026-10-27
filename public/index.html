@@ -15,8 +15,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.6.css">
-  <script src="/shared/theme.v0.1.6.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.7.css">
+  <script src="/shared/theme.v0.1.7.js"></script>
   <title>اخبار پیام نور</title>
 </head>
 <body>
@@ -61,7 +61,8 @@
     </main>
     <main id="news-view" class="reader-main" hidden></main>
   </div>
-  <footer class="site-dock"><div id="update-root"></div><div id="install-root"></div><div class="dock-inner"><span class="dock-text">اخبار پیام نور</span><div id="radio-root"></div></div></footer>
+  <div class="floating-banners" aria-live="polite"><div id="update-root"></div><div id="install-root"></div></div>
+  <footer class="site-dock"><div class="dock-inner"><span class="dock-text">اخبار پیام نور</span><div id="radio-root"></div></div></footer>
   <dialog id="city-picker" class="city-dialog" aria-labelledby="picker-title">
     <div class="picker-panel" tabindex="-1" autofocus>
       <div class="picker-header"><div><p class="eyebrow" id="picker-step">مرحلهٔ ۱ از ۲</p><h2 id="picker-title">استان را انتخاب کنید</h2></div><button class="icon-button picker-close" type="button" aria-label="بستن پنجره"><svg class="icon"><use href="#icon-close"/></svg></button></div>
@@ -71,6 +72,6 @@
   </div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.6.js"></script>
+  <script type="module" src="/reader/app.v0.1.7.js"></script>
 </body>
 </html>

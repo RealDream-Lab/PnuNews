@@ -7,6 +7,7 @@ import { cleanFaText } from '../lib/fa.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
+import { createCategoryAdminRouter } from './categories-admin.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -74,15 +75,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
-
-  router.get('/categories', async (request, response, next) => {
-    try {
-      const [categories] = await pool.query('SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id');
-      return response.json({ categories });
-    } catch (error) {
-      return next(error);
-    }
-  });
+  router.use('/categories', createCategoryAdminRouter({ pool }));
 
   router.get('/settings', async (request, response, next) => {
     if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را ببیند.' });
