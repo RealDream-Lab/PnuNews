@@ -35,7 +35,7 @@ test('reader, admin, and offline pages have balanced markup and local scripts', 
 
 test('admin document provides every JavaScript element hook exactly once', async () => {
   const markup = await readPublicFile('admin/index.html');
-  const script = await readFile(new URL('../public/admin/admin.v11.js', import.meta.url), 'utf8');
+  const script = await readFile(new URL('../public/admin/admin.v0.1.1.js', import.meta.url), 'utf8');
   const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
   assert.equal(new Set(ids).size, ids.length, 'admin document IDs must be unique');
   const idSet = new Set(ids);
@@ -55,7 +55,7 @@ test('reader shell has no scope chips, one sticky dock with the radio mount, and
   const markup = await readPublicFile('index.html');
   assert.doesNotMatch(markup, /scope-chip|scope-row/);
   assert.match(markup, /<footer class="site-dock">[\s\S]*<span class="dock-text">[\s\S]*<div id="radio-root"><\/div>[\s\S]*<\/footer>/);
-  const theme = await readPublicFile('shared/theme.v11.js');
+  const theme = await readPublicFile('shared/theme.v0.1.1.js');
   assert.doesNotMatch(theme, /'auto'/);
 });
 
@@ -97,17 +97,31 @@ test('service worker waits for the page before taking over and the reader offers
   assert.match(worker, /event\.data\?\.type === 'SKIP_WAITING'/);
   assert.doesNotMatch(worker.match(/addEventListener\('install'[\s\S]*?\n\}\);/)[0], /skipWaiting/);
   assert.match(await readPublicFile('index.html'), /<div id="update-root"><\/div>/);
-  assert.match(await readPublicFile('reader/app.v11.js'), /data-update-accept/);
+  assert.match(await readPublicFile('reader/app.v0.1.1.js'), /data-update-accept/);
 });
 
-test('reader shows the running asset version in the footer', async () => {
-  const script = await readPublicFile('reader/app.v11.js');
+test('every versioned asset and the service worker cache follow the package.json version', async () => {
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const html = await readPublicFile('index.html');
+  for (const asset of ['reader/styles.v%.css', 'reader/app.v%.js', 'shared/theme.v%.js']) {
+    const file = asset.replace('%', version);
+    await readPublicFile(file);
+    assert.ok(html.includes(`/${file}`), `${file} linked from index.html`);
+  }
+  await readPublicFile(`admin/admin.v${version}.js`);
+  await readPublicFile(`admin/styles.v${version}.css`);
+  assert.ok((await readPublicFile('sw.js')).includes(`pnunews-shell-v${version}`), 'service worker cache name');
+});
+
+test('reader shows the running version in the footer', async () => {
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const script = await readPublicFile(`reader/app.v${version}.js`);
   assert.match(script, /dock-version/);
   assert.match(script, /import\.meta\.url/);
 });
 
 test('update banner always activates the newest waiting worker', async () => {
-  const script = await readPublicFile('reader/app.v11.js');
+  const script = await readPublicFile('reader/app.v0.1.1.js');
   assert.match(script, /swRegistration\?\.waiting \?\? waitingWorker/);
   assert.match(script, /waitingWorker = worker;[^\n]*\n\s*if \(!updateRoot/);
 });
