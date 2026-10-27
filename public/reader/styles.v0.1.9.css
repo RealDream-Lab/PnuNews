@@ -3,9 +3,9 @@
 @font-face{font-family:Vazirmatn;src:url('/fonts/Vazirmatn-Bold.v1.woff2') format('woff2');font-weight:700;font-display:swap}
 
 /* ---------- Tokens ---------- */
-:root{color-scheme:light;--bg:#f4f7fb;--surface:#fff;--surface-soft:#eef3fa;--text:#0e1a2b;--muted:#5b6b80;--border:#e2e8f0;--primary:#1f5fbf;--primary-soft:#e9f1fc;--teal:#087b78;--teal-soft:#e5f5f3;--amber:#815500;--amber-soft:#fff4dc;--urgent:#c0433b;--urgent-soft:#fff0ee;--radius:18px;--font-scale:1;--pad:20px;--safe-bottom:env(safe-area-inset-bottom,0px);font-family:Vazirmatn,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:calc(16px * var(--font-scale));line-height:1.9;background:var(--bg);color:var(--text);font-synthesis:none;text-rendering:optimizeLegibility}
-:root[data-theme="dark"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227}
-@media(prefers-color-scheme:dark){:root[data-theme="auto"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227}}
+:root{color-scheme:light;--bg:#f4f7fb;--surface:#fff;--surface-soft:#eef3fa;--text:#0e1a2b;--muted:#5b6b80;--border:#e2e8f0;--primary:#1f5fbf;--primary-soft:#e9f1fc;--teal:#087b78;--teal-soft:#e5f5f3;--amber:#815500;--amber-soft:#fff4dc;--urgent:#c0433b;--urgent-soft:#fff0ee;--radius:18px;--font-scale:1;--pad:20px;--safe-bottom:env(safe-area-inset-bottom,0px);--status-bar:#1f5fbf;font-family:Vazirmatn,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:calc(16px * var(--font-scale));line-height:1.9;background:var(--bg);color:var(--text);font-synthesis:none;text-rendering:optimizeLegibility}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227;--status-bar:#0b1220}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"]{color-scheme:dark;--bg:#0b1220;--surface:#121b2d;--surface-soft:#17243a;--text:#e8eef8;--muted:#9aa9bf;--border:#22304a;--primary:#6fa3f5;--primary-soft:#182d4c;--teal:#59c3bd;--teal-soft:#123b3a;--amber:#f1c36b;--amber-soft:#3a2e18;--urgent:#ff8b80;--urgent-soft:#3b2227;--status-bar:#0b1220}}
 :root.font-scale-90{--font-scale:.9}:root.font-scale-95{--font-scale:.95}:root.font-scale-105{--font-scale:1.05}:root.font-scale-110{--font-scale:1.1}
 
 /* ---------- Base ---------- */
@@ -31,7 +31,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visibl
 @media(hover:hover){.city-button:hover,.icon-button:hover,.picker-back:hover,.share-button:hover,.audio-button:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}}
 
 /* Behind a transparent system status bar (installed iOS app / notches) so its light icons stay readable; zero height elsewhere. */
-body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-inset-top,0px);background:#1f5fbf;z-index:60;pointer-events:none}
+body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-inset-top,0px);background:var(--status-bar);z-index:60;pointer-events:none}
 
 /* ---------- Header ---------- */
 .site-header{position:sticky;top:0;z-index:15;background:var(--bg);border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}

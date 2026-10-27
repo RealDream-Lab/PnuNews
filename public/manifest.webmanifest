@@ -10,7 +10,7 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#F4F7FB",
-  "theme_color": "#1F5FBF",
+  "theme_color": "#F4F7FB",
   "categories": [
     "news",
     "education"

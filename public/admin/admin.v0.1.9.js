@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.8.js';
+import { initDock } from '/shared/dock.v0.1.9.js';
 import {
   JALALI_MONTHS,
 
@@ -61,6 +61,10 @@ function showMessage(title, message, secret = '') {
 }
 
 const dock = initDock({ showToast });
+const siteDock = document.querySelector('.site-dock');
+if (siteDock && 'ResizeObserver' in window) {
+  new ResizeObserver(() => document.documentElement.style.setProperty('--dock-height', `${siteDock.offsetHeight}px`)).observe(siteDock);
+}
 
 // SweetAlert-style dialogs (no external library; the CSP only allows our own files).
 function askDialog({ title, text = '', tone = 'warning', confirmText = 'تأیید', cancelText = 'انصراف', input = null }) {
@@ -986,18 +990,43 @@ async function loadUsers() {
   } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
-function openUserForm() {
+// Provinces that already have an active province admin: the main admin may add city users only under these.
+async function provincesWithAdmin() {
+  const { users } = await api('/api/admin/users');
+  const ids = new Set(users.filter((user) => user.role === 'province_admin' && user.is_active).map((user) => Number(user.region_id)));
+  return state.regions.filter((region) => region.type === 'province' && ids.has(Number(region.id)));
+}
+
+function fillUserRegions() {
+  const form = document.getElementById('user-form');
+  const role = form.elements.role.value;
+  const city = role === 'city_admin';
+  const isSuper = state.user.role === 'super_admin';
+  document.getElementById('user-province-label').hidden = !(isSuper && city);
+  const provinceId = Number(form.elements.province_id.value);
+  const options = state.regions.filter((item) => item.type === (city ? 'city' : 'province') && (!isSuper || !city || Number(item.parent_id) === provinceId));
+  form.elements.region_id.innerHTML = options.map((item) => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
+  document.getElementById('user-region-label').firstChild.textContent = city ? 'مرکز دانشگاهی' : 'استان';
+}
+
+async function openUserForm() {
   const form = document.getElementById('user-form');
   form.hidden = false;
   form.reset();
+  document.getElementById('user-error').textContent = '';
   const role = form.elements.role;
-  const region = form.elements.region_id;
   const isSuper = state.user.role === 'super_admin';
-  const roleValue = isSuper ? 'province_admin' : 'city_admin';
-  role.innerHTML = `<option value="${roleValue}">${roleLabel(roleValue)}</option>`;
-  const allowedType = roleValue === 'province_admin' ? 'province' : 'city';
-  region.innerHTML = state.regions.filter((item) => item.type === allowedType)
-    .map((item) => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
+  if (isSuper) {
+    role.innerHTML = '<option value="province_admin">مدیر استان</option><option value="city_admin">مدیر مرکز دانشگاهی</option>';
+    try {
+      const provinces = await provincesWithAdmin();
+      form.elements.province_id.innerHTML = provinces.map((item) => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
+      if (!provinces.length) role.querySelector('[value="city_admin"]').disabled = true;
+    } catch (error) { showToast(error.message); }
+  } else {
+    role.innerHTML = `<option value="city_admin">${roleLabel('city_admin')}</option>`;
+  }
+  fillUserRegions();
   form.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
@@ -1603,6 +1632,8 @@ function bindEvents() {
   document.getElementById('editor-delete').addEventListener('click', deleteEditorNews);
   document.getElementById('editor-unpublish').addEventListener('click', unpublishEditorNews);
   document.getElementById('new-user-button').addEventListener('click', openUserForm);
+  document.querySelector('#user-form [name="role"]').addEventListener('change', fillUserRegions);
+  document.querySelector('#user-form [name="province_id"]').addEventListener('change', fillUserRegions);
   document.getElementById('new-region-button').addEventListener('click', () => { document.getElementById('region-form').hidden = false; populateRegionParents(); });
   document.querySelector('#region-form [name="type"]').addEventListener('change', populateRegionParents);
   document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => editorCommand(button)));
@@ -1634,10 +1665,19 @@ function bindEvents() {
   }));
   document.getElementById('message-dialog').addEventListener('click', closeMessage);
   document.getElementById('message-dialog').querySelectorAll('[data-close-message]').forEach((button) => button.addEventListener('click', closeMessage));
+  const showThemeIcons = () => {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    document.querySelectorAll('.theme-toggle').forEach((button) => {
+      button.querySelector('use').setAttribute('href', dark ? '#icon-sun' : '#icon-moon');
+      button.setAttribute('aria-label', dark ? 'تغییر به حالت روشن' : 'تغییر به حالت تیره');
+    });
+  };
+  showThemeIcons();
   const toggleTheme = () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem('pnu.theme', next); } catch {}
+    showThemeIcons();
   };
   document.getElementById('admin-theme').addEventListener('click', toggleTheme);
   document.getElementById('auth-theme').addEventListener('click', toggleTheme);

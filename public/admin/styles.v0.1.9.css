@@ -256,3 +256,12 @@ html select:not([multiple]){padding-inline-start:.8rem}
   .admin-shell>.site-dock{bottom:calc(3.9rem + var(--safe-bottom));padding-bottom:0}
   .admin-content{padding-bottom:1rem}
 }
+
+/* ---------- Theme button like the reader page, header in the page colour, fixed side menu ---------- */
+.theme-toggle{color:var(--muted)}
+.theme-toggle:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.auth-theme-toggle{width:42px;height:42px;min-height:0;padding:0;display:grid;place-items:center;font-size:1rem}
+.admin-header{background:var(--bg)}
+@media(min-width:768px){
+  .desktop-sidebar{position:sticky;top:72px;align-self:start;height:calc(100svh - 72px - var(--dock-height,64px));overflow-y:auto;overscroll-behavior:contain}
+}

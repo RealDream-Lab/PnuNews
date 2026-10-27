@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.8.js';
+import { initDock } from '/shared/dock.v0.1.9.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -610,7 +610,7 @@ function showInstallBanner(mode) {
     ? 'روی دکمهٔ اشتراک‌گذاری (مربع با فلش) بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید.'
     : 'برای دسترسی سریع‌تر، برنامه را روی دستگاه خود نصب کنید.';
   const action = mode === 'ios' ? '' : '<button type="button" class="button-primary" data-install-accept>نصب</button>';
-  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-icon-192.v2.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
 }
 
 // A new service worker waits until the visitor accepts the update banner, then the page reloads on the new version.
@@ -621,7 +621,7 @@ let controlled = Boolean(navigator.serviceWorker?.controller);
 function showUpdateBanner(worker) {
   waitingWorker = worker; // always track the newest waiting worker, even while the banner is already open
   if (!updateRoot || updateRoot.childElementCount) return;
-  updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-icon-192.v2.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
+  updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
 }
 
 if ('serviceWorker' in navigator) {
