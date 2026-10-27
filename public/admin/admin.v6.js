@@ -86,7 +86,7 @@ function closeAuthAndShowAdmin() {
 }
 
 function roleLabel(role) {
-  return ({ super_admin: 'مدیر ارشد', province_admin: 'مدیر استان', city_admin: 'مدیر مرکز دانشگاهی' })[role] || 'مدیر';
+  return ({ super_admin: 'مدیر ارشد', province_admin: 'مدیر استان', city_admin: 'مدیر شهرستان' })[role] || 'مدیر';
 }
 
 function regionName(regionId) {
@@ -96,8 +96,8 @@ function regionName(regionId) {
 function scopeText() {
   const region = state.regions.find((item) => Number(item.id) === Number(state.user?.region_id));
   if (state.user?.role === 'super_admin') return 'شما برای کل کشور منتشر می‌کنید.';
-  if (region?.type === 'province') return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای مرکز دانشگاهی ${region?.name || 'خود'} منتشر می‌کنید.`;
+  if (region?.type === 'province') return `شما برای استان ${region.name} و شهرستان‌های آن منتشر می‌کنید.`;
+  return `شما برای شهرستان ${region?.name || 'خود'} منتشر می‌کنید.`;
 }
 
 function setScopeBanner() {
@@ -118,7 +118,7 @@ function statusLabel(status) {
 
 function scopeLabel(targets = []) {
   if (!targets.length) return 'بدون مقصد';
-  return targets.map((target) => target.type === 'country' ? 'کشوری' : target.type === 'province' ? `استان ${target.name}` : `مرکز دانشگاهی ${target.name}`).join('، ');
+  return targets.map((target) => target.type === 'country' ? 'کشوری' : target.type === 'province' ? `استان ${target.name}` : `شهر ${target.name}`).join('، ');
 }
 
 function displayDateTime(value) {
@@ -328,7 +328,7 @@ function targetModel() {
   const own = state.regions.find((region) => Number(region.id) === Number(user.region_id));
   if (!own) return null;
   return {
-    kind: 'province', rootId: Number(own.id), rootLabel: `کل استان ${own.name}`, someLabel: 'مراکز دانشگاهی مشخص', noun: 'مرکز دانشگاهی',
+    kind: 'province', rootId: Number(own.id), rootLabel: `کل استان ${own.name}`, someLabel: 'شهرستان‌های مشخص', noun: 'شهرستان',
     options: state.regions.filter((region) => region.type === 'city' && Number(region.parent_id) === Number(own.id)),
   };
 }
@@ -727,7 +727,7 @@ function unitBadge(info) {
 function unitEditForm(unit) {
   const options = VISIBILITY_LABELS[unit.type].map(([value, label]) => `<option value="${value}" ${unit.visibility_override === value ? 'selected' : ''}>${label}</option>`).join('');
   return `<form class="unit-edit" data-unit-form="${unit.id}">
-    <label>نام ${unit.type === 'province' ? 'استان' : 'مرکز دانشگاهی'}<input name="name" value="${escapeHtml(unit.name)}" maxlength="160" required></label>
+    <label>نام ${unit.type === 'province' ? 'استان' : 'شهرستان'}<input name="name" value="${escapeHtml(unit.name)}" maxlength="160" required></label>
     <label>نمایش در سایت<select name="visibility">${options}</select></label>
     <div class="unit-edit-actions"><button class="button primary" type="submit">ذخیره</button><button class="button outline" type="button" data-unit-cancel>انصراف</button></div>
   </form>`;
@@ -751,7 +751,7 @@ function renderUnits() {
   const activeProvinces = provinces.filter((province) => unitState(province, citiesOf(province.id)).active).length;
   summary.innerHTML = [
     [activeProvinces, `از ${faDigits.format(provinces.length)} استان فعال`],
-    [activeCities, `از ${faDigits.format(allCities.length)} مرکز دانشگاهی فعال`],
+    [activeCities, `از ${faDigits.format(allCities.length)} شهرستان فعال`],
   ].map(([value, label]) => `<div class="units-stat"><strong>${faDigits.format(value)}</strong><span>${label}</span></div>`).join('');
 
   const query = faKey(document.getElementById('regions-search').value);
@@ -770,8 +770,8 @@ function renderUnits() {
     const open = state.units.open.has(province.id) || Boolean(query) || filter !== 'all' || state.units.editing === province.id || cities.some((city) => city.id === state.units.editing);
     const heading = state.units.editing === province.id
       ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
-      : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} مرکز دانشگاهی فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
-    html.push(`<details class="unit-province" data-province="${province.id}" ${open ? 'open' : ''}>${state.units.editing === province.id ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-cities">${shownCities.map(cityRow).join('') || '<p class="empty-panel">مرکز دانشگاهی برای نمایش نیست.</p>'}</div></details>`);
+      : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} شهرستان فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
+    html.push(`<details class="unit-province" data-province="${province.id}" ${open ? 'open' : ''}>${state.units.editing === province.id ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-cities">${shownCities.map(cityRow).join('') || '<p class="empty-panel">شهرستانی برای نمایش نیست.</p>'}</div></details>`);
   }
   container.innerHTML = html.join('') || '<p class="empty-panel">موردی پیدا نشد.</p>';
 }
@@ -810,7 +810,7 @@ async function submitRegion(event) {
     if (!isProvince) state.units.open.add(parentId);
     form.hidden = true;
     form.reset();
-    showToast(isProvince ? 'استان افزوده شد.' : 'مرکز دانشگاهی افزوده شد.');
+    showToast(isProvince ? 'استان افزوده شد.' : 'شهرستان افزوده شد.');
     await loadRegions();
   } catch (error) { message.textContent = error.message; }
 }
