@@ -56,6 +56,38 @@ function showMessage(title, message, secret = '') {
   dialog.showModal();
 }
 
+// SweetAlert-style dialogs (no external library; the CSP only allows our own files).
+function askDialog({ title, text = '', tone = 'warning', confirmText = 'تأیید', cancelText = 'انصراف', input = null }) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'swal-dialog';
+    dialog.setAttribute('aria-labelledby', 'swal-title');
+    const symbol = tone === 'question' ? '؟' : '!';
+    dialog.innerHTML = `<div class="swal-panel"><div class="swal-icon ${tone}" aria-hidden="true">${symbol}</div>`
+      + `<h2 id="swal-title" class="swal-title">${escapeHtml(title)}</h2>`
+      + (text ? `<p class="swal-text">${escapeHtml(text)}</p>` : '')
+      + (input ? `<input class="swal-input" type="${input.type || 'text'}" dir="${input.dir || 'rtl'}" placeholder="${escapeHtml(input.placeholder || '')}" autocomplete="off">` : '')
+      + `<div class="swal-actions"><button type="button" class="button ${tone === 'danger' ? 'danger' : 'primary'}" data-swal="confirm">${escapeHtml(confirmText)}</button>`
+      + `<button type="button" class="button outline" data-swal="cancel">${escapeHtml(cancelText)}</button></div></div>`;
+    const field = dialog.querySelector('.swal-input');
+    let result = null;
+    const finish = (value) => { result = value; dialog.close(); };
+    dialog.addEventListener('click', (event) => {
+      const action = event.target.closest('[data-swal]')?.dataset.swal;
+      if (action === 'confirm') finish(field ? field.value.trim() : true);
+      else if (action === 'cancel' || event.target === dialog) finish(field ? null : false);
+    });
+    if (field) field.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); finish(field.value.trim()); } });
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(result ?? (field ? null : false)); });
+    document.body.append(dialog);
+    dialog.showModal();
+    (field || dialog.querySelector(tone === 'danger' ? '[data-swal="cancel"]' : '[data-swal="confirm"]')).focus();
+  });
+}
+
+const confirmDialog = (options) => askDialog(options);
+const promptDialog = (options) => askDialog({ tone: 'question', confirmText: 'افزودن', ...options });
+
 async function api(path, { method = 'GET', body, formData } = {}) {
   const headers = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -694,12 +726,13 @@ async function handleUserAction(button) {
   const action = button.dataset.userAction;
   if (!id || !action) return;
   const isDelete = action === 'delete';
-  const question = isDelete
-    ? `کاربر «${button.dataset.userName || ''}» برای همیشه حذف می‌شود و این کار قابل بازگشت نیست.\nخبرهایی که او ساخته یا منتشر کرده به مدیر بالادستش منتقل می‌شود. ادامه می‌دهید؟`
-    : `آیا از انجام «${button.textContent.trim()}» مطمئن هستید؟`;
-  if (!confirm(question)) return;
+  const label = button.textContent.trim();
+  const confirmed = isDelete
+    ? await confirmDialog({ title: `حذف «${button.dataset.userName || 'کاربر'}»؟`, text: 'این کاربر برای همیشه حذف می‌شود و این کار قابل بازگشت نیست. خبرهایی که او ساخته یا منتشر کرده به مدیر بالادستش منتقل می‌شود.', tone: 'danger', confirmText: 'بله، حذف شود' })
+    : await confirmDialog({ title: `${label}؟`, text: 'آیا از انجام این کار مطمئن هستید؟', tone: action === 'deactivate' ? 'warning' : 'question', confirmText: 'بله، انجام شود' });
+  if (!confirmed) return;
   try {
-    const result = await api(isDelete ? `/api/admin/users/${id}` : `/api/admin/users/${id}/${action}`, { method: isDelete ? 'DELETE' : 'POST', body: isDelete ? undefined : {} });
+    const result = await api(isDelete ? `/api/admin/users/${id}` : `/api/admin/users/${id}/${action}`, { method: isDelete ? 'DELETE' : 'POST', body: {} });
     if (result.temporary_password) showMessage('گذرواژه بازنشانی شد', 'گذرواژهٔ موقت را فقط یک‌بار به کاربر تحویل دهید.', result.temporary_password);
     else if (isDelete) showToast(result.news_transferred > 0
       ? `کاربر حذف شد و ${faDigits.format(result.news_transferred)} خبر به «${result.transferred_to?.full_name || 'مدیر بالادست'}» منتقل شد.`
@@ -953,7 +986,7 @@ async function openAdminNews(id) {
 }
 
 async function removeAttachment(button) {
-  if (!confirm('این پیوست حذف شود؟')) return;
+  if (!await confirmDialog({ title: 'حذف پیوست؟', text: 'این پیوست از خبر حذف می‌شود.', tone: 'danger', confirmText: 'بله، حذف شود' })) return;
   try {
     await api(`/api/admin/attachments/${Number(button.dataset.removeAttachment)}`, { method: 'DELETE', body: {} });
     await openEditor(Number(document.querySelector('#news-editor [name="news_id"]').value));
@@ -963,7 +996,7 @@ async function removeAttachment(button) {
 
 async function deleteEditorNews() {
   const id = Number(document.querySelector('#news-editor [name="news_id"]').value);
-  if (!id || !confirm('خبر به‌صورت نرم حذف شود؟')) return;
+  if (!id || !await confirmDialog({ title: 'حذف خبر؟', text: 'خبر حذف می‌شود و دیگر در سایت نمایش داده نخواهد شد.', tone: 'danger', confirmText: 'بله، حذف شود' })) return;
   try {
     await api(`/api/admin/news/${id}`, { method: 'DELETE', body: {} });
     showToast('خبر حذف شد.');
@@ -981,12 +1014,17 @@ async function unpublishEditorNews() {
   } catch (error) { showToast(error.message); }
 }
 
-function editorCommand(button) {
+async function editorCommand(button) {
   const command = button.dataset.command;
-  document.getElementById('editor-body').focus();
+  const editor = document.getElementById('editor-body');
+  editor.focus();
   if (command === 'createLink') {
-    const url = prompt('نشانی پیوند را وارد کنید:');
+    const selection = getSelection();
+    const saved = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    const url = await promptDialog({ title: 'افزودن پیوند', text: 'نشانی پیوند را وارد کنید.', input: { type: 'url', dir: 'ltr', placeholder: 'https://' } });
     if (!url) return;
+    editor.focus();
+    if (saved) { selection.removeAllRanges(); selection.addRange(saved); }
     document.execCommand(command, false, url);
   } else document.execCommand(command, false, button.dataset.value || null);
 }
@@ -1099,7 +1137,7 @@ function bindEvents() {
   });
   document.getElementById('logout-button').addEventListener('click', logout);
   document.getElementById('logout-everywhere').addEventListener('click', async () => {
-    if (!confirm('نشست‌ها و دستگاه‌های مورداعتماد همه‌جا لغو شوند؟')) return;
+    if (!await confirmDialog({ title: 'خروج از همهٔ دستگاه‌ها؟', text: 'نشست‌ها و دستگاه‌های مورداعتماد همه‌جا لغو می‌شوند.', tone: 'warning', confirmText: 'بله، لغو شود' })) return;
     try { await api('/api/auth/devices', { method: 'DELETE', body: {} }); } catch (error) { showToast(error.message); }
     showAuth('login-card');
   });
