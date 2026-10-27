@@ -649,7 +649,7 @@ async function loadUsers() {
     }
     panel.innerHTML = [...grouped.entries()].map(([parentId, entries]) => {
       const parent = state.regions.find((region) => Number(region.id) === parentId);
-      return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button></div></div>`).join('')}</section>`;
+      return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>${user.role !== 'super_admin' && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}">حذف کاربر</button>` : ''}</div></div>`).join('')}</section>`;
     }).join('');
   } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
@@ -693,10 +693,17 @@ async function handleUserAction(button) {
   const id = Number(button.dataset.userId);
   const action = button.dataset.userAction;
   if (!id || !action) return;
-  if (!confirm(`آیا از انجام «${button.textContent.trim()}» مطمئن هستید؟`)) return;
+  const isDelete = action === 'delete';
+  const question = isDelete
+    ? `کاربر «${button.dataset.userName || ''}» برای همیشه حذف می‌شود و این کار قابل بازگشت نیست.\nخبرهایی که او ساخته یا منتشر کرده به مدیر بالادستش منتقل می‌شود. ادامه می‌دهید؟`
+    : `آیا از انجام «${button.textContent.trim()}» مطمئن هستید؟`;
+  if (!confirm(question)) return;
   try {
-    const result = await api(`/api/admin/users/${id}/${action}`, { method: 'POST', body: {} });
+    const result = await api(isDelete ? `/api/admin/users/${id}` : `/api/admin/users/${id}/${action}`, { method: isDelete ? 'DELETE' : 'POST', body: isDelete ? undefined : {} });
     if (result.temporary_password) showMessage('گذرواژه بازنشانی شد', 'گذرواژهٔ موقت را فقط یک‌بار به کاربر تحویل دهید.', result.temporary_password);
+    else if (isDelete) showToast(result.news_transferred > 0
+      ? `کاربر حذف شد و ${faDigits.format(result.news_transferred)} خبر به «${result.transferred_to?.full_name || 'مدیر بالادست'}» منتقل شد.`
+      : 'کاربر حذف شد.');
     else showToast('تغییر انجام شد.');
     await loadUsers();
   } catch (error) { showToast(error.message); }
@@ -907,7 +914,7 @@ function auditAction(action) {
     'auth.login': 'ورود', 'auth.logout': 'خروج', 'auth.login_failed': 'ورود ناموفق',
     'news.create': 'ساخت خبر', 'news.update': 'ویرایش خبر', 'news.delete': 'حذف خبر',
     'news.publish': 'انتشار خبر', 'news.schedule': 'زمان‌بندی خبر', 'news.unpublish': 'لغو انتشار',
-    'user.create': 'ساخت کاربر', 'user.deactivate': 'غیرفعال‌سازی کاربر', 'user.activate': 'فعال‌سازی کاربر',
+    'user.create': 'ساخت کاربر', 'user.deactivate': 'غیرفعال‌سازی کاربر', 'user.activate': 'فعال‌سازی کاربر', 'user.delete': 'حذف کاربر',
     'settings.update': 'تغییر تنظیمات', 'region.update': 'ویرایش مرکز یا واحد', 'region.create': 'افزودن مرکز یا واحد',
   };
   return labels[action] || 'رویداد دیگر';
@@ -1199,12 +1206,15 @@ function bindEvents() {
     event.preventDefault();
     saveUnit(form);
   });
-  regionsTree.addEventListener('toggle', (event) => {
-    const province = event.target.closest?.('[data-province]');
+  regionsTree.addEventListener('click', (event) => {
+    const summary = event.target.closest('summary');
+    if (!summary || event.target.closest('button, input, select, textarea, a')) return;
+    const province = summary.closest('[data-province]');
     if (!province) return;
     const id = Number(province.dataset.province);
-    if (province.open) state.units.open.add(id); else state.units.open.delete(id);
-  }, true);
+    // the browser toggles `open` after this handler, so the new state is the opposite of the current one
+    if (province.open) state.units.open.delete(id); else state.units.open.add(id);
+  });
   document.getElementById('regions-search').addEventListener('input', renderUnits);
   document.getElementById('regions-filter').addEventListener('change', renderUnits);
 

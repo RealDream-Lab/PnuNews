@@ -391,6 +391,59 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
     });
   }
 
+  router.delete('/users/:id', async (request, response, next) => {
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ کاربر معتبر نیست.' });
+    try {
+      const regions = await getRegions(pool);
+      const target = await loadManagedUser(pool, id, request.user, regions, 'delete');
+      if (!target) return response.status(404).json({ error: 'کاربر پیدا نشد یا اجازهٔ حذف او را ندارید.' });
+      const connection = await pool.getConnection();
+      let successor;
+      let movedNews = 0;
+      try {
+        await connection.beginTransaction();
+        const [lockedRows] = await connection.execute('SELECT id, role, region_id FROM users WHERE id = ? FOR UPDATE', [id]);
+        if (!lockedRows[0]) {
+          await connection.rollback();
+          return response.status(404).json({ error: 'کاربر پیدا نشد.' });
+        }
+        // Superior: a city admin's news go to the active province admin of the same province;
+        // otherwise (province admin, or no province admin) to the person performing the deletion.
+        successor = { id: request.user.id, full_name: request.user.full_name };
+        if (target.role === 'city_admin' && target.parent_region_id) {
+          const [superiors] = await connection.execute(
+            `SELECT id, full_name FROM users
+             WHERE role = 'province_admin' AND region_id = ? AND is_active = 1 AND id <> ?
+             ORDER BY id LIMIT 1`,
+            [target.parent_region_id, id],
+          );
+          if (superiors[0]) successor = superiors[0];
+        }
+        const [moved] = await connection.execute('UPDATE news SET created_by = ? WHERE created_by = ?', [successor.id, id]);
+        movedNews = Number(moved.affectedRows);
+        await connection.execute('UPDATE news SET updated_by = ? WHERE updated_by = ?', [successor.id, id]);
+        await connection.execute('UPDATE news SET published_by_user_id = ? WHERE published_by_user_id = ?', [successor.id, id]);
+        await connection.execute('UPDATE users SET created_by = ? WHERE created_by = ?', [successor.id, id]);
+        await connection.execute('DELETE FROM users WHERE id = ?', [id]);
+        await writeAudit(connection, request.user.id, 'user.delete', 'user', id, request, {
+          username: target.username, role: target.role, region_id: target.region_id,
+          transferred_to: successor.id, news_transferred: movedNews,
+        });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      appEvents.emit('news.changed', { id: null });
+      return response.json({ ok: true, news_transferred: movedNews, transferred_to: { id: successor.id, full_name: successor.full_name } });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.get('/regions', async (request, response, next) => {
     try {
       const regions = await getRegions(pool);
