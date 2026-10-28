@@ -1,6 +1,7 @@
 import sanitizeHtml from 'sanitize-html';
 import { buildSearchText, cleanFaText } from '../lib/fa.js';
 
+const UPLOADED_IMAGE_PATH = /^\/media\/img\/\d{4}\/(0[1-9]|1[0-2])\/[a-f\d]{32}-(400|800|1280)\.webp$/i;
 const allowedTags = ['p', 'br', 'strong', 'em', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'a', 'img'];
 const sanitizerOptions = {
   allowedTags,
@@ -12,19 +13,23 @@ const sanitizerOptions = {
   allowedSchemesByTag: { img: [] },
   allowProtocolRelative: false,
   transformTags: {
-    a: (tagName, attributes) => ({
-      tagName,
-      attribs: {
-        ...attributes,
-        ...(attributes.target === '_blank' ? { rel: 'noopener noreferrer' } : {}),
-      },
-    }),
+    // Every link is opened without access to the opener and without leaking the referrer;
+    // only the _blank target is kept.
+    a: (tagName, attributes) => {
+      const { target, ...rest } = attributes;
+      return {
+        tagName,
+        attribs: {
+          ...rest,
+          ...(target === '_blank' ? { target: '_blank' } : {}),
+          rel: 'noopener noreferrer nofollow',
+        },
+      };
+    },
   },
+  // Body images may only point at the processed upload variants served by /media/img/...
   exclusiveFilter: (frame) => frame.tag === 'img' && (
-    typeof frame.attribs.src !== 'string' ||
-    !frame.attribs.src.startsWith('/media/') ||
-    frame.attribs.src.startsWith('//') ||
-    frame.attribs.src.includes('\\')
+    typeof frame.attribs.src !== 'string' || !UPLOADED_IMAGE_PATH.test(frame.attribs.src)
   ),
 };
 

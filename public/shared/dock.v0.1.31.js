@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.9.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.31.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -23,25 +23,69 @@ export function initDock({ showToast = () => {} } = {}) {
     try {
       navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: stationTitle || 'رادیو' });
       navigator.mediaSession.setActionHandler('play', play);
-      navigator.mediaSession.setActionHandler('pause', () => audio?.pause());
+      navigator.mediaSession.setActionHandler('pause', stop);
     } catch {}
+  }
+
+  // It is a live stream: a plain pause would freeze the player at that moment, keep downloading in the background,
+  // and later resume with old audio. So "pause" ends the connection, and "play" reconnects at the live moment.
+  // The play/stop icon is set here directly. It must not depend on the audio element's own 'pause' event:
+  // stop() calls load() right after pause(), and load() discards the still-queued 'pause' event, so the icon stayed on "stop".
+  function setPlayingUi(playing) {
+    const button = radioRoot?.querySelector('.radio-play');
+    if (!button) return;
+    button.innerHTML = `<svg class="icon"><use href="#icon-${playing ? 'stop' : 'play'}"/></svg>`;
+    button.setAttribute('aria-label', playing ? 'توقف رادیو' : 'پخش رادیو');
+  }
+
+  function stop() {
+    if (!audio) return;
+    audio.pause();
+    if (audio.getAttribute('src')) {
+      audio.removeAttribute('src');
+      audio.load();
+    }
+    setPlayingUi(false);
   }
 
   async function play() {
     if (!audio || !streamUrl) return;
-    if (!audio.src) audio.src = streamUrl;
-    try { await audio.play(); } catch { showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.'); }
+    if (!audio.getAttribute('src')) audio.src = streamUrl;
+    try { await audio.play(); } catch {
+      stop();
+      showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.');
+    }
   }
+
+  // A long title scrolls back and forth (right, pause, left, pause) instead of being cut off with an ellipsis.
+  function fitNowPlaying() {
+    const caption = radioRoot?.querySelector('.radio-now-playing');
+    const text = caption?.querySelector('.np-text');
+    if (!caption || !text) return;
+    caption.classList.remove('is-scrolling');
+    const overflow = Math.ceil(text.scrollWidth - caption.clientWidth);
+    if (overflow <= 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const direction = getComputedStyle(caption).direction === 'rtl' ? 1 : -1;
+    caption.style.setProperty('--np-shift', `${overflow * direction}px`);
+    caption.style.setProperty('--np-duration', `${Math.max(8, 4 + overflow / 12)}s`);
+    caption.classList.add('is-scrolling');
+  }
+
+  function setNowPlayingText(value) {
+    const text = radioRoot?.querySelector('.radio-now-playing .np-text');
+    if (!text || text.textContent === value) return;
+    text.textContent = value;
+    requestAnimationFrame(fitNowPlaying);
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(fitNowPlaying), { passive: true });
 
   async function refreshNowPlaying() {
     try {
       const response = await fetch('/api/public/radio', { headers: { accept: 'application/json' } });
       if (!response.ok) return;
       const data = await response.json();
-      const caption = radioRoot?.querySelector('.radio-now-playing');
-      if (!caption) return;
       const song = data.now_playing;
-      caption.textContent = song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو';
+      setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
       if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
     } catch {}
   }
@@ -50,11 +94,7 @@ export function initDock({ showToast = () => {} } = {}) {
     if (!radioRoot) return;
     const enabled = radio?.enabled && radio.stream_url;
     if (!enabled) {
-      if (audio) {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
-      }
+      if (audio) stop();
       radioRoot.replaceChildren();
       if ('mediaSession' in navigator) {
         try {
@@ -68,11 +108,7 @@ export function initDock({ showToast = () => {} } = {}) {
       clearInterval(nowPlayingTimer);
       return;
     }
-    if (streamUrl !== radio.stream_url && audio) {
-      audio.pause();
-      audio.removeAttribute('src');
-      audio.load();
-    }
+    if (streamUrl !== radio.stream_url && audio) stop();
     streamUrl = radio.stream_url;
     stationTitle = radio.title || 'رادیو';
     if (!audio) {
@@ -84,26 +120,22 @@ export function initDock({ showToast = () => {} } = {}) {
         const volume = saved === null || saved === '' ? NaN : Number(saved);
         if (volume >= 0 && volume <= 1) audio.volume = volume;
       } catch {}
-      audio.addEventListener('play', () => {
-        const button = radioRoot.querySelector('.radio-play');
-        if (button) {
-          button.innerHTML = '<svg class="icon"><use href="#icon-pause"/></svg>';
-          button.setAttribute('aria-label', 'توقف رادیو');
-        }
-      });
+      audio.addEventListener('play', () => setPlayingUi(true));
       audio.addEventListener('pause', () => {
-        const button = radioRoot.querySelector('.radio-play');
-        if (button) {
-          button.innerHTML = '<svg class="icon"><use href="#icon-play"/></svg>';
-          button.setAttribute('aria-label', 'پخش رادیو');
-        }
+        // Paused by something else (headphone button, another app taking audio focus): still drop the stream.
+        if (audio.getAttribute('src')) stop();
+        else setPlayingUi(false);
       });
-      audio.addEventListener('error', () => showToast('پخش رادیو در دسترس نیست.'));
+      audio.addEventListener('error', () => {
+        if (!audio.getAttribute('src')) return; // not for the stream we closed on purpose
+        stop(); // a failed stream never pauses by itself; reset the button instead of leaving it on "stop"
+        showToast('پخش رادیو در دسترس نیست.');
+      });
     }
     if (!radioRoot.querySelector('.radio-bar')) {
       radioRoot.innerHTML = `<section class="radio-bar" aria-label="پخش رادیوی دانشگاه">
       <button class="audio-button radio-play" type="button" aria-label="پخش رادیو"><svg class="icon"><use href="#icon-play"/></svg></button>
-      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing">پخش زندهٔ رادیو</span></div>
+      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing"><span class="np-text">پخش زندهٔ رادیو</span></span></div>
       <label class="volume-control" aria-label="بلندی صدا"><svg class="icon"><use href="#icon-volume"/></svg><input class="radio-volume" type="range" min="0" max="1" step="0.05" aria-label="بلندی صدا"></label>
     </section>`;
       radioRoot.querySelector('.radio-volume').value = String(audio.volume);
@@ -119,7 +151,7 @@ export function initDock({ showToast = () => {} } = {}) {
     const button = event.target.closest('.radio-play');
     if (!button || !streamUrl || !audio) return;
     if (!audio.paused) {
-      audio.pause();
+      stop();
       return;
     }
     await play();
@@ -138,5 +170,5 @@ export function initDock({ showToast = () => {} } = {}) {
     } catch {}
   }
 
-  return { renderRadio, loadRadio };
+  return { renderRadio, loadRadio, setMediaMetadata, stopRadio: stop };
 }

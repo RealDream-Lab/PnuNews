@@ -39,10 +39,22 @@ export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 
     return publishedIds;
   }
 
+  // Expired sessions, trusted devices and old lockout counters are useless; do not keep them forever.
+  async function purgeExpired() {
+    await pool.execute('DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP()');
+    await pool.execute('DELETE FROM trusted_devices WHERE expires_at <= UTC_TIMESTAMP()');
+    await pool.execute('DELETE FROM login_attempts WHERE updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)');
+  }
+
   function start() {
     if (timer) return;
+    let lastPurge = 0;
     timer = setInterval(() => {
       runOnce().catch((error) => console.error(`Scheduler failed: ${error.message}`));
+      if (Date.now() - lastPurge >= 60 * 60_000) {
+        lastPurge = Date.now();
+        purgeExpired().catch((error) => console.error(`Expired-record cleanup failed: ${error.message}`));
+      }
     }, intervalMs);
     timer.unref?.();
   }
@@ -53,5 +65,5 @@ export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 
     timer = null;
   }
 
-  return { start, stop, runOnce };
+  return { start, stop, runOnce, purgeExpired };
 }

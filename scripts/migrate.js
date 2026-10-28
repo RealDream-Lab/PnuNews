@@ -25,7 +25,7 @@ export async function migrate(pool, migrationsDir = new URL('../migrations/', im
       const sql = await readFile(new URL(name, migrationsDir), 'utf8');
       await connection.beginTransaction();
       try {
-        for (const statement of sql.split(';').map((part) => part.trim()).filter(Boolean)) {
+        for (const statement of sql.replace(/^\s*--.*$/gm, '').split(';').map((part) => part.trim()).filter(Boolean)) {
           await connection.query(statement);
         }
         await connection.query('INSERT INTO schema_migrations (version) VALUES (?)', [name]);
