@@ -9,6 +9,7 @@ import { sanitizeBodyHtml } from '../news/content.js';
 const FEED_SCOPES = new Set(['all', 'country', 'province', 'city']);
 const VIEW_DEDUPE_MS = 30 * 60_000;
 const VIEW_DEDUPE_LIMIT = 50_000;
+const LIVE_CLIENT_LIMIT = 2000;
 const faCollator = new Intl.Collator('fa', { sensitivity: 'base' });
 
 function idValue(value) {
@@ -220,12 +221,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.17.css">
-<script src="/shared/theme.v0.1.17.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.18.css">
+<script src="/shared/theme.v0.1.18.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.17.js"></script>
+<script type="module" src="/reader/app.v0.1.18.js"></script>
 </body>
 </html>`;
 }
@@ -245,6 +246,39 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   events.on('settings.changed', clearCaches);
   events.on('regions.changed', clearCaches);
   router.use(['/api/public', '/n'], rateLimit);
+
+  // Live channel: tells open readers that the feed changed so they can refetch the first page and animate it in.
+  // The event carries no news data (readers refetch through the normal, cached feed endpoint).
+  const liveClients = new Set();
+  let liveVersion = Date.now();
+  let liveTimer = null;
+  const broadcastLive = () => {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(() => {
+      liveVersion += 1;
+      for (const client of liveClients) client.write(`event: feed\nid: ${liveVersion}\ndata: ${liveVersion}\n\n`);
+    }, 400);
+    liveTimer.unref?.();
+  };
+  events.on('news.changed', broadcastLive);
+  events.on('news.published', broadcastLive);
+  const heartbeat = setInterval(() => { for (const client of liveClients) client.write(': ping\n\n'); }, 25_000);
+  heartbeat.unref?.();
+
+  router.get('/api/public/live', (request, response) => {
+    if (liveClients.size >= LIVE_CLIENT_LIMIT) return response.status(503).json({ error: 'ظرفیت به‌روزرسانی زنده تکمیل است.' });
+    request.socket.setTimeout(0);
+    response.status(200).set({
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+    response.flushHeaders();
+    response.write('retry: 5000\n\n');
+    liveClients.add(response);
+    request.on('close', () => liveClients.delete(response));
+  });
 
   router.get('/media/placeholder/:color.svg', (request, response) => {
     const color = request.params.color;

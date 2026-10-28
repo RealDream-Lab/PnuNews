@@ -1,4 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.17.js';
+import { initDock } from '/shared/dock.v0.1.18.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.18.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -28,6 +29,7 @@ const state = {
   spacer: null,
   spacerHeight: 0,
   pinnedIds: new Set(),
+  pinnedSig: '',
   firstId: null,
   newsId: null,
   refreshTimer: null,
@@ -321,9 +323,11 @@ function clearFeed() {
   state.spacer = null;
   state.spacerHeight = 0;
   state.pinnedIds = new Set();
+  state.pinnedSig = '';
   state.cursor = null;
   state.ended = false;
   state.firstId = null;
+  liveDirty = false;
   pinnedStrip.replaceChildren();
   pinnedStrip.hidden = true;
   newItemsBanner.hidden = true;
@@ -376,6 +380,7 @@ async function loadMore() {
     if (isFirstPage) {
       const pinned = Array.isArray(data.pinned) ? data.pinned : [];
       state.pinnedIds = new Set(pinned.map((item) => Number(item.id)));
+      state.pinnedSig = pinnedSignature(pinned);
       pinnedStrip.hidden = !pinned.length;
       if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
     }
@@ -386,7 +391,7 @@ async function loadMore() {
       template.innerHTML = cardMarkup(item, { featured: isFirstPage && state.entries.length === 0 && Boolean(item.cover?.src) });
       const node = template.content.firstElementChild;
       feed.append(node);
-      state.entries.push({ id: item.id, node });
+      state.entries.push({ id: item.id, node, item, sig: itemSignature(item) });
     }
     state.cursor = data.next_cursor;
     state.ended = !data.next_cursor;
@@ -410,13 +415,197 @@ async function loadMore() {
   }
 }
 
-async function checkForNewItems() {
-  if (!state.city || state.newsId || state.loading || state.firstId == null) return;
-  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '1' });
+// ---------- Live updates ----------
+// The server pushes a tiny "feed changed" event (SSE); we then refetch the first page and animate the difference
+// in: new cards slide in at the top, the rest of the grid glides to its new place (FLIP), edited cards crossfade
+// and removed ones fade out. A 60-second poll covers browsers or proxies where the live channel is unavailable.
+const LIVE_NEAR_TOP = 360;
+const LIVE_EASING = 'cubic-bezier(.22,.8,.26,1)';
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let liveSyncing = false;
+let liveDirty = false;
+let liveTimer = 0;
+let liveHadError = false;
+
+function createCardNode(item, featured) {
+  const template = document.createElement('template');
+  template.innerHTML = cardMarkup(item, { featured });
+  return template.content.firstElementChild;
+}
+
+// Rects of the cards that are on (or near) the screen, so only those need to be animated.
+function captureRects() {
+  const rects = new Map();
+  for (const element of [...state.entries.map((entry) => entry.node), pinnedStrip]) {
+    const rect = element.getBoundingClientRect();
+    if (rect.bottom > -300 && rect.top < innerHeight + 300) rects.set(element, rect);
+  }
+  return rects;
+}
+
+function playFlip(before, skip) {
+  if (reducedMotion.matches) return;
+  for (const [element, from] of before) {
+    if (skip.has(element) || !element.isConnected) continue;
+    const to = element.getBoundingClientRect();
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+    element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 520, easing: LIVE_EASING });
+  }
+}
+
+function animateIn(node) {
+  node.classList.add('is-fresh');
+  setTimeout(() => node.classList.remove('is-fresh'), 2600);
+  if (reducedMotion.matches) return;
+  node.animate(
+    [{ opacity: 0, transform: 'translateY(-22px) scale(.96)' }, { opacity: 1, transform: 'none' }],
+    { duration: 650, delay: 140, easing: LIVE_EASING, fill: 'backwards' },
+  );
+}
+
+function animateOut(node) {
+  if (reducedMotion.matches) return Promise.resolve();
+  return node.animate(
+    [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }],
+    { duration: 260, easing: 'ease-in', fill: 'forwards' },
+  ).finished.catch(() => {});
+}
+
+function renderPinnedStrip(pinned) {
+  pinnedStrip.hidden = !pinned.length;
+  pinnedStrip.innerHTML = pinned.length ? pinned.map(pinnedMarkup).join('') : '';
+  if (pinned.length && !reducedMotion.matches) pinnedStrip.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' });
+}
+
+async function applyLiveData(data) {
+  const plan = planLiveUpdate(state.entries, data);
+  const nextPinnedSig = pinnedSignature(plan.pinned);
+  const pinnedChanged = nextPinnedSig !== state.pinnedSig;
+  const firstId = plan.items[0]?.id ?? null;
+
+  if (!state.entries.length) {
+    // Empty state (or nothing loaded yet): simply load the feed normally when something showed up.
+    if (plan.items.length || plan.pinned.length) resetFeed();
+    return;
+  }
+  // Cards above the viewport were recycled (a spacer stands in for them): rebuilding from the top is the safe way.
+  if (plan.resync || (state.spacer && (plan.inserts.length || plan.removed.length))) { resetFeed(); return; }
+  if (!plan.inserts.length && !plan.updates.length && !plan.removed.length && !pinnedChanged) {
+    state.firstId = firstId ?? state.firstId;
+    return;
+  }
+
+  // 1) Cards that disappeared fade out first.
+  const removedNodes = state.entries.filter((entry) => plan.removed.includes(Number(entry.id))).map((entry) => entry.node);
+  if (removedNodes.length) await Promise.all(removedNodes.map(animateOut));
+  if (!state.city || state.newsId || state.loading) { liveDirty = true; return; }
+
+  // 2) Change the DOM in one go, then let the grid glide to its new layout.
+  const before = captureRects();
+  const fresh = new Set();
+  const skip = new Set();
+  for (const node of removedNodes) { node.remove(); skip.add(node); }
+  state.entries = state.entries.filter((entry) => !plan.removed.includes(Number(entry.id)));
+
+  for (const item of plan.updates) {
+    const entry = state.entries.find((candidate) => Number(candidate.id) === Number(item.id));
+    if (!entry) continue;
+    const node = createCardNode(item, entry.node.classList.contains('is-featured'));
+    entry.node.replaceWith(node);
+    if (before.has(entry.node)) before.set(node, before.get(entry.node));
+    entry.node = node;
+    entry.item = item;
+    entry.sig = itemSignature(item);
+    skip.add(node);
+    if (!reducedMotion.matches) node.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' });
+  }
+
+  for (const { item, afterId } of plan.inserts) {
+    const node = createCardNode(item, false);
+    const anchorIndex = afterId == null ? -1 : state.entries.findIndex((entry) => Number(entry.id) === Number(afterId));
+    if (anchorIndex >= 0) state.entries[anchorIndex].node.after(node);
+    else if (state.entries[0]) state.entries[0].node.before(node);
+    else feed.prepend(node);
+    state.entries.splice(anchorIndex + 1, 0, { id: item.id, node, item, sig: itemSignature(item) });
+    fresh.add(node);
+    skip.add(node);
+  }
+
+  // The first card with a cover is shown big ("featured"); keep that true after inserts/removals.
+  state.entries.forEach((entry, index) => {
+    const wanted = index === 0 && Boolean(entry.item.cover?.src);
+    if (entry.node.classList.contains('is-featured') === wanted) return;
+    const node = createCardNode(entry.item, wanted);
+    entry.node.replaceWith(node);
+    if (before.has(entry.node)) before.set(node, before.get(entry.node));
+    if (fresh.has(entry.node)) { fresh.delete(entry.node); fresh.add(node); }
+    skip.delete(entry.node);
+    skip.add(node);
+    entry.node = node;
+  });
+
+  if (pinnedChanged) {
+    renderPinnedStrip(plan.pinned);
+    state.pinnedSig = nextPinnedSig;
+  }
+  state.pinnedIds = plan.pinnedIds;
+  state.firstId = firstId ?? state.firstId;
+  newItemsBanner.hidden = true;
+  if (!state.entries.length && pinnedStrip.hidden) {
+    feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
+  }
+  layoutMasonry();
+  playFlip(before, skip);
+  for (const node of fresh) animateIn(node);
+}
+
+async function syncFeed() {
+  if (!state.city || state.newsId || state.loading || liveSyncing || document.hidden) { liveDirty = true; return; }
+  const cityId = String(state.city.id);
+  liveSyncing = true;
+  liveDirty = false;
   try {
+    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', live: String(Date.now()) });
     const data = await getJson(`/api/public/feed?${params}`);
-    if (data.items?.[0]?.id && Number(data.items[0].id) !== Number(state.firstId)) newItemsBanner.hidden = false;
-  } catch {}
+    if (!state.city || String(state.city.id) !== cityId || state.newsId || state.loading) { liveDirty = true; return; }
+    if (window.scrollY > LIVE_NEAR_TOP) {
+      // The reader is down the page: never move the content under their finger; just offer the banner.
+      const plan = planLiveUpdate(state.entries, data);
+      if (state.entries.length && (plan.inserts.length || plan.resync)) newItemsBanner.hidden = false;
+      liveDirty = true;
+      return;
+    }
+    await applyLiveData(data);
+  } catch {
+    // Offline or a transient error: the next event or the poll tries again.
+  } finally {
+    liveSyncing = false;
+  }
+}
+
+function startLive() {
+  if (!('EventSource' in window)) return;
+  const source = new EventSource('/api/public/live');
+  source.addEventListener('feed', () => {
+    clearTimeout(liveTimer);
+    // Jitter so thousands of open readers do not hit the server in the same instant.
+    liveTimer = setTimeout(syncFeed, 150 + Math.random() * 1800);
+  });
+  source.addEventListener('error', () => { liveHadError = true; });
+  source.addEventListener('open', () => {
+    if (liveHadError) { liveHadError = false; syncFeed(); }
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && liveDirty) syncFeed(); });
+  let scrollFrame = 0;
+  window.addEventListener('scroll', () => {
+    if (!liveDirty || scrollFrame) return;
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = 0;
+      if (window.scrollY <= 200 && liveDirty) syncFeed();
+    });
+  }, { passive: true });
 }
 
 function applyFontScale() {
@@ -528,7 +717,8 @@ async function initializeReader({ newsOnly = false } = {}) {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
   }
   state.refreshTimer = setInterval(refreshConfig, 15_000);
-  setInterval(checkForNewItems, 60_000);
+  setInterval(syncFeed, 60_000);
+  if (!newsOnly) startLive();
 }
 
 async function loadNewsPage(id, { initial = false } = {}) {
@@ -620,7 +810,10 @@ function returnToFeed() {
   app.hidden = false;
   intersectionObserver?.observe(sentinel);
   const scrollY = Number(history.state?.readerScrollY) || 0;
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  requestAnimationFrame(() => {
+    window.scrollTo(0, scrollY);
+    if (liveDirty) syncFeed();
+  });
 }
 
 // ---------- Service worker & install suggestion ----------

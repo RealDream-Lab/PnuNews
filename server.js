@@ -35,6 +35,8 @@ async function shutdown() {
     await pool.end();
     process.exit(0);
   });
+  // Live-update (SSE) connections never end by themselves.
+  server.closeAllConnections?.();
 }
 
 process.on('SIGINT', shutdown);

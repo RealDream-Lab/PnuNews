@@ -1,6 +1,6 @@
 {
   "name": "pnunews",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +14,7 @@
     "create-admin": "node --import ./scripts/load-env.js scripts/create-super-admin.js",
     "reset-2fa": "node --import ./scripts/load-env.js scripts/reset-2fa.js",
     "bump": "node scripts/bump-version.js",
-    "test": "node --test test/policy.test.js"
+    "test": "node --test test/policy.test.js test/live.test.js"
   },
   "dependencies": {
     "busboy": "1.6.0",
