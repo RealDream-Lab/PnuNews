@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.31.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.31.js';
+import { initDock } from '/shared/dock.v0.1.32.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.32.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -216,9 +216,9 @@ function openPicker() {
 // and the university's provincial branch for province-level news.
 function scopeName(item) {
   if (item.scope.type === 'country') return 'سازمان مرکزی';
-  if (item.scope.type === 'province') return `دانشگاه پیام نور استان ${item.scope.name}`;
+  if (item.scope.type === 'province') return `دانشگاه پیام‌نور استان ${item.scope.name}`;
   // News of another center of the same province (shown only when the reader asked for them).
-  if (item.scope.type === 'city' && state.city && Number(item.scope.id) !== Number(state.city.id)) return `دانشگاه پیام نور ${item.scope.name}`;
+  if (item.scope.type === 'city' && state.city && Number(item.scope.id) !== Number(state.city.id)) return `دانشگاه پیام‌نور ${item.scope.name}`;
   return '';
 }
 
@@ -691,8 +691,8 @@ async function refreshConfig() {
     const regionsChanged = JSON.stringify(nextConfig.provinces) !== JSON.stringify(state.config?.provinces);
     state.config = nextConfig;
     const currentNewsTitle = state.newsId ? document.querySelector('#news-view h1')?.textContent : null;
-    document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام نور'}` : nextConfig.site_title || 'اخبار پیام نور';
-    document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام نور';
+    document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام‌نور'}` : nextConfig.site_title || 'اخبار پیام‌نور';
+    document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام‌نور';
     const selected = state.city ? findCity(state.city.id) : null;
     if (state.city && !selected) {
       state.city = null;
@@ -728,8 +728,8 @@ async function initializeReader({ newsOnly = false } = {}) {
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
-    document.title = config.site_title || 'اخبار پیام نور';
-    document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام نور';
+    document.title = config.site_title || 'اخبار پیام‌نور';
+    document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام‌نور';
     if (newsOnly) {
       app.hidden = true;
       newsView.hidden = false;
@@ -776,7 +776,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
     target.innerHTML = renderNewsPage(item, initial);
     target.hidden = false;
     if (!initial) app.hidden = true;
-    document.title = `${item.title} — ${state.config?.site_title || 'اخبار پیام نور'}`;
+    document.title = `${item.title} — ${state.config?.site_title || 'اخبار پیام‌نور'}`;
     if ('mediaSession' in navigator) dock.setMediaMetadata(item.title, item.publisher_unit);
   } catch (error) {
     const target = initial ? app : newsView;
@@ -788,7 +788,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
 let galleryImages = [];
 
 function renderNewsPage(item, initial) {
-  // Two lines: the person, then the university unit (e.g. "دانشگاه پیام نور بیجار").
+  // Two lines: the person, then the university unit (e.g. "دانشگاه پیام‌نور بیجار").
   const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? `<span>${escapeHtml(item.publisher_unit)}</span>` : ''].filter(Boolean);
   const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join('')}</p>` : '';
   const category = item.category?.name ? `<span>${escapeHtml(item.category.name)}</span>` : '';
@@ -972,7 +972,7 @@ function navigateToNews(id) {
 
 function returnToFeed() {
   state.newsId = null;
-  document.title = state.config?.site_title || 'اخبار پیام نور';
+  document.title = state.config?.site_title || 'اخبار پیام‌نور';
   newsView.hidden = true;
   app.hidden = false;
   intersectionObserver?.observe(sentinel);
@@ -1025,7 +1025,7 @@ function showInstallBanner(mode) {
     ? 'روی دکمهٔ اشتراک‌گذاری (مربع با فلش) بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید.'
     : 'برای دسترسی سریع‌تر، برنامه را روی دستگاه خود نصب کنید.';
   const action = mode === 'ios' ? '' : '<button type="button" class="button-primary" data-install-accept>نصب</button>';
-  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام‌نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
 }
 
 // A new service worker waits until the visitor accepts the update banner, then the page reloads on the new version.

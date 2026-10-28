@@ -4,7 +4,8 @@ import { appEvents } from '../events.js';
 
 import { createMicroCache } from '../lib/microcache.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
-import { readLimitedText, resolvesToPublicAddress } from '../lib/net-guard.js';
+import { normalizeBrandName } from '../lib/fa.js';
+import { fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { sanitizeBodyHtml } from '../news/content.js';
 
 const FEED_SCOPES = new Set(['all', 'country', 'province', 'city']);
@@ -248,12 +249,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.31.css">
-<script src="/shared/theme.v0.1.31.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.32.css">
+<script src="/shared/theme.v0.1.32.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.31.js"></script>
+<script type="module" src="/reader/app.v0.1.32.js"></script>
 </body>
 </html>`;
 }
@@ -446,7 +447,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
         item: {
           id: Number(news.id), title: news.title, summary: news.summary,
           news_type: news.news_type === 'announcement' ? 'announcement' : 'news',
-          body_html: sanitizeBodyHtml(news.body_html),
+          body_html: sanitizeBodyHtml(news.body_html, { brand: true }),
           category: news.category_id == null ? null : { id: Number(news.category_id), name: news.category_name },
           published_at: news.published_at.toISOString(), expires_at: news.expires_at?.toISOString() ?? null,
           is_pinned: Boolean(news.is_pinned), is_urgent: Boolean(news.is_urgent),
@@ -466,32 +467,28 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     }
   });
 
+  let radioFailureLoggedAt = 0;
   router.get('/api/public/radio', async (request, response) => {
+    response.setHeader('Cache-Control', 'no-store');
     try {
-      const settings = await settingsMap(pool, ['radio_enabled', 'radio_nowplaying_url']);
-      if (settings.radio_enabled !== '1' || !settings.radio_nowplaying_url) return response.json({ now_playing: null });
-      const url = new URL(settings.radio_nowplaying_url);
-      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
-          (config.publicUrl.startsWith('https://') && url.protocol === 'http:')) {
-        return response.json({ now_playing: null });
-      }
+      const settings = await settingsMap(pool, ['radio_enabled', 'radio_nowplaying_url', 'radio_stream_url']);
+      if (settings.radio_enabled !== '1') return response.json({ now_playing: null });
+      const url = resolveNowPlayingUrl({ nowPlayingUrl: settings.radio_nowplaying_url, streamUrl: settings.radio_stream_url });
+      if (!url) return response.json({ now_playing: null });
       if (radioCache.url === url.href && radioCache.expiresAt > clock()) return response.json(radioCache.value);
       let nowPlaying = null;
       try {
-        // The address is administrator-supplied: never let the server fetch internal-network hosts.
-        if (!await resolvesToPublicAddress(url.hostname)) throw new Error('Internal address');
-        const upstream = await fetchImpl(url, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: { accept: 'application/json' } });
-        if (upstream.ok) {
-          const data = JSON.parse(await readLimitedText(upstream, 64 * 1024));
-          const song = data?.now_playing?.song ?? data?.song ?? null;
-          if (song && typeof song === 'object') {
-            const title = plainString(song.title ?? song.name);
-            const artist = plainString(song.artist ?? song.artist_name);
-            if (title || artist) nowPlaying = { title, artist };
-          }
+        nowPlaying = await fetchNowPlaying(url, {
+          fetchImpl, publicUrl: config.publicUrl, streamUrl: settings.radio_stream_url || '', resolvesPublic: makeRadioResolver(config.radioTrustedHosts),
+        });
+      } catch (error) {
+        // Not an error for the visitor (the bar just shows the station), but the administrator needs to see why.
+        if (clock() - radioFailureLoggedAt > 300_000) {
+          radioFailureLoggedAt = clock();
+          console.warn(`Radio now-playing could not be read from ${url.origin}${url.pathname}: ${error.message}`);
         }
-      } catch {}
-      radioCache = { url: url.href, expiresAt: clock() + 20_000, value: { now_playing: nowPlaying } };
+      }
+      radioCache = { url: url.href, expiresAt: clock() + (nowPlaying ? 15_000 : 5_000), value: { now_playing: nowPlaying } };
       return response.json(radioCache.value);
     } catch {
       return response.json({ now_playing: null });
@@ -515,11 +512,11 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       );
       const news = rows[0];
       if (!news) return response.status(404).type('text/plain').send('خبر پیدا نشد.');
-      const title = plainString(news.title, 240);
-      const summary = plainString(news.summary, 600);
+      const title = normalizeBrandName(plainString(news.title, 240));
+      const summary = normalizeBrandName(plainString(news.summary, 600));
       const imagePath = imageUrls(news.stored_name)?.src ?? defaultCover(news.news_type).src;
       const image = imagePath ? new URL(imagePath, config.publicUrl).href : null;
-      const siteTitle = plainString(news.site_title || 'اخبار پیام نور', 160);
+      const siteTitle = normalizeBrandName(plainString(news.site_title || 'اخبار پیام نور', 160));
       const canonical = new URL(`/n/${id}`, config.publicUrl).href;
       const shell = staticAssets?.get('/index.html')?.body.toString('utf8');
       const html = shell ? injectOpenGraph(shell, { title, summary, image, canonical, siteTitle })

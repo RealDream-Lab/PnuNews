@@ -1,6 +1,6 @@
 {
   "name": "pnunews",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,9 +12,10 @@
     "migrate": "node --import ./scripts/load-env.js scripts/migrate.js",
     "seed": "node --import ./scripts/load-env.js scripts/seed.js",
     "create-admin": "node --import ./scripts/load-env.js scripts/create-super-admin.js",
+    "fetch-portal": "node --import ./scripts/load-env.js scripts/fetch-portal-news.js",
     "reset-2fa": "node --import ./scripts/load-env.js scripts/reset-2fa.js",
     "bump": "node scripts/bump-version.js",
-    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js"
+    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js test/brand.test.js test/nowplaying.test.js"
   },
   "dependencies": {
     "busboy": "1.6.0",

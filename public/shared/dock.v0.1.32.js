@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.31.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.32.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -81,7 +81,7 @@ export function initDock({ showToast = () => {} } = {}) {
 
   async function refreshNowPlaying() {
     try {
-      const response = await fetch('/api/public/radio', { headers: { accept: 'application/json' } });
+      const response = await fetch('/api/public/radio', { cache: 'no-store', headers: { accept: 'application/json' } });
       if (!response.ok) return;
       const data = await response.json();
       const song = data.now_playing;
@@ -120,7 +120,7 @@ export function initDock({ showToast = () => {} } = {}) {
         const volume = saved === null || saved === '' ? NaN : Number(saved);
         if (volume >= 0 && volume <= 1) audio.volume = volume;
       } catch {}
-      audio.addEventListener('play', () => setPlayingUi(true));
+      audio.addEventListener('play', () => { setPlayingUi(true); refreshNowPlaying(); });
       audio.addEventListener('pause', () => {
         // Paused by something else (headphone button, another app taking audio focus): still drop the stream.
         if (audio.getAttribute('src')) stop();

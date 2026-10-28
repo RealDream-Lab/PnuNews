@@ -1,5 +1,5 @@
 import sanitizeHtml from 'sanitize-html';
-import { buildSearchText, cleanFaText } from '../lib/fa.js';
+import { buildSearchText, cleanFaText, normalizeBrandName } from '../lib/fa.js';
 
 const UPLOADED_IMAGE_PATH = /^\/media\/img\/\d{4}\/(0[1-9]|1[0-2])\/[a-f\d]{32}-(400|800|1280)\.webp$/i;
 const allowedTags = ['p', 'br', 'strong', 'em', 'h2', 'h3', 'ul', 'ol', 'li', 'blockquote', 'a', 'img'];
@@ -33,8 +33,12 @@ const sanitizerOptions = {
   ),
 };
 
-export function sanitizeBodyHtml(value) {
-  return sanitizeHtml(String(value ?? ''), sanitizerOptions);
+// Output-only variant: the university name gets its half-space in text nodes (never in attributes or URLs).
+const outputSanitizerOptions = { ...sanitizerOptions, textFilter: (text) => normalizeBrandName(text) };
+
+// brand: true is for responses; what is saved in the database is sanitized without it and stays as written.
+export function sanitizeBodyHtml(value, { brand = false } = {}) {
+  return sanitizeHtml(String(value ?? ''), brand ? outputSanitizerOptions : sanitizerOptions);
 }
 
 function decodeCodePoint(value, radix) {

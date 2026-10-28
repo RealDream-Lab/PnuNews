@@ -1,4 +1,5 @@
 import express from 'express';
+import { brandNameOutput } from './lib/brand-output.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createMediaRouter } from './routes/media.js';
@@ -59,12 +60,13 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
     response.setHeader('Pragma', 'no-cache');
     next();
   });
+  app.use('/api', brandNameOutput);
   app.use(express.json({ limit: '1mb', strict: true }));
   app.use(csrfGuard);
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
-  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter }));
+  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter, fetchImpl }));
   app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));

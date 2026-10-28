@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.31.js';
+import { initDock } from '/shared/dock.v0.1.32.js';
 import {
   JALALI_MONTHS,
 
@@ -14,8 +14,10 @@ const state = {
   categories: [],
   settings: {},
   currentNews: null,
-  newsCursor: null,
-  auditCursor: null,
+  newsPage: 1,
+  auditPage: 1,
+  mobilePages: { mine: 1, all: 1 },
+  usersPage: 1,
   newsDates: { published_at: null, expires_at: null },
   calendar: { year: 0, month: 0, day: 0, hour: 12, minute: 0, target: 'published_at' },
   toastTimer: null,
@@ -166,7 +168,7 @@ function scopeText() {
   if (state.user?.role === 'super_admin') return 'شما برای کل کشور منتشر می‌کنید.';
   if (state.user?.role === 'country_admin') return 'شما برای کل کشور و استان‌ها منتشر می‌کنید.';
   if (region?.type === 'province') return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای دانشگاه پیام نور ${region?.name || 'خود'} منتشر می‌کنید.`;
+  return `شما برای دانشگاه پیام‌نور ${region?.name || 'خود'} منتشر می‌کنید.`;
 }
 
 function setScopeBanner() {
@@ -187,7 +189,7 @@ function statusLabel(status) {
 
 function scopeLabel(targets = []) {
   if (!targets.length) return 'بدون مقصد';
-  return targets.map((target) => target.type === 'country' ? 'سراسری' : target.type === 'province' ? `استان ${target.name}` : `دانشگاه پیام نور ${target.name}`).join('، ');
+  return targets.map((target) => target.type === 'country' ? 'سراسری' : target.type === 'province' ? `استان ${target.name}` : `دانشگاه پیام‌نور ${target.name}`).join('، ');
 }
 
 function displayDateTime(value) {
@@ -289,15 +291,15 @@ function goToView(view) {
   document.querySelectorAll('#mobile-nav [data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === actualView));
   state.activeView = actualView;
   if (actualView === 'dashboard') loadDashboard();
-  else if (actualView === 'news') loadNewsList(true);
-  else if (actualView === 'users') loadUsers();
+  else if (actualView === 'news') loadNewsList(1);
+  else if (actualView === 'users') loadUsers(1);
   else if (actualView === 'regions') loadRegions();
   else if (actualView === 'categories') loadCategories();
   else if (actualView === 'settings') loadSettings();
-  else if (actualView === 'audit') loadAudit(true);
+  else if (actualView === 'audit') loadAudit(1);
   else if (actualView === 'stats') loadStats();
-  else if (actualView === 'mobile-recent') loadMobileNews('mine');
-  else if (actualView === 'mobile-feed') loadMobileNews('all');
+  else if (actualView === 'mobile-recent') loadMobileNews('mine', 1);
+  else if (actualView === 'mobile-feed') loadMobileNews('all', 1);
   else if (actualView === 'profile') loadProfile();
   document.querySelector('.admin-content').scrollIntoView({ block: 'start', behavior: 'auto' });
 }
@@ -364,29 +366,64 @@ function renderNewsTable(items) {
   </tr>`).join('')}</tbody></table>`;
 }
 
-async function loadNewsList(reset = false) {
-  if (reset) state.newsCursor = null;
+// ---------- Pagination (numbered pages, shared by every long list) ----------
+const PAGE_SIZE = 10;
+const USERS_PAGE_SIZE = 15;
+
+function pageWindow(page, pages) {
+  const wanted = new Set([1, pages, page - 1, page, page + 1]);
+  const list = [...wanted].filter((value) => value >= 1 && value <= pages).sort((a, b) => a - b);
+  const result = [];
+  for (const value of list) {
+    if (result.length && value - result.at(-1) > 1) result.push(null);
+    result.push(value);
+  }
+  return result;
+}
+
+// Fills the pager element: previous / numbers / next plus "from-to of total". Buttons carry data-page.
+function renderPager(element, { page, pages, total, limit }) {
+  if (!element) return;
+  if (!total || pages <= 1) {
+    element.innerHTML = total ? `<p class="pager-info">${faDigits.format(total)} مورد</p>` : '';
+    return;
+  }
+  const from = (page - 1) * limit + 1;
+  const to = Math.min(total, page * limit);
+  const numbers = pageWindow(page, pages).map((value) => (value === null
+    ? '<span class="pager-gap" aria-hidden="true">…</span>'
+    : `<button type="button" class="pager-button pager-number${value === page ? ' is-current' : ''}" data-page="${value}" ${value === page ? 'aria-current="page"' : ''} aria-label="صفحهٔ ${faDigits.format(value)}">${faDigits.format(value)}</button>`)).join('');
+  element.innerHTML = `<nav class="pager" aria-label="صفحه‌بندی">
+    <button type="button" class="pager-button pager-step" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>› قبلی</button>
+    <div class="pager-numbers">${numbers}</div>
+    <button type="button" class="pager-button pager-step" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>بعدی ‹</button>
+  </nav><p class="pager-info">${faDigits.format(from)} تا ${faDigits.format(to)} از ${faDigits.format(total)} · صفحهٔ ${faDigits.format(page)} از ${faDigits.format(pages)}</p>`;
+}
+
+function scrollToList(element) {
+  const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  element?.closest('.admin-view')?.scrollIntoView({ block: 'start', behavior });
+}
+
+async function loadNewsList(page = state.newsPage) {
+  state.newsPage = page;
   const params = new URLSearchParams({
     status: document.getElementById('news-status').value || 'all',
     scope: document.getElementById('news-scope').value || 'all',
     text: document.getElementById('news-search').value.trim(),
-    limit: '20',
+    limit: String(PAGE_SIZE),
+    page: String(page),
     source: 'manual', // automatic portal news are managed from the news-feed view
   });
-  if (state.newsCursor) params.set('cursor', state.newsCursor);
   const container = document.getElementById('news-table');
-  if (reset) container.innerHTML = '<p class="empty-panel">در حال دریافت خبرها…</p>';
+  const pager = document.getElementById('news-pager');
+  if (!container.querySelector('table')) container.innerHTML = '<p class="empty-panel">در حال دریافت خبرها…</p>';
   try {
     const data = await api(`/api/admin/news?${params}`);
-    if (reset) container.innerHTML = renderNewsTable(data.items);
-    else {
-      const existing = container.querySelector('tbody');
-      if (existing && data.items.length) existing.insertAdjacentHTML('beforeend', renderNewsTable(data.items).replace(/^.*?<tbody>|<\/tbody>.*$/gs, ''));
-      else container.innerHTML = renderNewsTable(data.items);
-    }
-    state.newsCursor = data.next_cursor;
-    document.getElementById('news-more').hidden = !state.newsCursor;
-  } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
+    state.newsPage = data.page;
+    container.innerHTML = renderNewsTable(data.items);
+    renderPager(pager, data);
+  } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; if (pager) pager.innerHTML = ''; }
 }
 
 function faKey(value) {
@@ -529,6 +566,13 @@ function setCategoryOptions(value = '') {
   const select = document.querySelector('#news-editor [name="category_id"]');
   select.innerHTML = categoryOptionsHtml(value);
   select.value = value == null ? '' : String(value);
+}
+
+// Where the editor's back button / delete leads: the feed for portal items, otherwise the news list
+// (on a phone that list is "خبرهای من").
+function editorReturnView() {
+  if (state.editorFromFeed) return 'mobile-feed';
+  return matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news';
 }
 
 function resetEditor() {
@@ -998,28 +1042,37 @@ async function submitQuickCompose(event) {
     form.reset();
     beginQuickCompose();
     showToast('خبر با موفقیت منتشر شد.');
-    await loadMobileNews('mine');
+    await loadMobileNews('mine', 1);
   } catch (failure) { error.textContent = failure.message; }
 }
 
-async function loadMobileNews(scope) {
+async function loadMobileNews(scope, page = state.mobilePages[scope] ?? 1) {
   const mine = scope === 'mine';
+  state.mobilePages[scope] = page;
   const container = document.getElementById(mine ? 'mobile-recent' : 'mobile-feed');
-  container.innerHTML = '<p class="empty-panel">در حال دریافت…</p>';
+  const pager = document.getElementById(mine ? 'mobile-recent-pager' : 'mobile-feed-pager');
+  if (!container.querySelector('.compact-item')) container.innerHTML = '<p class="empty-panel">در حال دریافت…</p>';
   try {
     // "mine" = what this user published; the feed = the automatic portal news only
-    const params = new URLSearchParams({ status: 'all', scope: mine ? 'mine' : 'all', limit: '30' });
+    const params = new URLSearchParams({ status: 'all', scope: mine ? 'mine' : 'all', limit: String(PAGE_SIZE), page: String(page) });
     if (!mine) params.set('source', 'portal');
     const data = await api(`/api/admin/news?${params}`);
+    state.mobilePages[scope] = data.page;
+    renderPager(pager, data);
     container.innerHTML = data.items.length ? data.items.map((item) => compactNews(item, 'edit-news')).join('') : `<p class="empty-panel">${mine ? 'خبری برای نمایش وجود ندارد.' : 'هنوز خبری از پورتال دریافت نشده است.'}</p>`;
   } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
-async function loadUsers() {
+async function loadUsers(page = state.usersPage) {
+  state.usersPage = page;
   const panel = document.getElementById('users-tree');
-  panel.innerHTML = '<p class="empty-panel">در حال دریافت کاربران…</p>';
+  const pager = document.getElementById('users-pager');
+  if (!panel.querySelector('.tree-province')) panel.innerHTML = '<p class="empty-panel">در حال دریافت کاربران…</p>';
   try {
-    const { users } = await api('/api/admin/users');
+    const data = await api(`/api/admin/users?${new URLSearchParams({ page: String(page), limit: String(USERS_PAGE_SIZE) })}`);
+    const { users } = data;
+    state.usersPage = data.page;
+    renderPager(pager, data);
     if (!users.length) { panel.innerHTML = '<p class="empty-panel">کاربری برای نمایش وجود ندارد.</p>'; return; }
     const grouped = new Map();
     for (const user of users) {
@@ -1027,7 +1080,7 @@ async function loadUsers() {
       if (!grouped.has(parentId)) grouped.set(parentId, []);
       grouped.get(parentId).push(user);
     }
-    const subordinateCount = (user) => user.role === 'province_admin' ? users.filter((item) => item.role === 'city_admin' && Number(item.parent_region_id) === Number(user.region_id)).length : 0;
+    const subordinateCount = (user) => Number(user.subordinate_count) || 0;
     panel.innerHTML = [...grouped.entries()].map(([parentId, entries]) => {
       const parent = state.regions.find((region) => Number(region.id) === parentId);
       return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>${user.role !== 'super_admin' && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ''}</div></div>`).join('')}</section>`;
@@ -1395,9 +1448,20 @@ function describePortalRun(run) {
   return `آخرین اجرا: ${when} · ${faDigits.format(run.created)} خبر تازه از ${faDigits.format(run.total)} خبر صفحهٔ پورتال`;
 }
 
+// The sentence under the portal switch is built from what the server really does, so it cannot drift from the code.
+function describePortalSource(status) {
+  let place = 'پراکسی رادیو';
+  try { const url = new URL(status.source); place = `پراکسی رادیو (${url.host}${url.pathname})`; } catch {}
+  const schedule = status.mode === 'external'
+    ? 'زمان‌بندی را سیستم‌عامل یا Docker انجام می‌دهد (cron/systemd)'
+    : 'هر ۱۰ دقیقه خودکار';
+  return `خبرهای «اخبار اصلی» pnu.ac.ir از ${place} خوانده می‌شود (${schedule})؛ در هر بار حداکثر ${faDigits.format(status.limit || 20)} خبر بررسی و خبرهای تازه به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. شمار خبرِ بررسی‌شده همان است که پراکسی برمی‌گرداند و در سطر «آخرین اجرا» می‌بینید. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست. دکمهٔ «همین حالا بگیر» با همان پراکسی و همان کد زمان‌بند کار می‌کند.`;
+}
+
 async function loadPortalStatus() {
   try {
     const status = await api('/api/admin/portal-news');
+    document.getElementById('portal-description').textContent = describePortalSource(status);
     document.getElementById('portal-enabled').checked = status.enabled;
     document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
   } catch (error) { document.getElementById('portal-status').textContent = error.message; }
@@ -1417,9 +1481,30 @@ async function runPortal(event) {
   try {
     const status = await api('/api/admin/portal-news', { method: 'POST', body: { run: true } });
     document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
+    document.getElementById('portal-description').textContent = describePortalSource(status);
     showToast(status.result?.error ? 'دریافت ناموفق بود.' : `${faDigits.format(status.result?.created ?? 0)} خبر تازه دریافت شد.`);
   } catch (error) { showToast(error.message); }
   finally { button.disabled = false; button.textContent = 'همین حالا بگیر'; }
+}
+
+async function testNowPlaying(event) {
+  const button = event.currentTarget;
+  const result = document.getElementById('radio-nowplaying-result');
+  const form = document.getElementById('settings-form');
+  button.disabled = true;
+  button.textContent = 'در حال آزمایش…';
+  result.hidden = false;
+  result.textContent = 'در حال خواندن از سرور برنامه…';
+  try {
+    const answer = await api('/api/admin/radio/nowplaying-test', {
+      method: 'POST',
+      body: { url: form.elements.radio_nowplaying_url.value.trim(), stream_url: form.elements.radio_stream_url.value.trim() },
+    });
+    if (!answer.ok) result.textContent = `ناموفق: ${answer.error}`;
+    else if (!answer.now_playing) result.textContent = 'پاسخ دریافت شد ولی آهنگی در آن پیدا نشد؛ قالب پاسخ یا نشانی ایستگاه را بررسی کنید.';
+    else result.textContent = `موفق: ${answer.now_playing.title || '—'}${answer.now_playing.artist ? ` — ${answer.now_playing.artist}` : ''}`;
+  } catch (error) { result.textContent = error.message; }
+  finally { button.disabled = false; button.textContent = 'آزمایش اکنون‌پخش'; }
 }
 
 async function loadSettings() {
@@ -1476,18 +1561,17 @@ async function testRadio() {
   try { await audio.play(); } catch { showToast('پخش آغاز نشد؛ نشانی و دسترسی شبکه را بررسی کنید.'); }
 }
 
-async function loadAudit(reset = false) {
-  if (reset) state.auditCursor = null;
+async function loadAudit(page = state.auditPage) {
+  state.auditPage = page;
   const panel = document.getElementById('audit-list');
-  const params = new URLSearchParams({ limit: '50' });
-  if (state.auditCursor) params.set('before', state.auditCursor);
+  const params = new URLSearchParams({ limit: '20', page: String(page) });
   try {
-    const { items, next_cursor: cursor } = await api(`/api/admin/audit?${params}`);
+    const data = await api(`/api/admin/audit?${params}`);
+    const { items } = data;
+    state.auditPage = data.page;
     const markup = items.length ? `<table class="table"><thead><tr><th>زمان</th><th>عامل</th><th>رویداد</th><th>موجودیت</th><th>شناسه</th><th>IP</th></tr></thead><tbody>${items.map((item) => `<tr><td>${formatDate(item.created_at)}</td><td>${escapeHtml(item.actor_username || 'سامانه')}</td><td>${escapeHtml(auditAction(item.action))}</td><td>${escapeHtml(entityLabel(item.entity))}</td><td>${item.entity_id ? faDigits.format(item.entity_id) : '—'}</td><td dir="ltr">${escapeHtml(item.ip || '—')}</td></tr>`).join('')}</tbody></table>` : '<p class="empty-panel">رویدادی ثبت نشده است.</p>';
-    if (reset) panel.innerHTML = markup;
-    else if (items.length) panel.querySelector('tbody')?.insertAdjacentHTML('beforeend', markup.replace(/^.*?<tbody>|<\/tbody>.*$/gs, ''));
-    state.auditCursor = cursor;
-    document.getElementById('audit-more').hidden = !cursor;
+    panel.innerHTML = markup;
+    renderPager(document.getElementById('audit-pager'), data);
   } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
@@ -1557,7 +1641,7 @@ async function deleteEditorNews() {
   try {
     await api(`/api/admin/news/${id}`, { method: 'DELETE', body: {} });
     showToast('خبر حذف شد.');
-    goToView(state.editorFromFeed ? 'mobile-feed' : matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news');
+    goToView(editorReturnView());
   } catch (error) { showToast(error.message); }
 }
 
@@ -1732,9 +1816,24 @@ function bindEvents() {
   document.getElementById('portal-enabled').addEventListener('change', togglePortal);
   document.getElementById('portal-run').addEventListener('click', runPortal);
   document.getElementById('radio-test').addEventListener('click', testRadio);
-  document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(true));
-  document.getElementById('news-more').addEventListener('click', () => loadNewsList(false));
-  document.getElementById('audit-more').addEventListener('click', () => loadAudit(false));
+  document.getElementById('radio-nowplaying-test').addEventListener('click', testNowPlaying);
+  document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(1));
+  const pagerHandlers = {
+    'news-pager': (page) => loadNewsList(page),
+    'users-pager': (page) => loadUsers(page),
+    'audit-pager': (page) => loadAudit(page),
+    'mobile-recent-pager': (page) => loadMobileNews('mine', page),
+    'mobile-feed-pager': (page) => loadMobileNews('all', page),
+  };
+  for (const [id, load] of Object.entries(pagerHandlers)) {
+    const element = document.getElementById(id);
+    element.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-page]');
+      if (!button || button.disabled) return;
+      await load(Number(button.dataset.page));
+      scrollToList(element);
+    });
+  }
   document.getElementById('editor-publish').addEventListener('click', () => publishEditor());
   document.querySelectorAll('#news-editor input[name="schedule_mode"]').forEach((radio) => radio.addEventListener('change', () => {
     if (radio.checked && radio.value === 'now') { state.newsDates.published_at = null; updateDateLabel('published_at'); }
@@ -1808,7 +1907,7 @@ function bindEvents() {
     const newButton = event.target.closest('[data-action="new-news"]');
     if (newButton) return resetEditor();
     const backButton = event.target.closest('[data-action="back-news"]');
-    if (backButton) return goToView(state.editorFromFeed ? 'mobile-feed' : 'news');
+    if (backButton) return goToView(editorReturnView());
     const editButton = event.target.closest('[data-action="edit-news"]');
     if (editButton) return openEditor(Number(editButton.dataset.id));
     const removeButton = event.target.closest('[data-remove-attachment]');

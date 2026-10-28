@@ -1,3 +1,4 @@
+import { describeNowPlayingError, fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { randomBytes } from 'node:crypto';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
@@ -71,18 +72,21 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null, fetchImpl = fetch }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
 
+  // internal = the app's own timer (every 10 minutes); external = an OS scheduler runs scripts/fetch-portal-news.sh
+  const portalMode = () => (process.env.PORTAL_FETCH_MODE === 'external' ? 'external' : 'internal');
+
   // Automatic portal news: status, on/off switch and "fetch now" (main admin only).
   router.get('/portal-news', async (request, response, next) => {
     if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
     if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
-    try { return response.json(await portalImporter.status()); } catch (error) { return next(error); }
+    try { return response.json({ ...(await portalImporter.status()), mode: portalMode() }); } catch (error) { return next(error); }
   });
   router.post('/portal-news', async (request, response, next) => {
     if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
@@ -90,7 +94,27 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     try {
       if (typeof request.body?.enabled === 'boolean') await portalImporter.setEnabled(request.body.enabled);
       const result = request.body?.run === true ? await portalImporter.runOnce({ force: true }) : null;
-      return response.json({ ...(await portalImporter.status()), result });
+      return response.json({ ...(await portalImporter.status()), mode: portalMode(), result });
+    } catch (error) { return next(error); }
+  });
+
+  // Tries the radio "now playing" address from this server and says exactly why it fails (main admin only).
+  router.post('/radio/nowplaying-test', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند رادیو را آزمایش کند.' });
+    try {
+      const [rows] = await pool.query("SELECT k, v FROM settings WHERE k IN ('radio_nowplaying_url', 'radio_stream_url')");
+      const saved = Object.fromEntries(rows.map((row) => [row.k, row.v]));
+      const pick = (key) => (typeof request.body?.[key] === 'string' ? request.body[key].trim() : String(saved[key] ?? ''));
+      const streamUrl = pick('stream_url');
+      let url;
+      try { url = resolveNowPlayingUrl({ nowPlayingUrl: pick('url'), streamUrl }); } catch { url = null; }
+      if (!url) return response.json({ ok: false, error: 'نشانی اکنون‌پخش (یا دست‌کم نشانی پخش) معتبر وارد نشده است.' });
+      try {
+        const nowPlaying = await fetchNowPlaying(url, { fetchImpl, publicUrl: config.publicUrl, streamUrl, resolvesPublic: makeRadioResolver(config.radioTrustedHosts) });
+        return response.json({ ok: true, now_playing: nowPlaying, url: url.href });
+      } catch (error) {
+        return response.json({ ok: false, code: error.code ?? 'unknown', url: url.href, error: describeNowPlayingError(error) });
+      }
     } catch (error) { return next(error); }
   });
 
@@ -240,7 +264,24 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const users = request.user.role === 'super_admin'
         ? rows
         : rows.filter((user) => canManageUser(request.user, user, 'view', regions));
-      return response.json({ users: users.map(safeUser) });
+      const mapped = users.map((user) => ({
+        ...safeUser(user),
+        // shown in the delete confirmation: how many city users sit under a province admin
+        subordinate_count: user.role === 'province_admin'
+          ? users.filter((item) => item.role === 'city_admin' && Number(item.parent_region_id) === Number(user.region_id)).length
+          : 0,
+      }));
+      if (request.query.page === undefined) return response.json({ users: mapped });
+      // Numbered pages (`page=N&limit=M`); without `page` the full list is returned for the forms that need it.
+      const requestedPage = Number(request.query.page);
+      if (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000) {
+        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
+      }
+      const requestedLimit = Number(request.query.limit ?? 15);
+      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 15;
+      const pages = Math.max(1, Math.ceil(mapped.length / limit));
+      const page = Math.min(requestedPage, pages);
+      return response.json({ users: mapped.slice((page - 1) * limit, page * limit), page, pages, total: mapped.length, limit });
     } catch (error) {
       return next(error);
     }
@@ -583,8 +624,13 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
 
   router.get('/audit', async (request, response, next) => {
     try {
-      const cursor = request.query.before ? parseId(request.query.before) : null;
-      if (request.query.before && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
+      const paged = request.query.page !== undefined;
+      const requestedPage = Number(request.query.page);
+      if (paged && (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000)) {
+        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
+      }
+      const cursor = !paged && request.query.before ? parseId(request.query.before) : null;
+      if (!paged && request.query.before && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
       const limitValue = Number(request.query.limit ?? 50);
       const limit = Number.isInteger(limitValue) ? Math.max(1, Math.min(100, limitValue)) : 50;
       const clauses = [];
@@ -600,8 +646,23 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         clauses.push('a.id < ?');
         values.push(cursor);
       }
-      values.push(limit);
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+      let total = null;
+      let pages = null;
+      let page = null;
+      if (paged) {
+        const [countRows] = await pool.execute(
+          `SELECT COUNT(*) AS total FROM audit_log a
+           LEFT JOIN users actor ON actor.id = a.user_id
+           LEFT JOIN users target ON a.entity = 'user' AND target.id = a.entity_id
+           ${where}`,
+          values,
+        );
+        total = Number(countRows[0].total);
+        pages = Math.max(1, Math.ceil(total / limit));
+        page = Math.min(requestedPage, pages);
+      }
+      values.push(limit);
       const [items] = await pool.execute(
         `SELECT a.id, a.user_id, a.action, a.entity, a.entity_id, a.meta, a.ip, a.created_at,
                 actor.username AS actor_username, target.username AS target_username
@@ -609,9 +670,10 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
          LEFT JOIN users actor ON actor.id = a.user_id
          LEFT JOIN users target ON a.entity = 'user' AND target.id = a.entity_id
          ${where}
-         ORDER BY a.id DESC LIMIT ?`,
+         ORDER BY a.id DESC LIMIT ?${paged ? ` OFFSET ${(page - 1) * limit}` : ''}`,
         values,
       );
+      if (paged) return response.json({ items, page, pages, total, limit });
       return response.json({ items, next_cursor: items.length === limit ? String(items.at(-1).id) : null });
     } catch (error) {
       return next(error);
