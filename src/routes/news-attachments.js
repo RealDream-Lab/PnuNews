@@ -17,7 +17,7 @@ class UploadValidationError extends Error {
 
 async function accessNews(pool, user, newsId) {
   const [rows] = await pool.execute(
-    `SELECT n.id, n.origin_region_id, n.created_by, creator.role AS created_by_role,
+    `SELECT n.id, n.source_url, n.origin_region_id, n.created_by, creator.role AS created_by_role,
             creator.region_id AS created_by_region_id, creator.is_active AS created_by_is_active
      FROM news n JOIN users creator ON creator.id = n.created_by
      WHERE n.id = ? AND n.deleted_at IS NULL`,
@@ -29,8 +29,8 @@ async function accessNews(pool, user, newsId) {
   const [settings] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
   return {
     news,
-    canView: canViewNews(user, news, regions),
-    canEdit: canEditNews(user, news, { regions, peerEditEnabled: settings[0]?.v === '1' }),
+    canView: canViewNews(user, news, { regions, peerEditEnabled: settings[0]?.v === '1' }),
+    canEdit: !news.source_url && canEditNews(user, news, { regions, peerEditEnabled: settings[0]?.v === '1' }),
   };
 }
 
@@ -200,7 +200,7 @@ export function createAttachmentDeleteRouter({ pool, uploadRoot }) {
     if (!Number.isSafeInteger(attachmentId) || attachmentId < 1) return response.status(400).json({ error: 'شناسهٔ پیوست معتبر نیست.' });
     try {
       const [rows] = await pool.execute(
-        `SELECT a.*, n.origin_region_id, n.created_by, creator.role AS created_by_role,
+        `SELECT a.*, n.source_url, n.origin_region_id, n.created_by, creator.role AS created_by_role,
                 creator.region_id AS created_by_region_id, creator.is_active AS created_by_is_active
          FROM attachments a JOIN news n ON n.id = a.news_id
          JOIN users creator ON creator.id = n.created_by
@@ -211,8 +211,8 @@ export function createAttachmentDeleteRouter({ pool, uploadRoot }) {
       if (!attachment) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       const [regions] = await pool.query('SELECT id, parent_id, type FROM regions');
       const [settings] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
-      const canView = canViewNews(request.user, attachment, regions);
-      const canEdit = canEditNews(request.user, attachment, { regions, peerEditEnabled: settings[0]?.v === '1' });
+      const canView = canViewNews(request.user, attachment, { regions, peerEditEnabled: settings[0]?.v === '1' });
+      const canEdit = !attachment.source_url && canEditNews(request.user, attachment, { regions, peerEditEnabled: settings[0]?.v === '1' });
       if (!canView) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       if (!canEdit) return response.status(403).json({ error: 'اجازهٔ حذف این پیوست را ندارید.' });
 
