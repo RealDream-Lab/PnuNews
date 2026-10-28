@@ -182,7 +182,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .news-signature{margin:1.4rem 0 0;color:var(--muted);font-size:.88rem;text-align:left;direction:rtl}.news-signature strong{color:var(--text);font-weight:500}
 .news-details{display:flex;flex-wrap:wrap;gap:.25rem .7rem;color:var(--muted);font-size:.8rem;border-bottom:1px solid var(--border);padding-bottom:1rem;margin-bottom:1.4rem}
 .news-body{font-size:1.04rem;line-height:2.05;overflow-wrap:anywhere}.news-body p{margin:.8rem 0}.news-body h2{font-size:1.45rem;line-height:1.6;margin:1.6rem 0 .7rem}.news-body h3{font-size:1.2rem;line-height:1.6;margin:1.3rem 0 .5rem}.news-body blockquote{margin:1rem 0;padding:.5rem 1rem;border-inline-start:3px solid var(--primary);background:var(--surface-soft);border-radius:8px;color:var(--muted)}.news-body img{max-width:100%;height:auto;border-radius:12px}.news-body a{color:var(--primary);text-decoration:underline;text-underline-offset:3px}.news-body ul,.news-body ol{padding-inline-start:1.5rem}
-.news-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1.5rem 0}.gallery-image-frame{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:12px;background:var(--surface-soft)}.gallery-image-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.news-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1.5rem 0}.gallery-image-frame{position:relative;display:block;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:12px;background:var(--surface-soft);padding:0;border:0;cursor:zoom-in}.gallery-image-frame:focus-visible{outline:3px solid var(--primary);outline-offset:2px}.gallery-image-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .attachment-list{padding:1rem 0;border-top:1px solid var(--border);display:grid;gap:.5rem}.attachment-list h2{font-size:1rem;margin:0}.attachment-link{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:.6rem .75rem;border-radius:10px;background:var(--surface-soft);font-size:.86rem}.attachment-link span:last-child{color:var(--muted);white-space:nowrap;font-size:.76rem}
 .news-actions{display:flex;gap:.6rem;margin-top:1rem}.share-button{min-height:44px;padding:.4rem 1rem;display:inline-flex;align-items:center;gap:.5rem;color:var(--primary);font-weight:500}
 .news-back{display:inline-flex;gap:.45rem;align-items:center;color:var(--primary);font-size:.9rem;margin-top:1rem}.news-back .icon{transform:rotate(180deg)}
@@ -237,3 +237,20 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .news-card.is-fresh{animation:fresh-ring 2.4s ease-out}
 @keyframes fresh-ring{0%{box-shadow:0 0 0 3px var(--primary),0 10px 28px rgba(0,0,0,.12)}100%{box-shadow:0 0 0 0 transparent,0 0 0 rgba(0,0,0,0)}}
 .news-card h2,.pinned-card h2,.card-summary{text-align:justify;text-justify:inter-word}
+
+/* ---------- Lightbox (attached images) ---------- */
+.lightbox{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent;color:#fff;overflow:hidden}
+.lightbox::backdrop{background:rgba(7,16,31,.94)}
+.lightbox[open]{display:flex;align-items:center;justify-content:center}
+.lightbox-figure{margin:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;padding:4rem 4.2rem 1.2rem;box-sizing:border-box}
+.lightbox-image{display:block;max-width:100%;max-height:calc(100vh - 7rem);max-height:calc(100dvh - 7rem);width:auto;height:auto;object-fit:contain;border-radius:8px;background:rgba(255,255,255,.04)}
+.lightbox-caption{min-height:1.4em;font-size:.9rem;color:#dfe6f1}
+.lightbox-close,.lightbox-nav{position:absolute;z-index:1;width:46px;height:46px;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;cursor:pointer}
+.lightbox-close:hover,.lightbox-nav:hover{background:rgba(255,255,255,.26)}
+.lightbox-close:focus-visible,.lightbox-nav:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.lightbox-close{top:.9rem;right:.9rem}
+.lightbox-nav{top:50%;transform:translateY(-50%)}
+.lightbox-prev{right:.9rem}.lightbox-prev .icon{transform:rotate(180deg)}
+.lightbox-next{left:.9rem}
+.lightbox-nav[hidden]{display:none}
+@media(max-width:639px){.lightbox-figure{padding:3.6rem .6rem 1rem}.lightbox-nav{top:auto;bottom:.9rem;transform:none}}

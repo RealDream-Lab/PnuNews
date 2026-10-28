@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.26.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.26.js';
+import { initDock } from '/shared/dock.v0.1.27.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.27.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -745,6 +745,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
   }
 }
 
+let galleryImages = [];
+
 function renderNewsPage(item, initial) {
   const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? escapeHtml(item.publisher_unit) : ''].filter(Boolean);
   const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join(' — ')}</p>` : '';
@@ -752,7 +754,9 @@ function renderNewsPage(item, initial) {
   const date = new Date(item.published_at);
   const fullDate = `${dateFormatter.format(date)} — ${timeFormatter.format(date)}`;
   const cover = item.cover?.src ? `<div class="news-page-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img class="news-page-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 790px) 100vw, 790px" width="${Number(item.cover.width) || 1280}" height="${Number(item.cover.height) || 720}" fetchpriority="high" alt="${escapeHtml(item.title)}"></div>` : '';
-  const gallery = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id)).map((image) => `<div class="gallery-image-frame">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></div>`).join('');
+  // Attached images except the cover; clicking one opens the lightbox (see openLightbox).
+  galleryImages = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id));
+  const gallery = galleryImages.map((image, index) => `<button type="button" class="gallery-image-frame" data-lightbox-index="${index}" aria-label="${escapeHtml(`نمایش بزرگ تصویر ${digits.format(index + 1)} از ${digits.format(galleryImages.length)}`)}">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></button>`).join('');
   const files = (item.files ?? []).map((file) => `<a class="attachment-link" href="${escapeHtml(file.url)}"><span>▤ ${escapeHtml(file.original_name)}</span><span>${escapeHtml(formatBytes(file.size_bytes))}</span></a>`).join('');
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
     <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1>
@@ -763,6 +767,72 @@ function renderNewsPage(item, initial) {
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
     <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="#icon-share"/></svg>اشتراک‌گذاری خبر</button></div>
     </article>`;
+}
+
+// ---------- Lightbox for attached images ----------
+const lightbox = document.getElementById('lightbox');
+const lightboxImage = document.getElementById('lightbox-image');
+const lightboxCaption = document.getElementById('lightbox-caption');
+const lightboxPrev = document.getElementById('lightbox-prev');
+const lightboxNext = document.getElementById('lightbox-next');
+let lightboxIndex = 0;
+let lightboxOpener = null;
+
+function showLightboxImage(index) {
+  const total = galleryImages.length;
+  if (!total) return;
+  lightboxIndex = (index + total) % total;
+  const image = galleryImages[lightboxIndex];
+  lightboxImage.removeAttribute('srcset');
+  lightboxImage.sizes = '100vw';
+  lightboxImage.srcset = image.srcset ?? '';
+  lightboxImage.src = image.src;
+  lightboxImage.alt = image.original_name ?? '';
+  lightboxCaption.textContent = total > 1 ? `${digits.format(lightboxIndex + 1)} از ${digits.format(total)}` : '';
+  lightboxPrev.hidden = lightboxNext.hidden = total < 2;
+  for (const neighbour of [galleryImages[(lightboxIndex + 1) % total], galleryImages[(lightboxIndex + total - 1) % total]]) {
+    if (neighbour && neighbour !== image) new Image().src = neighbour.src;
+  }
+}
+
+function openLightbox(index, opener) {
+  if (!lightbox || !galleryImages[index]) return;
+  lightboxOpener = opener ?? null;
+  showLightboxImage(index);
+  if (!lightbox.open) lightbox.showModal();
+}
+
+if (lightbox) {
+  document.addEventListener('click', (event) => {
+    const opener = event.target.closest?.('[data-lightbox-index]');
+    if (opener) openLightbox(Number(opener.dataset.lightboxIndex), opener);
+  });
+  lightboxPrev.addEventListener('click', () => showLightboxImage(lightboxIndex - 1));
+  lightboxNext.addEventListener('click', () => showLightboxImage(lightboxIndex + 1));
+  lightbox.querySelector('.lightbox-close').addEventListener('click', () => lightbox.close());
+  // A click on the dark area (not the image or a button) closes it.
+  lightbox.addEventListener('click', (event) => {
+    if (event.target === lightbox || event.target.classList.contains('lightbox-figure')) lightbox.close();
+  });
+  // The page is right-to-left: the left arrow goes forward, the right arrow goes back.
+  lightbox.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') { event.preventDefault(); showLightboxImage(lightboxIndex + 1); }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); showLightboxImage(lightboxIndex - 1); }
+  });
+  let touchStartX = null;
+  lightbox.addEventListener('touchstart', (event) => { touchStartX = event.touches.length === 1 ? event.touches[0].clientX : null; }, { passive: true });
+  lightbox.addEventListener('touchend', (event) => {
+    if (touchStartX === null) return;
+    const delta = event.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    if (Math.abs(delta) > 60) showLightboxImage(lightboxIndex + (delta < 0 ? 1 : -1));
+  }, { passive: true });
+  lightbox.addEventListener('close', () => {
+    lightboxImage.removeAttribute('src');
+    lightboxImage.removeAttribute('srcset');
+    lightboxOpener?.focus?.({ preventScroll: true });
+    lightboxOpener = null;
+  });
 }
 
 function formatBytes(bytes) {

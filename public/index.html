@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.26.css">
-  <script src="/shared/theme.v0.1.26.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.27.css">
+  <script src="/shared/theme.v0.1.27.js"></script>
   <title>اخبار پیام نور</title>
 </head>
 <body>
@@ -71,7 +71,13 @@
       <div id="picker-list" class="picker-list" aria-label="فهرست مناطق"></div>
   </div>
   </dialog>
+  <dialog id="lightbox" class="lightbox" aria-label="نمایش بزرگ تصویر">
+    <button class="lightbox-close" type="button" aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button>
+    <button id="lightbox-prev" class="lightbox-nav lightbox-prev" type="button" aria-label="تصویر قبلی"><svg class="icon"><use href="#icon-chevron"/></svg></button>
+    <button id="lightbox-next" class="lightbox-nav lightbox-next" type="button" aria-label="تصویر بعدی"><svg class="icon"><use href="#icon-chevron"/></svg></button>
+    <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
+  </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.26.js"></script>
+  <script type="module" src="/reader/app.v0.1.27.js"></script>
 </body>
 </html>
