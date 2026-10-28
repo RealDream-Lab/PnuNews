@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.22.css">
-  <script src="/shared/theme.v0.1.22.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.23.css">
+  <script src="/shared/theme.v0.1.23.js"></script>
   <title>مدیریت خبرها — اخبار پیام نور</title>
 </head>
 <body>
@@ -25,6 +25,8 @@
     <symbol id="admin-icon-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9Z"/><circle cx="8" cy="8" r="1.4"/></symbol>
     <symbol id="admin-icon-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
     <symbol id="admin-icon-file" viewBox="0 0 24 24"><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm8 0v5h5"/></symbol>
+    <symbol id="admin-icon-feed" viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.5"/><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/></symbol>
+    <symbol id="admin-icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></symbol>
     <symbol id="admin-icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
     <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
     <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.7 8.7 0 1 0 20.5 14.2Z"/></symbol>
@@ -99,12 +101,14 @@
         <nav id="desktop-nav" class="admin-nav">
           <button type="button" data-view="dashboard"><svg class="icon"><use href="#admin-icon-home"/></svg>داشبورد</button>
           <button type="button" data-view="news"><svg class="icon"><use href="#admin-icon-news"/></svg>مدیریت خبرها</button>
-          <button type="button" data-view="users"><svg class="icon"><use href="#admin-icon-users"/></svg>مدیریت کاربران</button>
+          <button type="button" data-view="mobile-feed"><svg class="icon"><use href="#admin-icon-feed"/></svg>خوراک خبر</button>
+          <button type="button" data-view="users" data-hide-city><svg class="icon"><use href="#admin-icon-users"/></svg>مدیریت کاربران</button>
           <button type="button" data-view="regions" data-super-only><svg class="icon"><use href="#admin-icon-map"/></svg>مراکز و واحدها</button>
           <button type="button" data-view="categories" data-super-only><svg class="icon"><use href="#admin-icon-tag"/></svg>دسته‌بندی‌ها</button>
           <button type="button" data-view="settings" data-super-only><svg class="icon"><use href="#admin-icon-settings"/></svg>تنظیمات</button>
           <button type="button" data-view="audit"><svg class="icon"><use href="#admin-icon-audit"/></svg>گزارش رویدادها</button>
           <button type="button" data-view="stats"><svg class="icon"><use href="#admin-icon-chart"/></svg>آمار بازدید</button>
+          <button type="button" data-view="profile"><svg class="icon"><use href="#admin-icon-user"/></svg>حساب کاربری</button>
         </nav>
         <div class="sidebar-scope"><span class="scope-dot"></span><span id="desktop-scope"></span></div>
       </aside>
@@ -317,17 +321,28 @@
             <p id="quick-error" class="form-error" role="alert"></p>
           </form>
         </section>
-        <section id="mobile-recent-view" class="admin-view mobile-panel" data-panel="mobile-recent" hidden>
+        <section id="mobile-recent-view" class="admin-view" data-panel="mobile-recent" hidden>
           <div class="view-heading"><div><p class="eyebrow">خبرهای من</p><h1>انتشارهای اخیر</h1></div><button class="button primary" data-view="mobile-compose">＋ خبر تازه</button></div>
           <div id="mobile-recent" class="compact-list"></div>
         </section>
-        <section id="mobile-feed-view" class="admin-view mobile-panel" data-panel="mobile-feed" hidden>
+        <section id="mobile-feed-view" class="admin-view" data-panel="mobile-feed" hidden>
           <div class="view-heading"><div><p class="eyebrow">برای محدودهٔ شما</p><h1>خبرهای منتشرشده</h1></div></div>
           <div id="mobile-feed" class="compact-list"></div>
         </section>
-        <section id="profile-view" class="admin-view mobile-panel" data-panel="profile" hidden>
+        <section id="profile-view" class="admin-view" data-panel="profile" hidden>
           <div class="view-heading"><div><p class="eyebrow">امنیت حساب</p><h1>حساب کاربری</h1></div></div>
           <div class="panel profile-panel"><dl id="profile-details"></dl><h2>دستگاه‌های مورد اعتماد</h2><div id="device-list" class="compact-list"></div><button id="logout-everywhere" class="button danger" type="button">خروج از همهٔ دستگاه‌ها</button></div>
+          <div class="panel profile-panel password-panel">
+            <h2>تغییر گذرواژه</h2>
+            <form id="profile-password-form" class="form-stack">
+              <label>گذرواژهٔ فعلی<input name="old_password" type="password" autocomplete="current-password" required></label>
+              <label>گذرواژهٔ تازه<input name="new_password" type="password" autocomplete="new-password" minlength="10" required></label>
+              <label>تکرار گذرواژهٔ تازه<input name="confirm_password" type="password" autocomplete="new-password" minlength="10" required></label>
+              <p class="muted">دست‌کم ۱۰ نویسه و متفاوت از نام کاربری. پس از تغییر، از همهٔ دستگاه‌ها خارج می‌شوید و باید دوباره وارد شوید.</p>
+              <button class="button primary" type="submit">تغییر گذرواژه</button>
+              <p id="profile-password-error" class="form-error" role="alert"></p>
+            </form>
+          </div>
         </section>
       </div>
     </div>
@@ -352,6 +367,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.22.js"></script>
+  <script type="module" src="/admin/admin.v0.1.23.js"></script>
 </body>
 </html>

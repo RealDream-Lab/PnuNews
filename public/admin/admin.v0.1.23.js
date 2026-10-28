@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.22.js';
+import { initDock } from '/shared/dock.v0.1.23.js';
 import {
   JALALI_MONTHS,
 
@@ -250,6 +250,8 @@ function applyCalendarDate() {
 }
 
 function goToView(view) {
+  // A city-level admin has no subordinates, so there is nothing to manage on the users page.
+  if (view === 'users' && state.user?.role === 'city_admin') view = 'dashboard';
   const mobile = matchMedia('(max-width: 767px)').matches;
   const actualView = mobile && !view.startsWith('mobile-') && view !== 'profile' && view !== 'editor' ? 'mobile-compose' : view;
   document.querySelectorAll('.admin-view').forEach((panel) => { panel.hidden = panel.dataset.panel !== actualView; });
@@ -297,6 +299,7 @@ async function prepareWorkspace() {
   dock.loadRadio();
   document.querySelectorAll('[data-super-only]').forEach((element) => { element.hidden = state.user.role !== 'super_admin'; });
   document.getElementById('new-user-button').hidden = state.user.role === 'city_admin';
+  document.querySelectorAll('[data-hide-city]').forEach((element) => { element.hidden = state.user.role === 'city_admin'; });
   if (matchMedia('(max-width: 767px)').matches) goToView('mobile-compose');
   else goToView('dashboard');
 }
@@ -1482,6 +1485,8 @@ async function loadStats() {
 }
 
 async function loadProfile() {
+  document.getElementById('profile-password-form')?.reset();
+  document.getElementById('profile-password-error').textContent = '';
   try {
     const [me, deviceResponse] = await Promise.all([api('/api/auth/me'), api('/api/auth/devices')]);
     state.user = me.user;
@@ -1629,6 +1634,29 @@ async function submitPasswordChange(event) {
   } catch (failure) { error.textContent = failure.message; }
 }
 
+async function submitProfilePasswordChange(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const error = document.getElementById('profile-password-error');
+  error.textContent = '';
+  const { old_password: oldPassword, new_password: newPassword, confirm_password: confirmPassword } = form.elements;
+  if (newPassword.value !== confirmPassword.value) {
+    error.textContent = 'تکرار گذرواژهٔ تازه با گذرواژهٔ تازه یکی نیست.';
+    return;
+  }
+  if (newPassword.value === oldPassword.value) {
+    error.textContent = 'گذرواژهٔ تازه باید با گذرواژهٔ فعلی متفاوت باشد.';
+    return;
+  }
+  try {
+    await api('/api/auth/change-password', { method: 'POST', body: { old_password: oldPassword.value, new_password: newPassword.value } });
+    form.reset();
+    state.user = null; // the server ended every session of this user
+    showToast('گذرواژه تغییر کرد؛ دوباره وارد شوید.');
+    showAuth('login-card');
+  } catch (failure) { error.textContent = failure.message; }
+}
+
 async function logout() {
   try { await api('/api/auth/logout', { method: 'POST', body: {} }); } catch {}
   state.user = null;
@@ -1645,6 +1673,7 @@ function bindEvents() {
   document.getElementById('login-form').addEventListener('submit', onLogin);
   document.getElementById('totp-form').addEventListener('submit', onTotp);
   document.getElementById('password-form').addEventListener('submit', submitPasswordChange);
+  document.getElementById('profile-password-form').addEventListener('submit', submitProfilePasswordChange);
   document.getElementById('backup-continue').addEventListener('click', async () => {
     const me = await api('/api/auth/me');
     state.user = me.user;
