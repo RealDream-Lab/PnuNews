@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.20.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.21.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -118,7 +118,7 @@ export function initDock({ showToast = () => {} } = {}) {
       audio.addEventListener('play', () => {
         const button = radioRoot.querySelector('.radio-play');
         if (button) {
-          button.innerHTML = '<svg class="icon"><use href="#icon-pause"/></svg>';
+          button.innerHTML = '<svg class="icon"><use href="#icon-stop"/></svg>';
           button.setAttribute('aria-label', 'توقف رادیو');
         }
       });
