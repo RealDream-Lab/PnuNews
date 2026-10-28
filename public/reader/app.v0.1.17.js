@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.16.js';
+import { initDock } from '/shared/dock.v0.1.17.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');

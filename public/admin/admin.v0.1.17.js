@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.16.js';
+import { initDock } from '/shared/dock.v0.1.17.js';
 import {
   JALALI_MONTHS,
 
@@ -514,6 +514,7 @@ function resetEditor() {
   state.currentNews = null;
   form.querySelectorAll('input,textarea,select,button').forEach((element) => { element.disabled = false; });
   form.querySelector('input[name="schedule_mode"][value="now"]').checked = true;
+  form.querySelector('input[name="news_type"][value="news"]').checked = true;
   document.getElementById('editor-media').open = false;
   document.getElementById('editor-more').open = false;
   resetUploads();
@@ -536,6 +537,7 @@ async function openEditor(id) {
     document.getElementById('editor-body').innerHTML = item.body_html || '';
     document.getElementById('editor-heading').textContent = item.source_url ? 'خبر خودکار پورتال (فقط خواندنی)' : item.can_edit ? 'ویرایش خبر' : 'مشاهدهٔ خبر (فقط خواندنی)';
     setCategoryOptions(item.category_id);
+    form.querySelector(`input[name="news_type"][value="${item.news_type === 'announcement' ? 'announcement' : 'news'}"]`).checked = true;
     renderTargetPicker('editor-target-fieldset', (item.targets || []).map((target) => Number(target.id)));
     state.newsDates = { published_at: item.published_at || null, expires_at: item.expires_at || null };
     updateDateLabel('published_at');
@@ -590,6 +592,7 @@ function editorPayload() {
     summary: form.elements.summary.value.trim(),
     body_html: editorBody(),
     category_id: form.elements.category_id.value ? Number(form.elements.category_id.value) : null,
+    news_type: form.elements.news_type.value === 'announcement' ? 'announcement' : 'news',
     targets: requireTargets('editor-target-fieldset'),
     expires_at: state.newsDates.expires_at,
   };
@@ -941,7 +944,7 @@ async function submitQuickCompose(event) {
   try {
     const targets = requireTargets('quick-target-fieldset');
     const created = await api('/api/admin/news', {
-      method: 'POST', body: { title, summary, category_id: Number(form.elements.category_id.value), body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
+      method: 'POST', body: { title, summary, news_type: form.elements.news_type.value === 'announcement' ? 'announcement' : 'news', category_id: Number(form.elements.category_id.value), body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
     });
     const cover = form.elements.cover.files[0];
     if (cover) {

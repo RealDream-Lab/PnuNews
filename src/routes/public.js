@@ -41,6 +41,24 @@ function imageUrls(storedName) {
   };
 }
 
+// Cover used when a news item has no uploaded cover (and no imported source image): one per news type.
+const DEFAULT_COVERS = {
+  news: { name: 'default-news', dominant_color: '#a0a6ab' },
+  announcement: { name: 'default-announcement', dominant_color: '#93979d' },
+};
+
+function defaultCover(newsType) {
+  const { name, dominant_color: dominantColor } = DEFAULT_COVERS[newsType] ?? DEFAULT_COVERS.news;
+  return {
+    src: `/covers/${name}.v1.800.webp`,
+    srcset: [400, 800, 1280].map((width) => `/covers/${name}.v1.${width}.webp ${width}w`).join(', '),
+    dominant_color: dominantColor,
+    width: 1280,
+    height: 720,
+    is_default: true,
+  };
+}
+
 function plainString(value, maxLength = 200) {
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, maxLength) : '';
 }
@@ -58,6 +76,7 @@ function publicItem(row) {
     id: Number(row.id),
     title: row.title,
     summary: row.summary,
+    news_type: row.news_type === 'announcement' ? 'announcement' : 'news',
     category: row.category_id == null ? null : { id: Number(row.category_id), name: row.category_name },
     published_at: row.published_at.toISOString(),
     expires_at: row.expires_at?.toISOString() ?? null,
@@ -68,7 +87,7 @@ function publicItem(row) {
     publisher_unit: row.publisher_unit,
     source_url: row.source_url || null,
     scope: { type: row.scope_type, id: Number(row.scope_region_id), name: row.scope_name },
-    cover: image ? { ...image, dominant_color: row.cover_dominant_color, width: row.cover_width, height: row.cover_height } : external,
+    cover: image ? { ...image, dominant_color: row.cover_dominant_color, width: row.cover_width, height: row.cover_height } : (external ?? defaultCover(row.news_type)),
   };
 }
 
@@ -138,7 +157,7 @@ async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
   }
 
   const [rows] = await pool.execute(
-    `SELECT n.id, n.title, n.summary, n.category_id, c.name AS category_name,
+    `SELECT n.id, n.title, n.summary, n.news_type, n.category_id, c.name AS category_name,
             n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
             n.publisher_name, n.publisher_unit, n.source_url,
             n.source_image_url, cover.stored_name AS cover_stored_name, cover.width AS cover_width,
@@ -201,12 +220,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.16.css">
-<script src="/shared/theme.v0.1.16.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.17.css">
+<script src="/shared/theme.v0.1.17.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.16.js"></script>
+<script type="module" src="/reader/app.v0.1.17.js"></script>
 </body>
 </html>`;
 }
@@ -301,7 +320,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!id) return response.status(404).json({ error: 'خبر پیدا نشد.' });
     try {
       const [rows] = await pool.execute(
-        `SELECT n.id, n.title, n.summary, n.body_html, n.category_id, c.name AS category_name,
+        `SELECT n.id, n.title, n.summary, n.body_html, n.news_type, n.category_id, c.name AS category_name,
                 n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
                 n.publisher_name, n.publisher_unit, n.source_url, n.source_image_url, n.cover_attachment_id,
                 settings.v AS byline_show_person
@@ -347,6 +366,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       return response.json({
         item: {
           id: Number(news.id), title: news.title, summary: news.summary,
+          news_type: news.news_type === 'announcement' ? 'announcement' : 'news',
           body_html: sanitizeBodyHtml(news.body_html),
           category: news.category_id == null ? null : { id: Number(news.category_id), name: news.category_name },
           published_at: news.published_at.toISOString(), expires_at: news.expires_at?.toISOString() ?? null,
@@ -358,7 +378,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
                       width: coverAttachment.width,
                       height: coverAttachment.height,
                       dominant_color: coverAttachment.dominant_color,
-                    } : (news.source_image_url ? { src: news.source_image_url, srcset: '', external: true } : null),
+                    } : (news.source_image_url ? { src: news.source_image_url, srcset: '', external: true } : defaultCover(news.news_type)),
           images: imageAttachments, files,
         },
       });
@@ -402,7 +422,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!id) return response.status(404).type('text/plain').send('خبر پیدا نشد.');
     try {
       const [rows] = await pool.execute(
-        `SELECT n.title, n.summary, n.published_at, cover.stored_name, settings.v AS site_title
+        `SELECT n.title, n.summary, n.news_type, n.published_at, cover.stored_name, settings.v AS site_title
          FROM news n
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          LEFT JOIN settings ON settings.k = 'site_title'
@@ -416,7 +436,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       if (!news) return response.status(404).type('text/plain').send('خبر پیدا نشد.');
       const title = plainString(news.title, 240);
       const summary = plainString(news.summary, 600);
-      const imagePath = imageUrls(news.stored_name)?.src;
+      const imagePath = imageUrls(news.stored_name)?.src ?? defaultCover(news.news_type).src;
       const image = imagePath ? new URL(imagePath, config.publicUrl).href : null;
       const siteTitle = plainString(news.site_title || 'اخبار پیام نور', 160);
       const canonical = new URL(`/n/${id}`, config.publicUrl).href;

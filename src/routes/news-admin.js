@@ -6,6 +6,7 @@ import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
 
 const NEWS_STATUSES = new Set(['draft', 'scheduled', 'published']);
+const NEWS_TYPES = new Set(['news', 'announcement']);
 
 function idValue(value) {
   const id = Number(value);
@@ -149,6 +150,12 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         clauses.push('n.status = ?');
         values.push(status);
       }
+      const type = request.query.type;
+      if (type && type !== 'all') {
+        if (!NEWS_TYPES.has(type)) return response.status(400).json({ error: 'نوع مطلب معتبر نیست.' });
+        clauses.push('n.news_type = ?');
+        values.push(type);
+      }
       const categoryId = request.query.category ? idValue(request.query.category) : null;
       if (request.query.category && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
       if (categoryId) { clauses.push('n.category_id = ?'); values.push(categoryId); }
@@ -173,7 +180,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 20;
       values.push(limit + 1);
       const [items] = await pool.execute(
-        `SELECT n.id, n.title, n.summary, n.category_id, n.status, n.published_at, n.expires_at,
+        `SELECT n.id, n.title, n.summary, n.category_id, n.news_type, n.status, n.published_at, n.expires_at,
                 n.is_pinned, n.is_urgent, n.view_count, n.origin_region_id, n.publisher_name,
                 n.publisher_unit, n.source_url, n.created_by, n.updated_at, r.name AS origin_region_name,
                 r.type AS origin_region_type, c.name AS category_name,
@@ -218,6 +225,8 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     if (request.body?.status && request.body.status !== 'draft') return response.status(400).json({ error: 'خبر را پس از ذخیره از مسیر انتشار منتشر کنید.' });
     const categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
     if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
+    const newsType = request.body?.news_type ?? 'news';
+    if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
     try {
       const regions = await loadRegions(pool);
       const targets = await validateTargets(pool, request.user, request.body?.targets ?? [], regions);
@@ -231,9 +240,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       try {
         await connection.beginTransaction();
         const [result] = await connection.execute(
-          `INSERT INTO news (title, summary, body_html, search_text, category_id, origin_region_id, created_by, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [content.title, content.summary, content.body_html, content.search_text, categoryId, request.user.region_id, request.user.id, request.user.id],
+          `INSERT INTO news (title, summary, body_html, search_text, category_id, news_type, origin_region_id, created_by, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [content.title, content.summary, content.body_html, content.search_text, categoryId, newsType, request.user.region_id, request.user.id, request.user.id],
         );
         newsId = result.insertId;
         await updateNewsTargets(connection, newsId, targets);
@@ -301,6 +310,8 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);
         if (!categories.length) return response.status(400).json({ error: 'دسته‌بندی فعال پیدا نشد.' });
       }
+      const newsType = request.body?.news_type === undefined ? context.news.news_type : request.body.news_type;
+      if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
       let targets = null;
       if (request.body?.targets !== undefined) {
         const existingTargets = await loadTargets(pool, id);
@@ -313,9 +324,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       try {
         await connection.beginTransaction();
         await connection.execute(
-          `UPDATE news SET title = ?, summary = ?, body_html = ?, search_text = ?, category_id = ?, expires_at = ?, updated_by = ?
+          `UPDATE news SET title = ?, summary = ?, body_html = ?, search_text = ?, category_id = ?, news_type = ?, expires_at = ?, updated_by = ?
            WHERE id = ? AND deleted_at IS NULL`,
-          [content.title, content.summary, content.body_html, content.search_text, categoryId, expiresAt, request.user.id, id],
+          [content.title, content.summary, content.body_html, content.search_text, categoryId, newsType, expiresAt, request.user.id, id],
         );
         if (targets) await updateNewsTargets(connection, id, targets);
         await auditNews(connection, request.user.id, 'news.update', id, request, targets ? { target_ids: targets.map((target) => target.id) } : null);

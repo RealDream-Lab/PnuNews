@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.16.css">
-  <script src="/shared/theme.v0.1.16.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.17.css">
+  <script src="/shared/theme.v0.1.17.js"></script>
   <title>مدیریت خبرها — اخبار پیام نور</title>
 </head>
 <body>
@@ -178,6 +178,13 @@
             <aside class="side-card panel" aria-label="تنظیمات انتشار">
               <div class="side-status"><span>وضعیت</span><span id="editor-status" class="status-badge draft">پیش‌نویس</span></div>
               <fieldset id="editor-target-fieldset" class="target-picker"></fieldset>
+              <div class="type-group">
+                <span class="field-label">نوع مطلب</span>
+                <div class="seg" role="radiogroup" aria-label="نوع مطلب">
+                  <label class="seg-item"><input type="radio" name="news_type" value="news" checked><span>خبر</span></label>
+                  <label class="seg-item"><input type="radio" name="news_type" value="announcement"><span>اطلاعیه</span></label>
+                </div>
+              </div>
               <label>دسته‌بندی<select name="category_id" required></select></label>
               <div id="editor-when-group" class="when-group">
                 <span class="field-label">زمان انتشار (وقت ایران)</span>
@@ -294,7 +301,15 @@
             <label>عنوان کوتاه<input name="title" maxlength="240" required></label>
             <label>متن کوتاه<textarea name="summary" rows="4" maxlength="600" required></textarea></label>
             <label class="upload-field">گرفتن یا انتخاب عکس<input name="cover" type="file" accept="image/*" capture="environment"></label>
+            <small class="muted">اگر عکسی انتخاب نکنید، جلد پیش‌فرضِ «خبر» یا «اطلاعیه» (بر اساس نوع مطلب) استفاده می‌شود.</small>
             <progress id="quick-progress" class="upload-progress" max="100" value="0" hidden></progress>
+            <div class="type-group">
+              <span class="field-label">نوع مطلب</span>
+              <div class="seg" role="radiogroup" aria-label="نوع مطلب">
+                <label class="seg-item"><input type="radio" name="news_type" value="news" checked><span>خبر</span></label>
+                <label class="seg-item"><input type="radio" name="news_type" value="announcement"><span>اطلاعیه</span></label>
+              </div>
+            </div>
             <label>دسته‌بندی<select name="category_id" required></select></label>
             <fieldset id="quick-target-fieldset" class="target-picker"></fieldset>
             <button class="button success wide" type="submit">انتشار خبر</button>
@@ -336,6 +351,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.16.js"></script>
+  <script type="module" src="/admin/admin.v0.1.17.js"></script>
 </body>
 </html>

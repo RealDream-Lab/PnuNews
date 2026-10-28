@@ -23,7 +23,7 @@
 .side-card{position:sticky;top:84px}
 .side-status{display:flex;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--muted)}
 .field-label{font-size:.86rem;font-weight:500}
-.when-group{display:grid;gap:.5rem}
+.when-group,.type-group{display:grid;gap:.5rem}
 .editor-actions{display:grid;grid-template-columns:1fr;gap:.5rem}
 .editor-actions .wide{width:100%;min-height:46px}
 .more-block{border:1px solid var(--border);border-radius:12px;background:var(--surface)}
