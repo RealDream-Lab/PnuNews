@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
-import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
+import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText } from '../lib/fa.js';
 import { appEvents } from '../events.js';
@@ -180,31 +180,33 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
 
   router.get('/stats', async (request, response, next) => {
     try {
-      const clauses = ['deleted_at IS NULL'];
+      const clauses = ['n.deleted_at IS NULL'];
       const values = [];
-      if (request.user.role !== 'super_admin') {
-        const regions = await getRegions(pool);
-        const allowed = [...adminRegionIds(request.user, regions)];
-        if (!allowed.length) return response.json({ counts: { total: 0, draft: 0, scheduled: 0, published: 0, views: 0 }, latest: [], most_viewed: [] });
-        clauses.push(`origin_region_id IN (${allowed.map(() => '?').join(', ')})`);
-        values.push(...allowed);
+      const regions = await getRegions(pool);
+      const [peerRows] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
+      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: peerRows[0]?.v === '1' });
+      if (visibility) {
+        clauses.push(visibility.sql);
+        values.push(...visibility.values);
       }
       const where = clauses.join(' AND ');
       const [countRows, latest, mostViewed] = await Promise.all([
         pool.execute(
-          `SELECT COUNT(*) AS total, SUM(status = 'draft') AS drafts,
-                  SUM(status = 'scheduled') AS scheduled, SUM(status = 'published') AS published,
-                  COALESCE(SUM(view_count), 0) AS views FROM news WHERE ${where}`,
+          `SELECT COUNT(*) AS total, SUM(n.status = 'draft') AS drafts,
+                  SUM(n.status = 'scheduled') AS scheduled, SUM(n.status = 'published') AS published,
+                  COALESCE(SUM(n.view_count), 0) AS views FROM news n JOIN users creator ON creator.id = n.created_by WHERE ${where}`,
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count, updated_at, source_url FROM news
-           WHERE ${where} ORDER BY updated_at DESC, id DESC LIMIT 10`,
+          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.updated_at, n.source_url
+           FROM news n JOIN users creator ON creator.id = n.created_by
+           WHERE ${where} ORDER BY n.updated_at DESC, n.id DESC LIMIT 10`,
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count, source_url FROM news
-           WHERE ${where} ORDER BY view_count DESC, id DESC LIMIT 10`,
+          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.source_url
+           FROM news n JOIN users creator ON creator.id = n.created_by
+           WHERE ${where} ORDER BY n.view_count DESC, n.id DESC LIMIT 10`,
           values,
         ),
       ]);
@@ -585,8 +587,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const values = [];
       if (request.user.role !== 'super_admin') {
         const regions = await getRegions(pool);
-        const allowed = adminRegionIds(request.user, regions);
-        const scope = regions.filter((region) => allowed.has(Number(region.id)) && region.type !== 'country').map((region) => Number(region.id));
+        const scope = [...auditRegionIds(request.user, regions)];
         const placeholders = scope.map(() => '?').join(', ');
         clauses.push(`(actor.region_id IN (${placeholders}) OR target.region_id IN (${placeholders}))`);
         values.push(...scope, ...scope);

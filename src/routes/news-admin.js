@@ -1,6 +1,6 @@
 import express from 'express';
 import { appEvents, emitNewsPublished } from '../events.js';
-import { canDeleteNews, canEditNews, canPublishTo, canViewNews, adminRegionIds } from '../auth/policy.js';
+import { canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
 import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
@@ -79,14 +79,17 @@ async function loadTargets(pool, newsId) {
   return rows;
 }
 
-async function validateTargets(pool, user, targetIds, regions) {
+async function validateTargets(pool, user, targetIds, regions, keepIds = []) {
   if (!Array.isArray(targetIds) || targetIds.length > 100) return null;
   const ids = targetIds.map(idValue);
   if (ids.some((id) => !id) || new Set(ids).size !== ids.length) return null;
   if (!ids.length) return [];
   const regionMap = new Map(regions.map((region) => [Number(region.id), region]));
   const targets = ids.map((id) => regionMap.get(id));
-  if (targets.some((region) => !region || !canPublishTo(user, region, regions))) return null;
+  const kept = new Set(keepIds.map(Number));
+  // Targets already attached to the news were validated when they were added; a moderator (e.g. the
+  // central PR user editing a province's news) must be able to keep them even if they could not add them.
+  if (targets.some((region) => !region || (!kept.has(Number(region.id)) && !canPublishTo(user, region, regions)))) return null;
   return targets;
 }
 
@@ -102,12 +105,12 @@ async function getPolicyNews(pool, user, id) {
   ]);
   if (!news) return null;
   news._regions = regions;
-  const canView = canViewNews(user, news, regions);
+  const canView = canViewNews(user, news, { regions, peerEditEnabled });
   return { news, regions, canView, canEdit: canView && !news.source_url && editorCanEdit(user, news, peerEditEnabled) };
 }
 
-function publisherUnit(user, region) {
-  if (region.type === 'country') return 'روابط عمومی کل کشور';
+function publisherUnit(creatorRole, region) {
+  if (region.type === 'country') return creatorRole === 'country_admin' ? 'روابط عمومی سازمان مرکزی' : 'روابط عمومی کل کشور';
   if (region.type === 'province') return `روابط عمومی استان ${region.name}`;
   return `روابط عمومی مرکز دانشگاهی ${region.name}`;
 }
@@ -135,11 +138,10 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const regions = await loadRegions(pool);
       const clauses = ['n.deleted_at IS NULL'];
       const values = [];
-      if (request.user.role !== 'super_admin') {
-        const ids = [...adminRegionIds(request.user, regions)];
-        if (!ids.length) return response.json({ items: [], next_cursor: null });
-        clauses.push(`n.origin_region_id IN (${ids.map(() => '?').join(', ')})`);
-        values.push(...ids);
+      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: await loadPeerSetting(pool) });
+      if (visibility) {
+        clauses.push(visibility.sql);
+        values.push(...visibility.values);
       }
       const status = request.query.status;
       if (status && status !== 'all') {
@@ -177,6 +179,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
                 r.type AS origin_region_type, c.name AS category_name,
                 cover.stored_name AS cover_stored_name, cover.dominant_color AS cover_dominant_color
          FROM news n JOIN regions r ON r.id = n.origin_region_id
+         JOIN users creator ON creator.id = n.created_by
          LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          WHERE ${clauses.join(' AND ')}
@@ -300,7 +303,8 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       }
       let targets = null;
       if (request.body?.targets !== undefined) {
-        targets = await validateTargets(pool, request.user, request.body.targets, context.regions);
+        const existingTargets = await loadTargets(pool, id);
+        targets = await validateTargets(pool, request.user, request.body.targets, context.regions, existingTargets.map((target) => target.id));
         if (!targets) return response.status(403).json({ error: 'یک یا چند مقصد انتشار مجاز نیست.' });
       }
       const expiresAt = request.body?.expires_at === undefined ? context.news.expires_at : parseDate(request.body.expires_at);
@@ -365,7 +369,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       if (!context?.canView) return response.status(404).json({ error: 'خبر پیدا نشد.' });
       if (!context.canEdit) return response.status(403).json({ error: 'اجازهٔ انتشار این خبر را ندارید.' });
       const targets = await loadTargets(pool, id);
-      if (!targets.length || targets.some((target) => !canPublishTo(request.user, target, context.regions))) {
+      if (!targets.length) {
         return response.status(400).json({ error: 'برای انتشار باید دست‌کم یک مقصد مجاز انتخاب کنید.' });
       }
       const publishedAt = request.body?.published_at === undefined ? new Date(clock()) : parseDate(request.body.published_at);
@@ -376,7 +380,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const scheduled = publishedAt.getTime() > clock();
       const status = scheduled ? 'scheduled' : 'published';
       const origin = context.regions.find((region) => Number(region.id) === Number(context.news.origin_region_id));
-      const unit = publisherUnit(request.user, origin);
+      const unit = publisherUnit(context.news.created_by_role, origin);
       const firstPublish = context.news.published_by_user_id == null;
       const publisherName = firstPublish ? request.user.full_name : context.news.publisher_name;
       const publisherUnitSnapshot = firstPublish ? unit : context.news.publisher_unit;

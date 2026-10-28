@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.12.js';
+import { initDock } from '/shared/dock.v0.1.13.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -272,6 +272,38 @@ function cardMarkup(item, { featured = false } = {}) {
   </article>`;
 }
 
+// Desktop masonry: the feed is a grid of 8px rows and every card spans as many rows as its own height needs,
+// so cards of different heights pack tightly without leaving gaps. Mobile/tablet keep the plain grid.
+const MASONRY_ROW = 8;
+const masonryQuery = matchMedia('(min-width: 960px)');
+
+function layoutMasonry() {
+  const active = masonryQuery.matches;
+  feed.classList.toggle('is-masonry', active);
+  const nodes = [...feed.children];
+  if (!active) {
+    for (const node of nodes) node.style.gridRowEnd = '';
+    return;
+  }
+  const gap = Number.parseFloat(getComputedStyle(feed).columnGap) || 16;
+  const heights = nodes.map((node) => (node.classList.contains('feed-spacer')
+    ? Number.parseFloat(node.style.height) || 0
+    : node.getBoundingClientRect().height));
+  nodes.forEach((node, index) => {
+    const extra = node.classList.contains('feed-spacer') ? 0 : gap;
+    node.style.gridRowEnd = `span ${Math.max(1, Math.ceil((heights[index] + extra) / MASONRY_ROW))}`;
+  });
+}
+
+let masonryFrame = 0;
+function scheduleMasonry() {
+  cancelAnimationFrame(masonryFrame);
+  masonryFrame = requestAnimationFrame(layoutMasonry);
+}
+masonryQuery.addEventListener('change', layoutMasonry);
+window.addEventListener('resize', scheduleMasonry, { passive: true });
+document.fonts?.ready.then(layoutMasonry);
+
 function showSkeletons(count = 4) {
   for (let index = 0; index < count; index += 1) {
     const skeleton = document.createElement('div');
@@ -279,6 +311,7 @@ function showSkeletons(count = 4) {
     skeleton.setAttribute('aria-hidden', 'true');
     feed.append(skeleton);
   }
+  layoutMasonry();
 }
 
 function clearFeed() {
@@ -326,6 +359,7 @@ function recycleFeed() {
   state.spacer.style.height = `${state.spacerHeight}px`;
   state.spacerHeight += before - feed.getBoundingClientRect().height;
   state.spacer.style.height = `${Math.max(0, state.spacerHeight)}px`;
+  layoutMasonry();
 }
 
 async function loadMore() {
@@ -364,6 +398,7 @@ async function loadMore() {
       feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
       feedMessage.textContent = '';
     }
+    layoutMasonry();
     recycleFeed();
     if (state.ended) intersectionObserver?.unobserve(sentinel);
     else intersectionObserver?.observe(sentinel);

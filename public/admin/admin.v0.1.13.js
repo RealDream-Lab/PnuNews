@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.12.js';
+import { initDock } from '/shared/dock.v0.1.13.js';
 import {
   JALALI_MONTHS,
 
@@ -128,7 +128,7 @@ function closeAuthAndShowAdmin() {
 }
 
 function roleLabel(role) {
-  return ({ super_admin: 'مدیر ارشد', province_admin: 'مدیر استان', city_admin: 'مدیر مرکز دانشگاهی' })[role] || 'مدیر';
+  return ({ super_admin: 'مدیر ارشد', country_admin: 'روابط عمومی سازمان مرکزی', province_admin: 'مدیر استان', city_admin: 'مدیر مرکز دانشگاهی' })[role] || 'مدیر';
 }
 
 function regionName(regionId) {
@@ -138,6 +138,7 @@ function regionName(regionId) {
 function scopeText() {
   const region = state.regions.find((item) => Number(item.id) === Number(state.user?.region_id));
   if (state.user?.role === 'super_admin') return 'شما برای کل کشور منتشر می‌کنید.';
+  if (state.user?.role === 'country_admin') return 'شما برای کل کشور و استان‌ها منتشر می‌کنید.';
   if (region?.type === 'province') return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
   return `شما برای مرکز دانشگاهی ${region?.name || 'خود'} منتشر می‌کنید.`;
 }
@@ -289,7 +290,7 @@ async function prepareWorkspace() {
   state.regions = regions.regions;
   state.categories = categories.categories;
   const regionNameValue = regionName(state.user.region_id);
-  const placeLabel = state.user.role === 'super_admin' ? 'مدیر ارشد' : `${roleLabel(state.user.role)} ${regionNameValue}`;
+  const placeLabel = ['super_admin', 'country_admin'].includes(state.user.role) ? roleLabel(state.user.role) : `${roleLabel(state.user.role)} ${regionNameValue}`;
   document.getElementById('user-chip').textContent = `${state.user.full_name} · ${placeLabel}`;
   setScopeBanner();
   beginQuickCompose();
@@ -361,7 +362,7 @@ function targetModel() {
   const user = state.user;
   if (!user) return null;
   if (user.role === 'city_admin') return { kind: 'city', rootId: Number(user.region_id), options: [] };
-  if (user.role === 'super_admin') {
+  if (user.role === 'super_admin' || user.role === 'country_admin') {
     const root = state.regions.find((region) => region.type === 'country');
     if (!root) return null;
     return {
@@ -1003,12 +1004,14 @@ function fillUserRegions() {
   const form = document.getElementById('user-form');
   const role = form.elements.role.value;
   const city = role === 'city_admin';
+  const country = role === 'country_admin';
   const isSuper = state.user.role === 'super_admin';
   document.getElementById('user-province-label').hidden = !(isSuper && city);
   const provinceId = Number(form.elements.province_id.value);
-  const options = state.regions.filter((item) => item.type === (city ? 'city' : 'province') && (!isSuper || !city || Number(item.parent_id) === provinceId));
+  const regionType = city ? 'city' : country ? 'country' : 'province';
+  const options = state.regions.filter((item) => item.type === regionType && (!isSuper || !city || Number(item.parent_id) === provinceId));
   form.elements.region_id.innerHTML = options.map((item) => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
-  document.getElementById('user-region-label').firstChild.textContent = city ? 'مرکز دانشگاهی' : 'استان';
+  document.getElementById('user-region-label').firstChild.textContent = city ? 'مرکز دانشگاهی' : country ? 'محدوده' : 'استان';
 }
 
 async function openUserForm() {
@@ -1018,8 +1021,10 @@ async function openUserForm() {
   document.getElementById('user-error').textContent = '';
   const role = form.elements.role;
   const isSuper = state.user.role === 'super_admin';
-  if (isSuper) {
-    role.innerHTML = '<option value="province_admin">مدیر استان</option><option value="city_admin">مدیر مرکز دانشگاهی</option>';
+  if (state.user.role === 'country_admin') {
+    role.innerHTML = `<option value="province_admin">${roleLabel('province_admin')}</option>`;
+  } else if (isSuper) {
+    role.innerHTML = `<option value="country_admin">${roleLabel('country_admin')}</option><option value="province_admin">مدیر استان</option><option value="city_admin">مدیر مرکز دانشگاهی</option>`;
     try {
       const provinces = await provincesWithAdmin();
       form.elements.province_id.innerHTML = provinces.map((item) => `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`).join('');
