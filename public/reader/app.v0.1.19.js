@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.18.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.18.js';
+import { initDock } from '/shared/dock.v0.1.19.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.19.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -867,10 +867,35 @@ function showUpdateBanner(worker) {
   updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
 }
 
+// All open tabs of the app follow an update: the tab that applies it tells the others, and they reload in the
+// background. The service worker's own "controllerchange" already reaches tabs it controls; this channel also
+// covers tabs it does not (opened with a hard refresh, or browsers that deliver the event late to hidden tabs).
+const updateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('pnu-app-update') : null;
+let reloadingForUpdate = false;
+let reloadPending = false;
+
+function reloadForUpdate() {
+  if (reloadingForUpdate) return;
+  reloadingForUpdate = true;
+  location.reload();
+}
+
+updateChannel?.addEventListener('message', (event) => {
+  if (event.data?.type !== 'reload') return;
+  reloadPending = true;
+  reloadForUpdate();
+});
+// A tab the browser has frozen in the background may not reload right away; finish the job when it is shown again.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && reloadPending) { reloadingForUpdate = false; reloadForUpdate(); }
+});
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!controlled) { controlled = true; return; } // first install taking control: nothing to reload
-    location.reload();
+    reloadPending = true;
+    updateChannel?.postMessage({ type: 'reload' });
+    reloadForUpdate();
   });
   window.addEventListener('load', async () => {
     try {
@@ -899,7 +924,7 @@ updateRoot?.addEventListener('click', (event) => {
   accept.disabled = true;
   accept.textContent = 'در حال به‌روزرسانی…';
   worker.postMessage({ type: 'SKIP_WAITING' });
-  setTimeout(() => location.reload(), 4000); // safety net if the worker never reports control
+  setTimeout(() => { updateChannel?.postMessage({ type: 'reload' }); reloadForUpdate(); }, 4000); // safety net if the worker never reports control
 });
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();

@@ -58,20 +58,29 @@ test('live endpoint streams a feed event after news changes and drops closed cli
   const { port } = server.address();
   try {
     const received = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('no live event received')), 4000);
       const request = http.get({ port, host: '127.0.0.1', path: '/api/public/live' }, (response) => {
         assert.equal(response.statusCode, 200);
         assert.match(response.headers['content-type'], /text\/event-stream/);
         assert.equal(response.headers['x-accel-buffering'], 'no');
         let buffer = '';
+        let finished = false;
+        // Closing a stream on purpose makes some Node versions emit ECONNRESET / "aborted" on the response too.
+        response.on('error', () => {});
+        response.on('aborted', () => {});
         response.setEncoding('utf8');
         response.on('data', (chunk) => {
           buffer += chunk;
-          if (buffer.includes('event: feed')) { request.destroy(); resolve(buffer); }
+          if (!finished && buffer.includes('event: feed')) {
+            finished = true;
+            clearTimeout(timeout);
+            resolve(buffer);
+            response.destroy();
+          }
         });
         setTimeout(() => events.emit('news.published', { id: 7 }), 50);
       });
-      request.on('error', (error) => { if (error.code !== 'ECONNRESET') reject(error); });
-      setTimeout(() => reject(new Error('no live event received')), 4000);
+      request.on('error', () => {});
     });
     assert.match(received, /retry: 5000/);
     assert.match(received, /event: feed\nid: \d+\ndata: \d+/);
