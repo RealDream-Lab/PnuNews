@@ -112,8 +112,8 @@ async function getPolicyNews(pool, user, id) {
 
 function publisherUnit(creatorRole, region) {
   if (region.type === 'country') return creatorRole === 'country_admin' ? 'روابط عمومی سازمان مرکزی' : 'روابط عمومی کل کشور';
-  if (region.type === 'province') return `روابط عمومی استان ${region.name}`;
-  return `روابط عمومی مرکز دانشگاهی ${region.name}`;
+  if (region.type === 'province') return `دانشگاه پیام نور استان ${region.name}`;
+  return `دانشگاه پیام نور ${region.name}`;
 }
 
 function auditNews(connection, userId, action, newsId, request, meta = null) {

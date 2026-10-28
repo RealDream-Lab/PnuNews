@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.27.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.27.js';
+import { initDock } from '/shared/dock.v0.1.28.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.28.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -748,8 +748,9 @@ async function loadNewsPage(id, { initial = false } = {}) {
 let galleryImages = [];
 
 function renderNewsPage(item, initial) {
-  const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? escapeHtml(item.publisher_unit) : ''].filter(Boolean);
-  const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join(' — ')}</p>` : '';
+  // Two lines: the person, then the university unit (e.g. "دانشگاه پیام نور بیجار").
+  const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? `<span>${escapeHtml(item.publisher_unit)}</span>` : ''].filter(Boolean);
+  const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join('')}</p>` : '';
   const category = item.category?.name ? `<span>${escapeHtml(item.category.name)}</span>` : '';
   const date = new Date(item.published_at);
   const fullDate = `${dateFormatter.format(date)} — ${timeFormatter.format(date)}`;

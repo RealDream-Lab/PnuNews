@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.27.js';
+import { initDock } from '/shared/dock.v0.1.28.js';
 import {
   JALALI_MONTHS,
 
@@ -140,7 +140,7 @@ function scopeText() {
   if (state.user?.role === 'super_admin') return 'شما برای کل کشور منتشر می‌کنید.';
   if (state.user?.role === 'country_admin') return 'شما برای کل کشور و استان‌ها منتشر می‌کنید.';
   if (region?.type === 'province') return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای مرکز دانشگاهی ${region?.name || 'خود'} منتشر می‌کنید.`;
+  return `شما برای دانشگاه پیام نور ${region?.name || 'خود'} منتشر می‌کنید.`;
 }
 
 function setScopeBanner() {
@@ -161,7 +161,7 @@ function statusLabel(status) {
 
 function scopeLabel(targets = []) {
   if (!targets.length) return 'بدون مقصد';
-  return targets.map((target) => target.type === 'country' ? 'کشوری' : target.type === 'province' ? `استان ${target.name}` : `مرکز دانشگاهی ${target.name}`).join('، ');
+  return targets.map((target) => target.type === 'country' ? 'سراسری' : target.type === 'province' ? `استان ${target.name}` : `دانشگاه پیام نور ${target.name}`).join('، ');
 }
 
 function displayDateTime(value) {
