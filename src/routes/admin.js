@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
-import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
+import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText } from '../lib/fa.js';
+import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
@@ -70,12 +71,28 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
+
+  // Automatic portal news: status, on/off switch and "fetch now" (main admin only).
+  router.get('/portal-news', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
+    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
+    try { return response.json(await portalImporter.status()); } catch (error) { return next(error); }
+  });
+  router.post('/portal-news', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
+    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
+    try {
+      if (typeof request.body?.enabled === 'boolean') await portalImporter.setEnabled(request.body.enabled);
+      const result = request.body?.run === true ? await portalImporter.runOnce({ force: true }) : null;
+      return response.json({ ...(await portalImporter.status()), result });
+    } catch (error) { return next(error); }
+  });
 
   router.get('/settings', async (request, response, next) => {
     if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند تنظیمات سامانه را ببیند.' });
@@ -119,6 +136,9 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
             }
             if (config.publicUrl.startsWith('https://') && url.protocol === 'http:') {
               return response.status(400).json({ error: 'در سایت امن HTTPS، نشانی HTTP رادیو به‌دلیل محتوای ناامن پذیرفته نمی‌شود.' });
+            }
+            if (key === 'radio_nowplaying_url' && isObviouslyInternalHost(url.hostname)) {
+              return response.status(400).json({ error: 'نشانی «در حال پخش» نمی‌تواند به شبکهٔ داخلی یا localhost اشاره کند.' });
             }
             updates[key] = url.href;
           } else updates[key] = '';
@@ -164,31 +184,33 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
 
   router.get('/stats', async (request, response, next) => {
     try {
-      const clauses = ['deleted_at IS NULL'];
+      const clauses = ['n.deleted_at IS NULL'];
       const values = [];
-      if (request.user.role !== 'super_admin') {
-        const regions = await getRegions(pool);
-        const allowed = [...adminRegionIds(request.user, regions)];
-        if (!allowed.length) return response.json({ counts: { total: 0, draft: 0, scheduled: 0, published: 0, views: 0 }, latest: [], most_viewed: [] });
-        clauses.push(`origin_region_id IN (${allowed.map(() => '?').join(', ')})`);
-        values.push(...allowed);
+      const regions = await getRegions(pool);
+      const [peerRows] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
+      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: peerRows[0]?.v === '1' });
+      if (visibility) {
+        clauses.push(visibility.sql);
+        values.push(...visibility.values);
       }
       const where = clauses.join(' AND ');
       const [countRows, latest, mostViewed] = await Promise.all([
         pool.execute(
-          `SELECT COUNT(*) AS total, SUM(status = 'draft') AS drafts,
-                  SUM(status = 'scheduled') AS scheduled, SUM(status = 'published') AS published,
-                  COALESCE(SUM(view_count), 0) AS views FROM news WHERE ${where}`,
+          `SELECT COUNT(*) AS total, SUM(n.status = 'draft') AS drafts,
+                  SUM(n.status = 'scheduled') AS scheduled, SUM(n.status = 'published') AS published,
+                  COALESCE(SUM(n.view_count), 0) AS views FROM news n JOIN users creator ON creator.id = n.created_by WHERE ${where}`,
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count, updated_at FROM news
-           WHERE ${where} ORDER BY updated_at DESC, id DESC LIMIT 10`,
+          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.updated_at, n.source_url
+           FROM news n JOIN users creator ON creator.id = n.created_by
+           WHERE ${where} ORDER BY n.updated_at DESC, n.id DESC LIMIT 10`,
           values,
         ),
         pool.execute(
-          `SELECT id, title, status, published_at, view_count FROM news
-           WHERE ${where} ORDER BY view_count DESC, id DESC LIMIT 10`,
+          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.source_url
+           FROM news n JOIN users creator ON creator.id = n.created_by
+           WHERE ${where} ORDER BY n.view_count DESC, n.id DESC LIMIT 10`,
           values,
         ),
       ]);
@@ -213,7 +235,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.created_by, u.is_active,
                 u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
                 r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id
-         FROM users u JOIN regions r ON r.id = u.region_id ORDER BY r.sort_order, u.role, u.username`,
+         FROM users u JOIN regions r ON r.id = u.region_id WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, u.username`,
       );
       const users = request.user.role === 'super_admin'
         ? rows
@@ -569,8 +591,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }
       const values = [];
       if (request.user.role !== 'super_admin') {
         const regions = await getRegions(pool);
-        const allowed = adminRegionIds(request.user, regions);
-        const scope = regions.filter((region) => allowed.has(Number(region.id)) && region.type !== 'country').map((region) => Number(region.id));
+        const scope = [...auditRegionIds(request.user, regions)];
         const placeholders = scope.map(() => '?').join(', ');
         clauses.push(`(actor.region_id IN (${placeholders}) OR target.region_id IN (${placeholders}))`);
         values.push(...scope, ...scope);
