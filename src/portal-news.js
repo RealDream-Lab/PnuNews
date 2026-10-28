@@ -1,8 +1,5 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { appEvents, emitNewsPublished } from './events.js';
-import { detectImageMime, processImage } from './lib/images.js';
 import { normalizeNewsInput } from './news/content.js';
 import { PORTAL_PROXY_URL, parseProxyNews, portalUrl } from './portal-parse.js';
 
@@ -12,7 +9,6 @@ const BOT_USERNAME = 'news-bot';
 const BOT_NAME = 'ربات خبرخوان';
 const BOT_UNIT = 'پورتال سازمان مرکزی';
 const USER_AGENT = 'Mozilla/5.0 (compatible; PNU-News-Reader/1.0)';
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
@@ -86,51 +82,14 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
     return payload;
   }
 
-  // The cover is the original portal image. pnu.ac.ir may be unreachable from this server, so after a failed direct
-  // download the image is requested through the radio server's proxy (action=pnu_image) when that action exists.
-  let directBlocked = false;
-  async function fetchImageBytes(address) {
-    const attempts = [];
-    if (!directBlocked) attempts.push({ url: address, direct: true });
-    attempts.push({ url: `${new URL(sourceUrl).origin}${new URL(sourceUrl).pathname}?action=pnu_image&u=${encodeURIComponent(address)}`, direct: false });
-    for (const attempt of attempts) {
-      try {
-        const response = await fetchImpl(attempt.url, { headers: { 'user-agent': USER_AGENT }, redirect: 'follow', signal: AbortSignal.timeout(attempt.direct ? 8_000 : 20_000) });
-        if (!response.ok) continue;
-        if (Number(response.headers.get('content-length') || 0) > MAX_IMAGE_BYTES) continue;
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (bytes.length && bytes.length <= MAX_IMAGE_BYTES && detectImageMime(bytes.subarray(0, 32))) return bytes;
-      } catch (error) {
-        if (attempt.direct) directBlocked = true; // network failure: skip direct attempts for the rest of this run
-        logger.warn?.(`[portal-news] دریافت تصویر ناموفق (${attempt.direct ? 'مستقیم' : 'از طریق سرور رادیو'}): ${error.cause?.code || error.message}`);
-      }
-    }
-    return null;
-  }
-
-  async function downloadCover(imageUrl, now) {
-    const address = portalUrl(imageUrl);
-    if (!address) return null;
-    const temporary = path.join(uploadRoot, '.tmp', `portal-${randomBytes(8).toString('hex')}`);
-    try {
-      const bytes = await fetchImageBytes(address);
-      if (!bytes) return null;
-      await mkdir(path.dirname(temporary), { recursive: true });
-      await writeFile(temporary, bytes);
-      const image = await processImage(temporary, uploadRoot, { kind: 'cover', now });
-      return { ...image, originalName: (decodeURIComponent(new URL(address).pathname.split('/').pop() || '') || 'cover').slice(0, 255) };
-    } catch (error) {
-      logger.warn?.(`[portal-news] پردازش تصویر ناموفق: ${error.message}`);
-      return null;
-    } finally {
-      await rm(temporary, { force: true });
-    }
-  }
-
   async function importOne(item, setup) {
     const sourceHash = createHash('sha256').update(item.link).digest('hex');
     const [existing] = await pool.execute('SELECT id FROM news WHERE source_hash = ?', [sourceHash]);
-    if (existing.length) return false;
+    if (existing.length) {
+      // News imported before the image address was stored get it now.
+      if (item.image) await pool.execute('UPDATE news SET source_image_url = ? WHERE id = ? AND source_image_url IS NULL', [item.image, Number(existing[0].id)]);
+      return false;
+    }
     const now = new Date(clock());
     const published = item.timestamp_ms && item.timestamp_ms < now.getTime() ? new Date(item.timestamp_ms) : now;
     const text = normalizeNewsInput({
@@ -139,28 +98,18 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
       body_html: `${item.abstract ? `<p>${escapeHtml(item.abstract)}</p>` : ''}<p><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">مشاهدهٔ متن کامل در پورتال دانشگاه</a></p>`,
     });
     if (!text.title) return false;
-    const cover = item.image ? await downloadCover(item.image, now) : null;
-
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       const [news] = await connection.execute(
         `INSERT INTO news (title, summary, body_html, search_text, category_id, status, published_at, origin_region_id,
-                           published_by_user_id, publisher_name, publisher_unit, created_by, updated_by, source_url, source_hash)
-         VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                           published_by_user_id, publisher_name, publisher_unit, created_by, updated_by, source_url, source_hash, source_image_url)
+         VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [text.title, text.summary, text.body_html, text.search_text, setup.categoryId, published, setup.countryId,
-          setup.botId, BOT_NAME, BOT_UNIT, setup.botId, setup.botId, item.link, sourceHash],
+          setup.botId, BOT_NAME, BOT_UNIT, setup.botId, setup.botId, item.link, sourceHash, item.image],
       );
       const newsId = Number(news.insertId);
       await connection.execute('INSERT INTO news_targets (news_id, region_id) VALUES (?, ?)', [newsId, setup.countryId]);
-      if (cover) {
-        const [attachment] = await connection.execute(
-          `INSERT INTO attachments (news_id, kind, original_name, stored_name, mime, size_bytes, width, height, dominant_color)
-           VALUES (?, 'cover', ?, ?, ?, ?, ?, ?, ?)`,
-          [newsId, cover.originalName, cover.storedName, cover.mime, cover.sizeBytes, cover.width, cover.height, cover.dominantColor],
-        );
-        await connection.execute('UPDATE news SET cover_attachment_id = ? WHERE id = ?', [Number(attachment.insertId), newsId]);
-      }
       await connection.execute(
         "INSERT INTO audit_log (user_id, action, entity, entity_id, meta) VALUES (?, 'news.import', 'news', ?, ?)",
         [setup.botId, newsId, JSON.stringify({ source: item.link })],
@@ -171,7 +120,6 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
       return true;
     } catch (error) {
       await connection.rollback();
-      if (cover) await Promise.all(cover.variants.map((variant) => rm(variant.path, { force: true })));
       if (error.code === 'ER_DUP_ENTRY') return false;
       throw error;
     } finally {
@@ -185,7 +133,6 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
     running = true;
     const result = { at: new Date(clock()).toISOString(), created: 0, total: 0, error: null };
     try {
-      directBlocked = false;
       const items = parseProxyNews(await fetchJson(sourceUrl), PORTAL_LIMIT);
       if (!items.length) throw new Error('سرور رادیو فهرست خبر خالی برگرداند.');
       result.total = items.length;

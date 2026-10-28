@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.10.js';
+import { initDock } from '/shared/dock.v0.1.11.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -223,7 +223,7 @@ const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
 
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
 // Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
@@ -243,7 +243,7 @@ function openCard(card) {
 
 function pinnedMarkup(item) {
   const thumbnail = item.cover?.src
-    ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
+    ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
   return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
@@ -526,7 +526,7 @@ function renderNewsPage(item, initial) {
   const category = item.category?.name ? `<span>${escapeHtml(item.category.name)}</span>` : '';
   const date = new Date(item.published_at);
   const fullDate = `${dateFormatter.format(date)} — ${timeFormatter.format(date)}`;
-  const cover = item.cover?.src ? `<div class="news-page-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img class="news-page-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 790px) 100vw, 790px" width="${Number(item.cover.width) || 1280}" height="${Number(item.cover.height) || 720}" fetchpriority="high" alt="${escapeHtml(item.title)}"></div>` : '';
+  const cover = item.cover?.src ? `<div class="news-page-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img class="news-page-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 790px) 100vw, 790px" width="${Number(item.cover.width) || 1280}" height="${Number(item.cover.height) || 720}" fetchpriority="high" alt="${escapeHtml(item.title)}"></div>` : '';
   const gallery = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id)).map((image) => `<div class="gallery-image-frame">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></div>`).join('');
   const files = (item.files ?? []).map((file) => `<a class="attachment-link" href="${escapeHtml(file.url)}"><span>▤ ${escapeHtml(file.original_name)}</span><span>${escapeHtml(formatBytes(file.size_bytes))}</span></a>`).join('');
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}

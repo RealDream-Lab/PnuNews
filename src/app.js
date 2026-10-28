@@ -7,7 +7,7 @@ import { createStaticMiddleware } from './lib/static.js';
 
 export function contentSecurityPolicy(publicUrl) {
   const mediaSources = publicUrl.startsWith('https://') ? "'self' https:" : "'self' https: http:";
-  return `default-src 'self'; img-src 'self' data:; media-src ${mediaSources}; script-src 'self'; style-src 'self'; frame-ancestors 'none'`;
+  return `default-src 'self'; img-src 'self' data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; frame-ancestors 'none'`;
 }
 
 function csrfGuard(request, response, next) {
