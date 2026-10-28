@@ -215,6 +215,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .picker-panel{border-radius:22px 22px 0 0;padding:1rem 1rem calc(.8rem + var(--safe-bottom));border-bottom:0}
   .dock-inner{flex-direction:column;gap:.2rem;padding-block:.4rem}
   .dock-text{font-size:.74rem;line-height:1.5}
+  .dock-meta{justify-content:center}
   #radio-root{order:-1;flex:none;width:100%}
   .radio-bar{max-width:none}
   .radio-volume{width:65px}
@@ -254,3 +255,43 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .lightbox-next{left:.9rem}
 .lightbox-nav[hidden]{display:none}
 @media(max-width:639px){.lightbox-figure{padding:3.6rem .6rem 1rem}.lightbox-nav{top:auto;bottom:.9rem;transform:none}}
+
+/* ---------- Single-line meta on cards of the automatic portal feed ---------- */
+.card-meta-overlay .card-kicker.portal-kicker{min-width:0;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto}
+.card-foot .card-kicker{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* ---------- Footer buttons (settings, about) ---------- */
+.dock-meta{display:flex;align-items:center;gap:.35rem;flex:none}
+.dock-button{width:34px;height:34px;display:inline-grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
+.dock-button .icon{width:1.15rem;height:1.15rem}
+@media(hover:hover){.dock-button:hover{background:var(--primary-soft);color:var(--primary)}}
+
+/* ---------- Settings and about dialogs ---------- */
+.info-dialog{position:fixed;inset:0;margin:auto;width:min(calc(100% - 1.5rem),520px);max-width:none;max-height:calc(100dvh - 2rem);padding:0;border:0;background:transparent;color:var(--text);overflow:visible}
+.info-dialog::backdrop{background:rgba(7,16,31,.55);backdrop-filter:blur(3px)}
+.info-panel{max-height:calc(100dvh - 2rem);overflow:auto;padding:1.3rem 1.4rem 1.4rem;border:1px solid var(--border);border-radius:22px;background:var(--surface);box-shadow:0 20px 60px rgba(0,0,0,.35);direction:rtl}
+.info-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.8rem}
+.info-header>div{flex:1;min-width:0}
+.info-title{margin:0;font-size:1.3rem;line-height:1.6;color:var(--amber)}
+.info-sub{margin:.1rem 0 0;font-size:.8rem;color:var(--muted)}
+.info-meta{display:flex;flex-wrap:wrap;gap:.9rem;margin:.2rem 0 0;font-size:.8rem;color:var(--muted)}
+.info-meta span{display:inline-flex;align-items:center;gap:.35rem}
+.info-meta .icon{width:.95rem;height:.95rem;color:var(--amber)}
+.info-close{border-radius:50%!important}
+.about-text{margin:.9rem 0 0;font-size:.95rem;line-height:2.1;text-align:justify}
+.about-label{margin:1.3rem 0 .2rem;font-weight:700;color:var(--amber);font-size:.9rem}
+.about-link{display:inline-flex;align-items:center;gap:.5rem;padding:.2rem 0;color:var(--teal);font-weight:700;text-decoration:none}
+.about-link .icon{width:1.1rem;height:1.1rem}
+@media(hover:hover){.about-link:hover{text-decoration:underline;text-underline-offset:4px}}
+.setting-list{display:grid;gap:.5rem}
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);cursor:pointer}
+.setting-text{display:grid;gap:0;min-width:0}
+.setting-text strong{font-weight:500;line-height:1.7}
+.setting-text small{color:var(--muted);font-size:.78rem;line-height:1.6}
+.info-note{margin:.9rem .2rem 0;font-size:.8rem;color:var(--muted)}
+.switch{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:46px;height:26px;margin:0;border-radius:999px;background:var(--border);cursor:pointer;transition:background-color .15s ease}
+.switch::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .15s ease}
+.switch:checked{background:var(--primary)}
+.switch:checked::after{transform:translateX(-20px)}
+@media(prefers-reduced-motion:reduce){.switch,.switch::after{transition:none}}
+.radio-hidden #radio-root{display:none}

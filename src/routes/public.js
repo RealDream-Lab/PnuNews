@@ -138,15 +138,38 @@ async function visibleRegions(pool) {
     .sort((left, right) => faCollator.compare(left.name, right.name));
 }
 
-async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
+// Other visible university centers of the reader's own province.
+async function siblingCityIds(pool, city) {
+  const [rows] = await pool.execute(
+    `SELECT sibling.id FROM regions sibling
+     WHERE sibling.type = 'city' AND sibling.parent_id = ? AND sibling.id <> ? AND sibling.visibility_override <> 'hide'
+       AND (sibling.visibility_override = 'show' OR EXISTS (
+         SELECT 1 FROM users u WHERE u.region_id = sibling.id AND u.role = 'city_admin' AND u.is_active = 1
+       ))`,
+    [city.province_id, city.id],
+  );
+  return rows.map((row) => Number(row.id));
+}
+
+// The reader's own center is always included; national, provincial and sibling-center news are the reader's choice.
+async function feedRegionIds(pool, city, { country, province, siblings }) {
+  const ids = [Number(city.id)];
+  if (country) ids.push(Number(city.country_id));
+  if (province) ids.push(Number(city.province_id));
+  if (siblings) ids.push(...await siblingCityIds(pool, city));
+  return ids;
+}
+
+async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = false }) {
+  const marks = regionIds.map(() => '?').join(', ');
   const filters = [
     "n.status = 'published'",
     'n.published_at <= UTC_TIMESTAMP()',
     'n.deleted_at IS NULL',
     '(n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())',
-    'EXISTS (SELECT 1 FROM news_targets visible_target WHERE visible_target.news_id = n.id AND visible_target.region_id IN (?, ?, ?))',
+    `EXISTS (SELECT 1 FROM news_targets visible_target WHERE visible_target.news_id = n.id AND visible_target.region_id IN (${marks}))`,
   ];
-  const values = [city.country_id, city.province_id, city.id];
+  const values = [...regionIds];
   if (scope !== 'all') {
     filters.push(`EXISTS (
       SELECT 1 FROM news_targets scope_target JOIN regions scope_region ON scope_region.id = scope_target.region_id
@@ -172,13 +195,13 @@ async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
      LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
      LEFT JOIN regions matched ON matched.id = (
        SELECT target.region_id FROM news_targets target JOIN regions target_region ON target_region.id = target.region_id
-       WHERE target.news_id = n.id AND target.region_id IN (?, ?, ?)
-       ORDER BY FIELD(target_region.type, 'country', 'province', 'city') LIMIT 1
+       WHERE target.news_id = n.id AND target.region_id IN (${marks})
+       ORDER BY FIELD(target_region.type, 'country', 'province', 'city'), (target.region_id = ?) DESC, target.region_id LIMIT 1
      )
      WHERE ${filters.join(' AND ')}
      ORDER BY ${pinned ? 'n.is_urgent DESC, n.is_pinned DESC, ' : ''}n.published_at DESC, n.id DESC
      LIMIT ?`,
-    [city.country_id, city.province_id, city.id, ...values, limit + (pinned ? 0 : 1)],
+    [...regionIds, Number(city.id), ...values, limit + (pinned ? 0 : 1)],
   );
   return rows;
 }
@@ -225,12 +248,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.28.css">
-<script src="/shared/theme.v0.1.28.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.29.css">
+<script src="/shared/theme.v0.1.29.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.28.js"></script>
+<script type="module" src="/reader/app.v0.1.29.js"></script>
 </body>
 </html>`;
 }
@@ -338,16 +361,23 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 12) {
       return response.status(400).json({ error: 'تعداد خبر در هر صفحه باید بین ۱ تا ۱۲ باشد.' });
     }
+    const flags = {};
+    for (const [name, fallback] of [['country', '1'], ['province', '1'], ['siblings', '0']]) {
+      const value = String(request.query[name] ?? fallback);
+      if (value !== '0' && value !== '1') return response.status(400).json({ error: 'گزینهٔ نمایش خبر معتبر نیست.' });
+      flags[name] = value === '1';
+    }
     const cursor = request.query.cursor ? decodeCursor(request.query.cursor) : null;
     if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
     try {
       const city = await loadVisibleCity(pool, cityId);
       if (!city) return response.status(400).json({ error: 'مرکز دانشگاهی انتخاب‌شده در دسترس نیست.' });
-      const key = `feed:${cityId}:${scope}:${requestedLimit}:${request.query.cursor ?? ''}`;
+      const key = `feed:${cityId}:${scope}:${Number(flags.country)}${Number(flags.province)}${Number(flags.siblings)}:${requestedLimit}:${request.query.cursor ?? ''}`;
       const result = await cache.get(key, async () => {
+        const regionIds = await feedRegionIds(pool, city, flags);
         const [rows, pinnedRows] = await Promise.all([
-          feedRows(pool, city, { scope, cursor, limit: requestedLimit }),
-          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, pinned: true }),
+          feedRows(pool, city, { scope, cursor, limit: requestedLimit, regionIds }),
+          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, regionIds, pinned: true }),
         ]);
         const hasMore = rows.length > requestedLimit;
         const items = rows.slice(0, requestedLimit).map(publicItem);

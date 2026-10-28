@@ -167,3 +167,43 @@ test('news share page does not interpret $-patterns in titles', async () => {
     server.closeAllConnections?.();
   }
 });
+
+test('feed honours the reader\'s news-source choices and validates them', async () => {
+  const queries = [];
+  const city = { id: 11, name: 'بیجار', province_id: 5, province_name: 'کردستان', country_id: 1 };
+  const pool = {
+    execute: async (sql, params) => {
+      const placeholders = (sql.match(/\?/g) ?? []).length;
+      assert.equal(placeholders, params.length, `placeholder/param mismatch in: ${sql.slice(0, 80)}`);
+      queries.push({ sql, params });
+      if (/FROM regions city/.test(sql)) return [[city]];
+      if (/FROM regions sibling/.test(sql)) return [[{ id: 12 }, { id: 13 }]];
+      return [[]];
+    },
+  };
+  const app = express();
+  app.use(createPublicRouter({ pool, config: { publicUrl: 'https://news.example.ir' } }));
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const feedQuery = () => queries.filter((query) => /FROM news n/.test(query.sql));
+    assert.equal((await request(server, '/api/public/feed?city=11&country=2')).status, 400);
+
+    queries.length = 0;
+    assert.equal((await request(server, '/api/public/feed?city=11')).status, 200);
+    assert.deepEqual(feedQuery()[0].params.slice(0, 3), [11, 1, 5]); // own center, country, province
+
+    queries.length = 0;
+    assert.equal((await request(server, '/api/public/feed?city=11&country=0&province=0&siblings=1')).status, 200);
+    assert.deepEqual(feedQuery()[0].params.slice(0, 3), [11, 12, 13]); // own center + siblings only
+    assert.ok(!feedQuery()[0].params.slice(0, 3).includes(1));
+
+    queries.length = 0;
+    assert.equal((await request(server, '/api/public/feed?city=11&country=0&province=0')).status, 200);
+    assert.deepEqual(feedQuery()[0].params.slice(0, 1), [11]);
+    assert.equal(queries.some((query) => /FROM regions sibling/.test(query.sql)), false);
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+  }
+});

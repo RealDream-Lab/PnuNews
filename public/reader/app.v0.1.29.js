@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.28.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.28.js';
+import { initDock } from '/shared/dock.v0.1.29.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.29.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -77,6 +77,28 @@ function showToast(message) {
 }
 
 const dock = initDock({ showToast });
+
+// ---------- Reader preferences (stored on this device only) ----------
+const PREFS_KEY = 'pnu.prefs';
+const DEFAULT_PREFS = Object.freeze({ radio: true, country: true, province: true, siblings: false });
+const prefs = { ...DEFAULT_PREFS };
+try {
+  const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
+  if (saved && typeof saved === 'object') {
+    for (const key of Object.keys(DEFAULT_PREFS)) if (typeof saved[key] === 'boolean') prefs[key] = saved[key];
+  }
+} catch {}
+
+function applyRadioPreference() {
+  document.documentElement.classList.toggle('radio-hidden', !prefs.radio);
+  if (!prefs.radio) dock.stopRadio();
+}
+applyRadioPreference();
+
+// Query string part of the feed request that depends on the reader's choices.
+function feedPreferenceParams() {
+  return { country: prefs.country ? '1' : '0', province: prefs.province ? '1' : '0', siblings: prefs.siblings ? '1' : '0' };
+}
 
 // The install / update cards float just above the footer, whatever its height is (the radio makes it taller on phones).
 const siteDock = document.querySelector('.site-dock');
@@ -195,6 +217,8 @@ function openPicker() {
 function scopeName(item) {
   if (item.scope.type === 'country') return 'سازمان مرکزی';
   if (item.scope.type === 'province') return `دانشگاه پیام نور استان ${item.scope.name}`;
+  // News of another center of the same province (shown only when the reader asked for them).
+  if (item.scope.type === 'city' && state.city && Number(item.scope.id) !== Number(state.city.id)) return `دانشگاه پیام نور ${item.scope.name}`;
   return '';
 }
 
@@ -251,8 +275,24 @@ function pinnedMarkup(item) {
   return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
 }
 
+const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
+
 function cardMarkup(item, { featured = false } = {}) {
   const hasCover = Boolean(item.cover?.src);
+  // Automatic portal news: one meta line only (where it comes from + when it was published).
+  if (typeof item.source_url === 'string' && item.source_url.startsWith('https://')) {
+    const time = `<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time>`;
+    const line = `<span class="card-kicker portal-kicker">${PORTAL_LABEL}</span><i aria-hidden="true"></i>${time}`;
+    const portalClasses = ['news-card', hasCover ? '' : 'no-cover', featured ? 'is-featured' : ''].filter(Boolean).join(' ');
+    const portalSummary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
+    const portalBody = hasCover
+      ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
+      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}</div></div>`;
+    return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div></div>`) : ''}
+    ${portalBody}
+  </article>`;
+  }
   const label = scopeName(item);
   const badge = label ? `<span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(label)}</span>` : '';
   const category = item.category?.name ? `<span class="card-kicker">${escapeHtml(item.category.name)}</span>` : '';
@@ -371,7 +411,7 @@ async function loadMore() {
   state.loading = true;
   feed.setAttribute('aria-busy', 'true');
   showSkeletons(3);
-  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12' });
+  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams() });
   if (state.cursor) params.set('cursor', state.cursor);
   try {
     const data = await getJson(`/api/public/feed?${params}`);
@@ -567,7 +607,7 @@ async function syncFeed() {
   liveSyncing = true;
   liveDirty = false;
   try {
-    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', live: String(Date.now()) });
+    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), live: String(Date.now()) });
     const data = await getJson(`/api/public/feed?${params}`);
     if (!state.city || String(state.city.id) !== cityId || state.newsId || state.loading) { liveDirty = true; return; }
     if (window.scrollY > LIVE_NEAR_TOP) {
@@ -836,6 +876,62 @@ if (lightbox) {
   });
 }
 
+// ---------- Settings and about dialogs ----------
+const settingsDialog = document.getElementById('settings-dialog');
+const aboutDialog = document.getElementById('about-dialog');
+
+let feedPrefsStale = false;
+
+function renderSettings() {
+  for (const input of settingsDialog.querySelectorAll('[data-pref]')) input.checked = Boolean(prefs[input.dataset.pref]);
+  const province = state.province?.name;
+  document.getElementById('pref-province-title').textContent = province ? `خبرهای استان ${province}` : 'خبرهای استان من';
+  document.getElementById('pref-siblings-hint').textContent = province
+    ? `خبرهای دیگر مراکز دانشگاهی استان ${province}` : 'خبرهای دیگر مراکز دانشگاهی استان شما';
+}
+
+document.getElementById('settings-button').addEventListener('click', () => {
+  renderSettings();
+  settingsDialog.showModal();
+});
+settingsDialog.addEventListener('change', (event) => {
+  const key = event.target.dataset?.pref;
+  if (!(key in DEFAULT_PREFS)) return;
+  prefs[key] = event.target.checked;
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
+  if (key === 'radio') applyRadioPreference();
+  else if (state.city && !state.newsId) resetFeed();
+  else feedPrefsStale = true;
+});
+
+document.getElementById('about-button').addEventListener('click', () => {
+  const version = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1] ?? '';
+  document.getElementById('about-version').textContent = version.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+  aboutDialog.showModal();
+});
+
+for (const dialog of [settingsDialog, aboutDialog]) {
+  dialog.addEventListener('click', (event) => {
+    if (event.target === dialog || event.target.closest('[data-dialog-close]')) dialog.close();
+  });
+}
+
+// Opens the chat in the Telegram app when it is installed, otherwise the web page (t.me) opens in a new tab.
+document.getElementById('about-telegram').addEventListener('click', (event) => {
+  event.preventDefault();
+  const webUrl = event.currentTarget.href;
+  let left = false;
+  const markLeft = () => { left = true; };
+  window.addEventListener('blur', markLeft, { once: true });
+  document.addEventListener('visibilitychange', markLeft, { once: true });
+  location.href = 'tg://resolve?domain=RealDream';
+  setTimeout(() => {
+    window.removeEventListener('blur', markLeft);
+    document.removeEventListener('visibilitychange', markLeft);
+    if (!left) window.open(webUrl, '_blank', 'noopener,noreferrer');
+  }, 1600);
+});
+
 function formatBytes(bytes) {
   const size = Number(bytes) || 0;
   if (size < 1024) return `${digits.format(size)} بایت`;
@@ -881,6 +977,11 @@ function returnToFeed() {
   app.hidden = false;
   intersectionObserver?.observe(sentinel);
   const scrollY = Number(history.state?.readerScrollY) || 0;
+  if (feedPrefsStale) {
+    feedPrefsStale = false;
+    resetFeed({ scroll: true });
+    return;
+  }
   requestAnimationFrame(() => {
     window.scrollTo(0, scrollY);
     if (liveDirty) syncFeed();
