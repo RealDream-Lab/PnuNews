@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.19.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.19.js';
+import { initDock } from '/shared/dock.v0.1.20.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.20.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');

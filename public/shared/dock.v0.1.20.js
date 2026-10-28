@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.19.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.20.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -23,13 +23,24 @@ export function initDock({ showToast = () => {} } = {}) {
     try {
       navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: stationTitle || 'رادیو' });
       navigator.mediaSession.setActionHandler('play', play);
-      navigator.mediaSession.setActionHandler('pause', () => audio?.pause());
+      navigator.mediaSession.setActionHandler('pause', stop);
     } catch {}
+  }
+
+  // It is a live stream: a plain pause would freeze the player at that moment, keep downloading in the background,
+  // and later resume with old audio. So "pause" ends the connection, and "play" reconnects at the live moment.
+  function stop() {
+    if (!audio) return;
+    audio.pause();
+    if (audio.getAttribute('src')) {
+      audio.removeAttribute('src');
+      audio.load();
+    }
   }
 
   async function play() {
     if (!audio || !streamUrl) return;
-    if (!audio.src) audio.src = streamUrl;
+    if (!audio.getAttribute('src')) audio.src = streamUrl;
     try { await audio.play(); } catch { showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.'); }
   }
 
@@ -112,13 +123,17 @@ export function initDock({ showToast = () => {} } = {}) {
         }
       });
       audio.addEventListener('pause', () => {
+        // Paused by something else (headphone button, another app taking audio focus): still drop the stream.
+        if (audio.getAttribute('src')) stop();
         const button = radioRoot.querySelector('.radio-play');
         if (button) {
           button.innerHTML = '<svg class="icon"><use href="#icon-play"/></svg>';
           button.setAttribute('aria-label', 'پخش رادیو');
         }
       });
-      audio.addEventListener('error', () => showToast('پخش رادیو در دسترس نیست.'));
+      audio.addEventListener('error', () => {
+        if (audio.getAttribute('src')) showToast('پخش رادیو در دسترس نیست.'); // not for the stream we closed on purpose
+      });
     }
     if (!radioRoot.querySelector('.radio-bar')) {
       radioRoot.innerHTML = `<section class="radio-bar" aria-label="پخش رادیوی دانشگاه">
@@ -139,7 +154,7 @@ export function initDock({ showToast = () => {} } = {}) {
     const button = event.target.closest('.radio-play');
     if (!button || !streamUrl || !audio) return;
     if (!audio.paused) {
-      audio.pause();
+      stop();
       return;
     }
     await play();
