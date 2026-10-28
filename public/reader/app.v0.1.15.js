@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.14.js';
+import { initDock } from '/shared/dock.v0.1.15.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -108,7 +108,7 @@ function updateSelectedCity() {
     description.hidden = false;
     return;
   }
-  label.textContent = `${state.city.name} · ${state.province.name}`;
+  label.textContent = state.city.name;
   description.textContent = '';
   description.hidden = true;
 }
