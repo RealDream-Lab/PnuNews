@@ -229,3 +229,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 
 .news-card[data-external=true] h2::after,.pinned-card[data-external=true] h2::after{content:" ↗";color:var(--muted);font-size:.8em;font-weight:400}
 .radio-info .radio-now-playing{overflow:hidden;text-overflow:clip}.radio-now-playing .np-text{display:inline-block;overflow:visible;text-overflow:clip;white-space:nowrap;font-size:inherit;color:inherit}.radio-now-playing.is-scrolling .np-text{animation:np-pingpong var(--np-duration,10s) ease-in-out infinite}@keyframes np-pingpong{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--np-shift,0))}100%{transform:translateX(0)}}@media(prefers-reduced-motion:reduce){.radio-now-playing.is-scrolling .np-text{animation:none}}
+/* Install/update banners: logo + text on the first row, actions on a second row on narrow screens (no squeezed text column). */
+.install-banner{flex-wrap:wrap;row-gap:.6rem}
+.install-text{flex:1 1 calc(100% - 3.4rem)}
+.install-banner .button-primary{flex:1 1 auto;white-space:nowrap}
+@media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button-primary{flex:none}}
