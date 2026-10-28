@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.30.js';
+import { initDock } from '/shared/dock.v0.1.31.js';
 import {
   JALALI_MONTHS,
 
@@ -61,6 +61,32 @@ function showMessage(title, message, secret = '') {
 }
 
 const dock = initDock({ showToast });
+
+// ---------- About dialog ----------
+const aboutDialog = document.getElementById('about-dialog');
+document.getElementById('about-button').addEventListener('click', () => {
+  const version = /admin\.v([\d.]+)\.js/.exec(import.meta.url)?.[1] ?? '';
+  document.getElementById('about-version').textContent = version.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+  aboutDialog.showModal();
+});
+aboutDialog.addEventListener('click', (event) => {
+  if (event.target === aboutDialog || event.target.closest('[data-dialog-close]')) aboutDialog.close();
+});
+// Opens the chat in the Telegram app when it is installed, otherwise the web page (t.me) opens in a new tab.
+document.getElementById('about-telegram').addEventListener('click', (event) => {
+  event.preventDefault();
+  const webUrl = event.currentTarget.href;
+  let left = false;
+  const markLeft = () => { left = true; };
+  window.addEventListener('blur', markLeft, { once: true });
+  document.addEventListener('visibilitychange', markLeft, { once: true });
+  location.href = 'tg://resolve?domain=RealDream';
+  setTimeout(() => {
+    window.removeEventListener('blur', markLeft);
+    document.removeEventListener('visibilitychange', markLeft);
+    if (!left) window.open(webUrl, '_blank', 'noopener,noreferrer');
+  }, 1600);
+});
 const siteDock = document.querySelector('.site-dock');
 if (siteDock && 'ResizeObserver' in window) {
   new ResizeObserver(() => document.documentElement.style.setProperty('--dock-height', `${siteDock.offsetHeight}px`)).observe(siteDock);
