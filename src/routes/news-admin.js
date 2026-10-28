@@ -170,6 +170,11 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const scope = request.query.scope ?? (request.query.mine === '1' ? 'mine' : 'all');
       if (!['mine', 'all'].includes(scope)) return response.status(400).json({ error: 'محدودهٔ خبر معتبر نیست.' });
       if (scope === 'mine') { clauses.push('n.created_by = ?'); values.push(request.user.id); }
+      // source=manual leaves out the automatic portal news (they are handled in the news-feed view)
+      const source = request.query.source ?? 'all';
+      if (!['all', 'manual', 'portal'].includes(source)) return response.status(400).json({ error: 'منبع خبر معتبر نیست.' });
+      if (source === 'manual') clauses.push('n.source_url IS NULL');
+      else if (source === 'portal') clauses.push('n.source_url IS NOT NULL');
       const cursor = request.query.cursor ? cursorDecode(request.query.cursor) : null;
       if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
       if (cursor) {

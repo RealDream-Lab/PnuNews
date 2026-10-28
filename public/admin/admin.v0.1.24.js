@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.23.js';
+import { initDock } from '/shared/dock.v0.1.24.js';
 import {
   JALALI_MONTHS,
 
@@ -249,10 +249,14 @@ function applyCalendarDate() {
   document.getElementById('jalali-dialog').close();
 }
 
+const FEED_ROLES = ['super_admin', 'country_admin'];
+
 function goToView(view) {
   // A city-level admin has no subordinates, so there is nothing to manage on the users page.
   if (view === 'users' && state.user?.role === 'city_admin') view = 'dashboard';
+  // The news feed is only for the main admin and the central organisation's public relations.
   const mobile = matchMedia('(max-width: 767px)').matches;
+  if (view === 'mobile-feed' && !FEED_ROLES.includes(state.user?.role)) view = mobile ? 'mobile-compose' : 'dashboard';
   const actualView = mobile && !view.startsWith('mobile-') && view !== 'profile' && view !== 'editor' ? 'mobile-compose' : view;
   document.querySelectorAll('.admin-view').forEach((panel) => { panel.hidden = panel.dataset.panel !== actualView; });
   document.querySelectorAll('#desktop-nav [data-view]').forEach((button) => button.setAttribute('aria-current', String(button.dataset.view === actualView)));
@@ -299,6 +303,7 @@ async function prepareWorkspace() {
   dock.loadRadio();
   document.querySelectorAll('[data-super-only]').forEach((element) => { element.hidden = state.user.role !== 'super_admin'; });
   document.getElementById('new-user-button').hidden = state.user.role === 'city_admin';
+  document.querySelectorAll('[data-show-roles]').forEach((element) => { element.hidden = !element.dataset.showRoles.split(',').includes(state.user.role); });
   document.querySelectorAll('[data-hide-city]').forEach((element) => { element.hidden = state.user.role === 'city_admin'; });
   if (matchMedia('(max-width: 767px)').matches) goToView('mobile-compose');
   else goToView('dashboard');
@@ -340,6 +345,7 @@ async function loadNewsList(reset = false) {
     scope: document.getElementById('news-scope').value || 'all',
     text: document.getElementById('news-search').value.trim(),
     limit: '20',
+    source: 'manual', // automatic portal news are managed from the news-feed view
   });
   if (state.newsCursor) params.set('cursor', state.newsCursor);
   const container = document.getElementById('news-table');
@@ -500,6 +506,7 @@ function setCategoryOptions(value = '') {
 }
 
 function resetEditor() {
+  state.editorFromFeed = false;
   const form = document.getElementById('news-editor');
   form.reset();
   form.elements.news_id.value = '';
@@ -548,7 +555,8 @@ async function openEditor(id) {
     form.querySelector(`input[name="schedule_mode"][value="${item.status === 'scheduled' ? 'later' : 'now'}"]`).checked = true;
     document.getElementById('editor-more').open = Boolean(item.is_pinned || item.is_urgent || item.expires_at);
     document.getElementById('editor-media').open = Boolean((item.attachments || []).length);
-    const canDeleteImported = Boolean(item.source_url) && state.user.role === 'super_admin';
+    state.editorFromFeed = Boolean(item.source_url);
+    const canDeleteImported = Boolean(item.source_url) && FEED_ROLES.includes(state.user.role);
     document.getElementById('editor-delete').hidden = !(item.can_edit || canDeleteImported);
     document.getElementById('editor-unpublish').hidden = !item.can_edit || item.status === 'draft';
     renderAttachments(item.attachments || [], item.can_edit);
@@ -973,9 +981,11 @@ async function loadMobileNews(scope) {
   const container = document.getElementById(mine ? 'mobile-recent' : 'mobile-feed');
   container.innerHTML = '<p class="empty-panel">در حال دریافت…</p>';
   try {
-    const params = new URLSearchParams({ status: mine ? 'all' : 'published', scope: mine ? 'mine' : 'all', limit: '30' });
+    // "mine" = what this user published; the feed = the automatic portal news only
+    const params = new URLSearchParams({ status: 'all', scope: mine ? 'mine' : 'all', limit: '30' });
+    if (!mine) params.set('source', 'portal');
     const data = await api(`/api/admin/news?${params}`);
-    container.innerHTML = data.items.length ? data.items.map((item) => compactNews(item, 'edit-news')).join('') : '<p class="empty-panel">خبری برای نمایش وجود ندارد.</p>';
+    container.innerHTML = data.items.length ? data.items.map((item) => compactNews(item, 'edit-news')).join('') : `<p class="empty-panel">${mine ? 'خبری برای نمایش وجود ندارد.' : 'هنوز خبری از پورتال دریافت نشده است.'}</p>`;
   } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
@@ -1521,7 +1531,7 @@ async function deleteEditorNews() {
   try {
     await api(`/api/admin/news/${id}`, { method: 'DELETE', body: {} });
     showToast('خبر حذف شد.');
-    goToView(matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news');
+    goToView(state.editorFromFeed ? 'mobile-feed' : matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news');
   } catch (error) { showToast(error.message); }
 }
 
@@ -1772,7 +1782,7 @@ function bindEvents() {
     const newButton = event.target.closest('[data-action="new-news"]');
     if (newButton) return resetEditor();
     const backButton = event.target.closest('[data-action="back-news"]');
-    if (backButton) return goToView('news');
+    if (backButton) return goToView(state.editorFromFeed ? 'mobile-feed' : 'news');
     const editButton = event.target.closest('[data-action="edit-news"]');
     if (editButton) return openEditor(Number(editButton.dataset.id));
     const removeButton = event.target.closest('[data-remove-attachment]');

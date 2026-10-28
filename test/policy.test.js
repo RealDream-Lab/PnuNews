@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canViewNews, canEditNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql } from '../src/auth/policy.js';
+import { canViewNews, canEditNews, canDeleteNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql } from '../src/auth/policy.js';
 
 const regions = [
   { id: 1, parent_id: null, type: 'country' },
@@ -37,12 +37,14 @@ test('superiors see subordinates; everyone sees own', () => {
   assert.equal(canEditNews(country, news(cityA2), opts), false);
 });
 
-test('portal-imported news (created by the system super admin) is hidden from everyone else', () => {
+test('portal-imported news is shared by the main admin and the central PR, hidden from everyone else', () => {
   const imported = { ...news(sup), source_url: 'https://pnu.ac.ir/x' };
   assert.equal(canViewNews(cityA1, imported, opts), false);
   assert.equal(canViewNews(provA, imported, opts), false);
-  assert.equal(canViewNews(country, imported, opts), false);
+  assert.equal(canViewNews(country, imported, opts), true);
   assert.equal(canEditNews(country, imported, opts), false);
+  assert.equal(canDeleteNews(country, imported, opts), true);
+  assert.equal(canDeleteNews(provA, imported, opts), false);
   assert.equal(canEditNews(sup, imported, opts), true);
 });
 
@@ -66,6 +68,8 @@ test('user management hierarchy', () => {
 test('sql visibility mirrors the policy', () => {
   assert.equal(newsVisibilitySql(sup, regions), null);
   assert.match(newsVisibilitySql(country, regions).sql, /province_admin/);
+  assert.match(newsVisibilitySql(country, regions).sql, /source_url IS NOT NULL/);
+  assert.doesNotMatch(newsVisibilitySql(provA, regions).sql, /source_url/);
   assert.deepEqual(newsVisibilitySql(cityA1, regions), { sql: '(n.created_by = ?)', values: [5] });
   assert.equal(newsVisibilitySql(provA, regions).values.length, 3);
 });

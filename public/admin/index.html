@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.23.css">
-  <script src="/shared/theme.v0.1.23.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.24.css">
+  <script src="/shared/theme.v0.1.24.js"></script>
   <title>مدیریت خبرها — اخبار پیام نور</title>
 </head>
 <body>
@@ -101,7 +101,7 @@
         <nav id="desktop-nav" class="admin-nav">
           <button type="button" data-view="dashboard"><svg class="icon"><use href="#admin-icon-home"/></svg>داشبورد</button>
           <button type="button" data-view="news"><svg class="icon"><use href="#admin-icon-news"/></svg>مدیریت خبرها</button>
-          <button type="button" data-view="mobile-feed"><svg class="icon"><use href="#admin-icon-feed"/></svg>خوراک خبر</button>
+          <button type="button" data-view="mobile-feed" data-show-roles="super_admin,country_admin"><svg class="icon"><use href="#admin-icon-feed"/></svg>خوراک خبر</button>
           <button type="button" data-view="users" data-hide-city><svg class="icon"><use href="#admin-icon-users"/></svg>مدیریت کاربران</button>
           <button type="button" data-view="regions" data-super-only><svg class="icon"><use href="#admin-icon-map"/></svg>مراکز و واحدها</button>
           <button type="button" data-view="categories" data-super-only><svg class="icon"><use href="#admin-icon-tag"/></svg>دسته‌بندی‌ها</button>
@@ -326,7 +326,7 @@
           <div id="mobile-recent" class="compact-list"></div>
         </section>
         <section id="mobile-feed-view" class="admin-view" data-panel="mobile-feed" hidden>
-          <div class="view-heading"><div><p class="eyebrow">برای محدودهٔ شما</p><h1>خبرهای منتشرشده</h1></div></div>
+          <div class="view-heading"><div><p class="eyebrow">خبرخوان خودکار پورتال</p><h1>خوراک خبر</h1></div></div>
           <div id="mobile-feed" class="compact-list"></div>
         </section>
         <section id="profile-view" class="admin-view" data-panel="profile" hidden>
@@ -350,7 +350,7 @@
     <nav id="mobile-nav" class="mobile-nav" aria-label="بخش‌های پنل">
       <button data-view="mobile-compose"><span>＋</span>خبر سریع</button>
       <button data-view="mobile-recent"><span>▤</span>خبرهای من</button>
-      <button data-view="mobile-feed"><span>⌂</span>خوراک خبر</button>
+      <button data-view="mobile-feed" data-show-roles="super_admin,country_admin"><span>⌂</span>خوراک خبر</button>
       <button data-view="profile"><span>◉</span>حساب</button>
     </nav>
   </div>
@@ -367,6 +367,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.23.js"></script>
+  <script type="module" src="/admin/admin.v0.1.24.js"></script>
 </body>
 </html>

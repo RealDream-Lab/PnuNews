@@ -61,7 +61,7 @@ function policyOptions(optionsOrRegions) {
 
 // A user sees (and may edit) only their own news and the news of users *below* them:
 //   country_admin -> province admins; province_admin -> city admins of their province.
-// News of peers (same level) and of superiors is invisible, even read-only. The single exception is
+// News of peers (same level) and of superiors is invisible, even read-only (the automatic portal feed is the one exception: the main admin and the central PR share it). The single exception is
 // the owner-controlled `peer_edit_enabled` setting, which lets several admins of the *same unit*
 // share that unit's news.
 export function canViewNews(user, news, optionsOrRegions) {
@@ -70,6 +70,8 @@ export function canViewNews(user, news, optionsOrRegions) {
   const { regions, peerEditEnabled } = policyOptions(optionsOrRegions);
   if (!regions) return false;
   if (Number(news.created_by) === Number(user.id)) return true;
+  // The automatic portal feed is shared with the central organisation's PR (read-only; see canDeleteNews).
+  if (news.source_url && user.role === ROLE.COUNTRY_ADMIN) return true;
 
   const creatorRegionId = news.created_by_region_id ?? news.creator_region_id;
   const creatorRole = news.created_by_role ?? news.creator_role;
@@ -102,6 +104,8 @@ export function canEditNews(user, news, { regions, peerEditEnabled = false } = {
 }
 
 export function canDeleteNews(user, news, options) {
+  // Like the main admin, the central PR may remove items of the automatic portal feed (they cannot be edited).
+  if (user?.role === ROLE.COUNTRY_ADMIN && news?.source_url) return canViewNews(user, news, options);
   return canEditNews(user, news, options);
 }
 
@@ -114,6 +118,7 @@ export function newsVisibilitySql(user, regions, { peerEditEnabled = false } = {
   const values = [Number(user.id)];
   if (user.role === ROLE.COUNTRY_ADMIN) {
     parts.push(`creator.role = 'province_admin'`);
+    parts.push('n.source_url IS NOT NULL');
     if (peerEditEnabled) {
       parts.push(`(creator.role = 'country_admin' AND creator.region_id = ?)`);
       values.push(Number(user.region_id));
