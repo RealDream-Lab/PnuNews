@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.11.js';
+import { initDock } from '/shared/dock.v0.1.12.js';
 import {
   JALALI_MONTHS,
 

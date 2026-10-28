@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.11.js';
+import { initDock } from '/shared/dock.v0.1.12.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -512,7 +512,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
     target.hidden = false;
     if (!initial) app.hidden = true;
     document.title = `${item.title} — ${state.config?.site_title || 'اخبار پیام نور'}`;
-    if ('mediaSession' in navigator) setMediaMetadata(item.title, item.publisher_unit);
+    if ('mediaSession' in navigator) dock.setMediaMetadata(item.title, item.publisher_unit);
   } catch (error) {
     const target = initial ? app : newsView;
     target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><a class="news-back" href="/">بازگشت به خبرها</a></section>`;
