@@ -228,3 +228,4 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .news-card[data-external=true] h2::after,.pinned-card[data-external=true] h2::after{content:" ↗";color:var(--muted);font-size:.8em;font-weight:400}
+.radio-info .radio-now-playing{overflow:hidden;text-overflow:clip}.radio-now-playing .np-text{display:inline-block;overflow:visible;text-overflow:clip;white-space:nowrap;font-size:inherit;color:inherit}.radio-now-playing.is-scrolling .np-text{animation:np-pingpong var(--np-duration,10s) ease-in-out infinite}@keyframes np-pingpong{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--np-shift,0))}100%{transform:translateX(0)}}@media(prefers-reduced-motion:reduce){.radio-now-playing.is-scrolling .np-text{animation:none}}

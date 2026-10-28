@@ -270,3 +270,4 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .portal-panel{display:grid;gap:.7rem;margin-top:1rem}
 .portal-panel h2{margin:0}
 .portal-panel p{margin:0}
+.radio-info .radio-now-playing{overflow:hidden;text-overflow:clip}.radio-now-playing .np-text{display:inline-block;overflow:visible;text-overflow:clip;white-space:nowrap;font-size:inherit;color:inherit}.radio-now-playing.is-scrolling .np-text{animation:np-pingpong var(--np-duration,10s) ease-in-out infinite}@keyframes np-pingpong{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--np-shift,0))}100%{transform:translateX(0)}}@media(prefers-reduced-motion:reduce){.radio-now-playing.is-scrolling .np-text{animation:none}}

@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.13.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.14.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -33,15 +33,35 @@ export function initDock({ showToast = () => {} } = {}) {
     try { await audio.play(); } catch { showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.'); }
   }
 
+  // A long title scrolls back and forth (right, pause, left, pause) instead of being cut off with an ellipsis.
+  function fitNowPlaying() {
+    const caption = radioRoot?.querySelector('.radio-now-playing');
+    const text = caption?.querySelector('.np-text');
+    if (!caption || !text) return;
+    caption.classList.remove('is-scrolling');
+    const overflow = Math.ceil(text.scrollWidth - caption.clientWidth);
+    if (overflow <= 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const direction = getComputedStyle(caption).direction === 'rtl' ? 1 : -1;
+    caption.style.setProperty('--np-shift', `${overflow * direction}px`);
+    caption.style.setProperty('--np-duration', `${Math.max(8, 4 + overflow / 12)}s`);
+    caption.classList.add('is-scrolling');
+  }
+
+  function setNowPlayingText(value) {
+    const text = radioRoot?.querySelector('.radio-now-playing .np-text');
+    if (!text || text.textContent === value) return;
+    text.textContent = value;
+    requestAnimationFrame(fitNowPlaying);
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(fitNowPlaying), { passive: true });
+
   async function refreshNowPlaying() {
     try {
       const response = await fetch('/api/public/radio', { headers: { accept: 'application/json' } });
       if (!response.ok) return;
       const data = await response.json();
-      const caption = radioRoot?.querySelector('.radio-now-playing');
-      if (!caption) return;
       const song = data.now_playing;
-      caption.textContent = song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو';
+      setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
       if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
     } catch {}
   }
@@ -103,7 +123,7 @@ export function initDock({ showToast = () => {} } = {}) {
     if (!radioRoot.querySelector('.radio-bar')) {
       radioRoot.innerHTML = `<section class="radio-bar" aria-label="پخش رادیوی دانشگاه">
       <button class="audio-button radio-play" type="button" aria-label="پخش رادیو"><svg class="icon"><use href="#icon-play"/></svg></button>
-      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing">پخش زندهٔ رادیو</span></div>
+      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing"><span class="np-text">پخش زندهٔ رادیو</span></span></div>
       <label class="volume-control" aria-label="بلندی صدا"><svg class="icon"><use href="#icon-volume"/></svg><input class="radio-volume" type="range" min="0" max="1" step="0.05" aria-label="بلندی صدا"></label>
     </section>`;
       radioRoot.querySelector('.radio-volume').value = String(audio.volume);
