@@ -7,7 +7,7 @@ import { createStaticMiddleware } from './lib/static.js';
 
 export function contentSecurityPolicy(publicUrl) {
   const mediaSources = publicUrl.startsWith('https://') ? "'self' https:" : "'self' https: http:";
-  return `default-src 'self'; img-src 'self' data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; frame-ancestors 'none'`;
+  return `default-src 'self'; img-src 'self' data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 function csrfGuard(request, response, next) {
@@ -46,6 +46,17 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     response.setHeader('Content-Security-Policy', contentSecurityPolicy(config.publicUrl));
+    response.setHeader('X-Frame-Options', 'DENY');
+    response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    if (config.publicUrl.startsWith('https://')) {
+      response.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
+    next();
+  });
+  // Authentication and admin responses (sessions state, temporary passwords, audit log) must never be cached.
+  app.use(['/api/auth', '/api/admin'], (request, response, next) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Pragma', 'no-cache');
     next();
   });
   app.use(express.json({ limit: '1mb', strict: true }));

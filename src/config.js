@@ -11,6 +11,13 @@ const required = [
   'UPLOAD_DIR',
 ];
 
+// Values shipped in .env.dev.example; they are public, so they must never run in production.
+const KNOWN_DEV_SECRETS = new Set([
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+  'pnu_news_dev_only',
+  'root_dev_only',
+]);
+
 export function loadConfig(env = process.env) {
   const missing = required.filter((key) => !env[key] || env[key].includes('CHANGE_ME'));
   if (missing.length) {
@@ -33,6 +40,15 @@ export function loadConfig(env = process.env) {
   }
   if (!/^[a-f\d]{64}$/i.test(env.APP_SECRET)) {
     throw new Error('APP_SECRET باید دقیقاً ۶۴ رقم هگزادسیمال باشد.\nAPP_SECRET must be exactly 64 hexadecimal characters.');
+  }
+
+  if (env.NODE_ENV === 'production') {
+    if (!env.PUBLIC_URL.startsWith('https://')) {
+      throw new Error('در حالت production، PUBLIC_URL باید با https:// شروع شود (کوکی‌های نشست فقط روی HTTPS کار می‌کنند).\nPUBLIC_URL must use https:// in production.');
+    }
+    if (KNOWN_DEV_SECRETS.has(env.APP_SECRET) || KNOWN_DEV_SECRETS.has(env.DB_PASSWORD) || /^(.)\1{63}$/.test(env.APP_SECRET)) {
+      throw new Error('APP_SECRET یا DB_PASSWORD مقدار نمونهٔ عمومی یا ضعیف دارد؛ مقدار تصادفی تازه بسازید (مثلاً openssl rand -hex 32).\nAPP_SECRET or DB_PASSWORD is a public sample/weak value; generate a fresh one.');
+    }
   }
 
   return Object.freeze({

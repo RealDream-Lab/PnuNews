@@ -4,12 +4,15 @@ import { appEvents } from '../events.js';
 
 import { createMicroCache } from '../lib/microcache.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
+import { readLimitedText, resolvesToPublicAddress } from '../lib/net-guard.js';
 import { sanitizeBodyHtml } from '../news/content.js';
 
 const FEED_SCOPES = new Set(['all', 'country', 'province', 'city']);
 const VIEW_DEDUPE_MS = 30 * 60_000;
 const VIEW_DEDUPE_LIMIT = 50_000;
 const LIVE_CLIENT_LIMIT = 2000;
+// Generous on purpose: a whole campus can sit behind one NAT address.
+const LIVE_CLIENT_LIMIT_PER_IP = 50;
 const faCollator = new Intl.Collator('fa', { sensitivity: 'base' });
 
 function idValue(value) {
@@ -194,10 +197,11 @@ function injectOpenGraph(shell, { title, summary, image, canonical, siteTitle })
     `<meta name="twitter:title" content="${escapeHtml(title)}">`,
     `<meta name="twitter:description" content="${escapeHtml(summary)}">`,
   ].join('\n');
+  // Function replacers: a string replacement would interpret `$&`, `$\`` etc. inside the (admin-written) title.
   return shell
-    .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
-    .replace(/<meta name="description"[^>]*>/i, descriptionTag)
-    .replace('</head>', `${metadata}\n</head>`);
+    .replace(/<title>[\s\S]*?<\/title>/i, () => titleTag)
+    .replace(/<meta name="description"[^>]*>/i, () => descriptionTag)
+    .replace('</head>', () => `${metadata}\n</head>`);
 }
 
 function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
@@ -265,8 +269,14 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   const heartbeat = setInterval(() => { for (const client of liveClients) client.write(': ping\n\n'); }, 25_000);
   heartbeat.unref?.();
 
+  const liveClientsByIp = new Map();
   router.get('/api/public/live', (request, response) => {
     if (liveClients.size >= LIVE_CLIENT_LIMIT) return response.status(503).json({ error: 'ظرفیت به‌روزرسانی زنده تکمیل است.' });
+    // One address must not be able to hold every live slot.
+    const clientKey = request.ip || request.socket.remoteAddress || 'unknown';
+    const openFromIp = liveClientsByIp.get(clientKey) ?? 0;
+    if (openFromIp >= LIVE_CLIENT_LIMIT_PER_IP) return response.status(429).json({ error: 'تعداد اتصال‌های زندهٔ این نشانی از حد مجاز بیشتر است.' });
+    liveClientsByIp.set(clientKey, openFromIp + 1);
     request.socket.setTimeout(0);
     response.status(200).set({
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -277,7 +287,12 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     response.flushHeaders();
     response.write('retry: 5000\n\n');
     liveClients.add(response);
-    request.on('close', () => liveClients.delete(response));
+    request.on('close', () => {
+      liveClients.delete(response);
+      const remaining = (liveClientsByIp.get(clientKey) ?? 1) - 1;
+      if (remaining > 0) liveClientsByIp.set(clientKey, remaining);
+      else liveClientsByIp.delete(clientKey);
+    });
   });
 
   router.get('/media/placeholder/:color.svg', (request, response) => {
@@ -433,9 +448,11 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       if (radioCache.url === url.href && radioCache.expiresAt > clock()) return response.json(radioCache.value);
       let nowPlaying = null;
       try {
+        // The address is administrator-supplied: never let the server fetch internal-network hosts.
+        if (!await resolvesToPublicAddress(url.hostname)) throw new Error('Internal address');
         const upstream = await fetchImpl(url, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: { accept: 'application/json' } });
         if (upstream.ok) {
-          const data = await upstream.json();
+          const data = JSON.parse(await readLimitedText(upstream, 64 * 1024));
           const song = data?.now_playing?.song ?? data?.song ?? null;
           if (song && typeof song === 'object') {
             const title = plainString(song.title ?? song.name);

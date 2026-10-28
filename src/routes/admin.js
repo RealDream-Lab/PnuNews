@@ -4,6 +4,7 @@ import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText } from '../lib/fa.js';
+import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
@@ -135,6 +136,9 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
             }
             if (config.publicUrl.startsWith('https://') && url.protocol === 'http:') {
               return response.status(400).json({ error: 'در سایت امن HTTPS، نشانی HTTP رادیو به‌دلیل محتوای ناامن پذیرفته نمی‌شود.' });
+            }
+            if (key === 'radio_nowplaying_url' && isObviouslyInternalHost(url.hostname)) {
+              return response.status(400).json({ error: 'نشانی «در حال پخش» نمی‌تواند به شبکهٔ داخلی یا localhost اشاره کند.' });
             }
             updates[key] = url.href;
           } else updates[key] = '';

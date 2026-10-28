@@ -14,7 +14,7 @@
     "create-admin": "node --import ./scripts/load-env.js scripts/create-super-admin.js",
     "reset-2fa": "node --import ./scripts/load-env.js scripts/reset-2fa.js",
     "bump": "node scripts/bump-version.js",
-    "test": "node --test test/policy.test.js test/live.test.js"
+    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js"
   },
   "dependencies": {
     "busboy": "1.6.0",
