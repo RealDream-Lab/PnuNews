@@ -249,12 +249,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.32.css">
-<script src="/shared/theme.v0.1.32.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.33.css">
+<script src="/shared/theme.v0.1.33.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.32.js"></script>
+<script type="module" src="/reader/app.v0.1.33.js"></script>
 </body>
 </html>`;
 }
@@ -332,7 +332,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     try {
       const result = await cache.get('config', async () => {
         const [settings, provinces] = await Promise.all([
-          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url']),
+          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
           visibleRegions(pool),
         ]);
         let radio = { enabled: false };
@@ -341,6 +341,12 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             const streamUrl = new URL(settings.radio_stream_url);
             if (['http:', 'https:'].includes(streamUrl.protocol) && !streamUrl.username && !streamUrl.password && !(config.publicUrl.startsWith('https://') && streamUrl.protocol === 'http:')) {
               radio = { enabled: true, title: settings.radio_title?.trim() || 'رادیو', stream_url: streamUrl.href };
+              // lets the player read "now playing" from the browser when this server cannot reach the radio
+              try {
+                const nowPlayingUrl = resolveNowPlayingUrl({ nowPlayingUrl: settings.radio_nowplaying_url, streamUrl: streamUrl.href });
+                if (nowPlayingUrl && ['http:', 'https:'].includes(nowPlayingUrl.protocol) && !nowPlayingUrl.username && !nowPlayingUrl.password &&
+                    !(config.publicUrl.startsWith('https://') && nowPlayingUrl.protocol === 'http:')) radio.nowplaying_url = nowPlayingUrl.href;
+              } catch {}
             }
           } catch {}
         }
@@ -477,18 +483,22 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       if (!url) return response.json({ now_playing: null });
       if (radioCache.url === url.href && radioCache.expiresAt > clock()) return response.json(radioCache.value);
       let nowPlaying = null;
+      let unreachable = false;
       try {
         nowPlaying = await fetchNowPlaying(url, {
           fetchImpl, publicUrl: config.publicUrl, streamUrl: settings.radio_stream_url || '', resolvesPublic: makeRadioResolver(config.radioTrustedHosts),
         });
       } catch (error) {
+        unreachable = ['network', 'internal'].includes(error.code);
         // Not an error for the visitor (the bar just shows the station), but the administrator needs to see why.
         if (clock() - radioFailureLoggedAt > 300_000) {
           radioFailureLoggedAt = clock();
           console.warn(`Radio now-playing could not be read from ${url.origin}${url.pathname}: ${error.message}`);
         }
       }
-      radioCache = { url: url.href, expiresAt: clock() + (nowPlaying ? 15_000 : 5_000), value: { now_playing: nowPlaying } };
+      // unreachable: this server cannot reach the radio, so the player may try from the visitor's browser instead.
+      // That state is remembered longer so every poll does not wait for a new timeout.
+      radioCache = { url: url.href, expiresAt: clock() + (nowPlaying ? 15_000 : unreachable ? 60_000 : 5_000), value: unreachable ? { now_playing: null, reachable: false } : { now_playing: nowPlaying } };
       return response.json(radioCache.value);
     } catch {
       return response.json({ now_playing: null });

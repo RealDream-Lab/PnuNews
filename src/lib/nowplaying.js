@@ -15,7 +15,7 @@ export function describeNowPlayingError(error) {
   const detail = error?.detail ? ` (${error.detail})` : '';
   switch (error?.code) {
     case 'internal': return `نام دامنه یا نشانی${detail} به شبکهٔ داخلی یا نشانی غیرعمومی می‌رسد (یا اصلاً resolve نمی‌شود) و سرور برای امنیت آن را نمی‌خواند. اگر مطمئن هستید، نام میزبان را در RADIO_TRUSTED_HOSTS فایل .autostart بگذارید و برنامه را restart کنید.`;
-    case 'network': return `سرور برنامه به نشانی اکنون‌پخش وصل نشد${detail}. اتصال شبکه، فایروال و گواهی TLS سرور رادیو را از داخل سرور برنامه بررسی کنید.`;
+    case 'network': return `سرور برنامه به نشانی اکنون‌پخش وصل نشد${detail}. اتصال شبکه، فایروال و گواهی TLS سرور رادیو را از داخل سرور برنامه بررسی کنید. تا آن موقع، پخش‌کنندهٔ سایت خودش از مرورگر بازدیدکننده می‌خواند (اگر آن مرورگر به سرور رادیو برسد و سرور رادیو CORS را مجاز کرده باشد، که در AzuraCast پیش‌فرض است).`;
     case 'status': return `سرور رادیو پاسخ خطا داد${detail}.`;
     case 'json': return 'پاسخ سرور رادیو JSON معتبر نیست؛ نشانی باید به API اکنون‌پخش (مثلاً /api/nowplaying/1) اشاره کند.';
     case 'https': return 'در سایت امن HTTPS نشانی HTTP پذیرفته نمی‌شود.';

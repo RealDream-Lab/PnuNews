@@ -1,5 +1,5 @@
 // Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.32.js), so it always matches the code that is running.
+// The version comes from this file's own versioned name (dock.v0.1.33.js), so it always matches the code that is running.
 const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
 
 export function initDock({ showToast = () => {} } = {}) {
@@ -79,15 +79,67 @@ export function initDock({ showToast = () => {} } = {}) {
   }
   window.addEventListener('resize', () => requestAnimationFrame(fitNowPlaying), { passive: true });
 
-  async function refreshNowPlaying() {
+  // "Now playing" normally comes from this site's server (/api/public/radio). When that server cannot reach the
+  // radio (it answers reachable:false), the browser asks the radio's own API directly instead.
+  let nowPlayingUrl = '';
+  let directMode = false;
+
+  function songFrom(song) {
+    if (!song || typeof song !== 'object') return null;
+    let title = String(song.title ?? song.name ?? '').trim();
+    let artist = String(song.artist ?? song.artist_name ?? '').trim();
+    if (!title && !artist && song.text) {
+      const text = String(song.text).trim();
+      const index = text.indexOf(' - ');
+      if (index > 0) { artist = text.slice(0, index).trim(); title = text.slice(index + 3).trim(); } else title = text;
+    }
+    return title || artist ? { title, artist } : null;
+  }
+
+  // AzuraCast (one station, or the array of all stations), Icecast and Shoutcast answers.
+  function parseNowPlaying(data) {
+    if (Array.isArray(data)) {
+      const stations = data.filter((item) => item && typeof item === 'object');
+      const match = stations.find((item) => item.station?.listen_url === streamUrl || item.station?.mounts?.some?.((mount) => mount?.url === streamUrl));
+      return parseNowPlaying(match || stations[0] || null);
+    }
+    if (!data || typeof data !== 'object') return null;
+    const direct = songFrom(data.now_playing?.song) ?? songFrom(data.song);
+    if (direct) return direct;
+    const source = data.icestats?.source;
+    for (const item of Array.isArray(source) ? source : source ? [source] : []) {
+      const found = songFrom({ title: item.title, artist: item.artist }) ?? (item.yp_currently_playing ? songFrom({ text: item.yp_currently_playing }) : null);
+      if (found) return found;
+    }
+    return typeof data.songtitle === 'string' ? songFrom({ text: data.songtitle }) : null;
+  }
+
+  async function fetchDirect() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     try {
-      const response = await fetch('/api/public/radio', { cache: 'no-store', headers: { accept: 'application/json' } });
-      if (!response.ok) return;
-      const data = await response.json();
-      const song = data.now_playing;
-      setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
-      if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
-    } catch {}
+      const response = await fetch(nowPlayingUrl, { cache: 'no-store', credentials: 'omit', signal: controller.signal, headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error('bad status');
+      return parseNowPlaying(await response.json());
+    } finally { clearTimeout(timer); }
+  }
+
+  async function refreshNowPlaying() {
+    let song = null;
+    try {
+      if (!directMode) {
+        const response = await fetch('/api/public/radio', { cache: 'no-store', headers: { accept: 'application/json' } });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.reachable === false && nowPlayingUrl) directMode = true;
+        else song = data.now_playing;
+      }
+      if (directMode) {
+        try { song = await fetchDirect(); } catch { directMode = false; } // blocked or unreachable: ask the server again next time
+      }
+    } catch { return; }
+    setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
+    if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
   }
 
   function renderRadio(radio) {
@@ -104,12 +156,15 @@ export function initDock({ showToast = () => {} } = {}) {
         } catch {}
       }
       streamUrl = '';
+      nowPlayingUrl = '';
+      directMode = false;
       stationTitle = '';
       clearInterval(nowPlayingTimer);
       return;
     }
     if (streamUrl !== radio.stream_url && audio) stop();
     streamUrl = radio.stream_url;
+    nowPlayingUrl = radio.nowplaying_url || '';
     stationTitle = radio.title || 'رادیو';
     if (!audio) {
       audio = document.createElement('audio');
