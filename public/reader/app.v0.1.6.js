@@ -1,6 +1,3 @@
-import { initDock } from '/shared/dock.v0.1.39.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.39.js';
-
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
 const feed = document.getElementById('feed');
@@ -13,6 +10,7 @@ const searchField = document.querySelector('.search-field');
 const sentinel = document.getElementById('feed-sentinel');
 const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
+const radioRoot = document.getElementById('radio-root');
 const installRoot = document.getElementById('install-root');
 const updateRoot = document.getElementById('update-root');
 
@@ -29,17 +27,29 @@ const state = {
   spacer: null,
   spacerHeight: 0,
   pinnedIds: new Set(),
-  pinnedSig: '',
   firstId: null,
   newsId: null,
   refreshTimer: null,
+  radioUrl: '',
+  radioTitle: '',
+  nowPlayingTimer: null,
   toastTimer: null,
   fontScale: 1,
 };
+let radioAudio = null;
 let intersectionObserver = null;
 
 const digits = new Intl.NumberFormat('fa-IR');
 
+// Footer shows the version of the code that is actually running (taken from this file's versioned name, e.g. app.v0.1.6.js).
+const appVersion = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1];
+const dockText = document.querySelector('.dock-text');
+if (appVersion && dockText) {
+  const versionLabel = document.createElement('span');
+  versionLabel.className = 'dock-version';
+  versionLabel.textContent = ` · نسخه ${appVersion.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit])}`;
+  dockText.append(versionLabel);
+}
 const dateFormatter = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
   timeZone: 'Asia/Tehran', day: 'numeric', month: 'long', year: 'numeric',
 });
@@ -76,36 +86,6 @@ function showToast(message) {
   state.toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2600);
 }
 
-const dock = initDock({ showToast });
-
-// ---------- Reader preferences (stored on this device only) ----------
-const PREFS_KEY = 'pnu.prefs';
-const DEFAULT_PREFS = Object.freeze({ radio: true, country: true, province: true, siblings: false });
-const prefs = { ...DEFAULT_PREFS };
-try {
-  const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
-  if (saved && typeof saved === 'object') {
-    for (const key of Object.keys(DEFAULT_PREFS)) if (typeof saved[key] === 'boolean') prefs[key] = saved[key];
-  }
-} catch {}
-
-function applyRadioPreference() {
-  document.documentElement.classList.toggle('radio-hidden', !prefs.radio);
-  if (!prefs.radio) dock.stopRadio();
-}
-applyRadioPreference();
-
-// Query string part of the feed request that depends on the reader's choices.
-function feedPreferenceParams() {
-  return { country: prefs.country ? '1' : '0', province: prefs.province ? '1' : '0', siblings: prefs.siblings ? '1' : '0' };
-}
-
-// The install / update cards float just above the footer, whatever its height is (the radio makes it taller on phones).
-const siteDock = document.querySelector('.site-dock');
-if (siteDock && 'ResizeObserver' in window) {
-  new ResizeObserver(() => document.documentElement.style.setProperty('--dock-height', `${siteDock.offsetHeight}px`)).observe(siteDock);
-}
-
 async function getJson(url) {
   const response = await fetch(url, { headers: { accept: 'application/json' } });
   let body;
@@ -132,7 +112,7 @@ function updateSelectedCity() {
     description.hidden = false;
     return;
   }
-  label.textContent = state.city.name;
+  label.textContent = `${state.city.name} · ${state.province.name}`;
   description.textContent = '';
   description.hidden = true;
 }
@@ -216,9 +196,7 @@ function openPicker() {
 // and the university's provincial branch for province-level news.
 function scopeName(item) {
   if (item.scope.type === 'country') return 'سازمان مرکزی';
-  if (item.scope.type === 'province') return `دانشگاه پیام‌نور استان ${item.scope.name}`;
-  // News of another center of the same province (shown only when the reader asked for them).
-  if (item.scope.type === 'city' && state.city && Number(item.scope.id) !== Number(state.city.id)) return `دانشگاه پیام‌نور ${item.scope.name}`;
+  if (item.scope.type === 'province') return `دانشگاه پیام نور استان ${item.scope.name}`;
   return '';
 }
 
@@ -249,50 +227,19 @@ const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
 
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
-}
-
-// Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
-function externalAttributes(item) {
-  return typeof item.source_url === 'string' && item.source_url.startsWith('https://')
-    ? ` data-source-url="${escapeHtml(item.source_url)}" data-external="true"` : '';
-}
-
-function openCard(card) {
-  const address = card.dataset.sourceUrl;
-  if (address && address.startsWith('https://')) {
-    window.open(address, '_blank', 'noopener,noreferrer');
-    return;
-  }
-  navigateToNews(card.dataset.newsId);
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
 function pinnedMarkup(item) {
   const thumbnail = item.cover?.src
-    ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
+    ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
-  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
+  return `<article class="${classes}" data-news-id="${item.id}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
 }
-
-const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
 
 function cardMarkup(item, { featured = false } = {}) {
   const hasCover = Boolean(item.cover?.src);
-  // Automatic portal news: one meta line only (where it comes from + when it was published).
-  if (typeof item.source_url === 'string' && item.source_url.startsWith('https://')) {
-    const time = `<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time>`;
-    const line = `<span class="card-kicker portal-kicker">${PORTAL_LABEL}</span><i aria-hidden="true"></i>${time}`;
-    const portalClasses = ['news-card', hasCover ? '' : 'no-cover', featured ? 'is-featured' : ''].filter(Boolean).join(' ');
-    const portalSummary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
-    const portalBody = hasCover
-      ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
-      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}</div></div>`;
-    return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div></div>`) : ''}
-    ${portalBody}
-  </article>`;
-  }
   const label = scopeName(item);
   const badge = label ? `<span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(label)}</span>` : '';
   const category = item.category?.name ? `<span class="card-kicker">${escapeHtml(item.category.name)}</span>` : '';
@@ -308,75 +255,10 @@ function cardMarkup(item, { featured = false } = {}) {
   const body = hasCover
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
     : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}</div></div>`;
-  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
+  return `<article class="${classes}" data-news-id="${item.id}" data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
     ${hasCover ? coverMarkup(item, featured, overlay) : ''}
     ${body}
   </article>`;
-}
-
-// Desktop masonry: the feed is a grid of 8px rows and every card spans as many rows as its own height needs,
-// so cards of different heights pack tightly without leaving gaps. Mobile/tablet keep the plain grid.
-const MASONRY_ROW = 8;
-const masonryQuery = matchMedia('(min-width: 960px)');
-
-function layoutMasonry() {
-  const active = masonryQuery.matches;
-  feed.classList.toggle('is-masonry', active);
-  const nodes = [...feed.children];
-  if (!active) {
-    for (const node of nodes) node.style.gridRowEnd = '';
-    return;
-  }
-  const gap = Number.parseFloat(getComputedStyle(feed).columnGap) || 16;
-  const heights = nodes.map((node) => (node.classList.contains('feed-spacer')
-    ? Number.parseFloat(node.style.height) || 0
-    : node.getBoundingClientRect().height));
-  nodes.forEach((node, index) => {
-    const extra = node.classList.contains('feed-spacer') ? 0 : gap;
-    node.style.gridRowEnd = `span ${Math.max(1, Math.ceil((heights[index] + extra) / MASONRY_ROW))}`;
-  });
-}
-
-let masonryFrame = 0;
-function scheduleMasonry() {
-  cancelAnimationFrame(masonryFrame);
-  masonryFrame = requestAnimationFrame(layoutMasonry);
-}
-masonryQuery.addEventListener('change', layoutMasonry);
-window.addEventListener('resize', scheduleMasonry, { passive: true });
-document.fonts?.ready.then(layoutMasonry);
-
-// Any change of a card's height (font-size buttons, wrapping, images) re-packs the grid, so cards never overlap.
-const masonryObserver = 'ResizeObserver' in window ? new ResizeObserver(scheduleMasonry) : null;
-
-// Cover frames show a shimmer until their image has loaded (or failed).
-function settleCover(image) {
-  image.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add(image.complete && !image.naturalWidth ? 'is-failed' : 'is-loaded');
-}
-document.addEventListener('load', (event) => { if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) settleCover(event.target); }, true);
-document.addEventListener('error', (event) => {
-  if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) event.target.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add('is-failed');
-}, true);
-
-function watchFeedNode(node) {
-  if (node.nodeType !== 1) return;
-  if (!node.classList.contains('feed-spacer') && !node.classList.contains('news-skeleton')) masonryObserver?.observe(node);
-  node.querySelectorAll?.('img.card-cover').forEach((image) => { if (image.complete && image.naturalWidth) settleCover(image); });
-}
-new MutationObserver((records) => {
-  for (const record of records) {
-    record.addedNodes.forEach(watchFeedNode);
-    record.removedNodes.forEach((node) => { if (node.nodeType === 1) masonryObserver?.unobserve(node); });
-  }
-}).observe(feed, { childList: true });
-new MutationObserver((records) => {
-  for (const record of records) record.addedNodes.forEach((node) => node.nodeType === 1 && node.querySelectorAll?.('img').forEach((image) => { if (image.complete && image.naturalWidth) settleCover(image); }));
-}).observe(pinnedStrip, { childList: true });
-
-// Placeholder cards shaped like real ones (cover, kicker, title lines, footer) that pulse until the data arrives.
-function skeletonCount(first) {
-  const perRow = masonryQuery.matches ? 3 : matchMedia('(min-width: 640px)').matches ? 2 : 1;
-  return first ? Math.max(3, perRow * 2) : perRow;
 }
 
 function showSkeletons(count = 4) {
@@ -384,10 +266,8 @@ function showSkeletons(count = 4) {
     const skeleton = document.createElement('div');
     skeleton.className = 'news-skeleton';
     skeleton.setAttribute('aria-hidden', 'true');
-    skeleton.innerHTML = '<div class="sk-cover"></div><div class="sk-body"><span class="sk-line sk-short"></span><span class="sk-line"></span><span class="sk-line sk-mid"></span><span class="sk-line sk-tiny"></span></div>';
     feed.append(skeleton);
   }
-  layoutMasonry();
 }
 
 function clearFeed() {
@@ -397,11 +277,9 @@ function clearFeed() {
   state.spacer = null;
   state.spacerHeight = 0;
   state.pinnedIds = new Set();
-  state.pinnedSig = '';
   state.cursor = null;
   state.ended = false;
   state.firstId = null;
-  liveDirty = false;
   pinnedStrip.replaceChildren();
   pinnedStrip.hidden = true;
   newItemsBanner.hidden = true;
@@ -437,15 +315,14 @@ function recycleFeed() {
   state.spacer.style.height = `${state.spacerHeight}px`;
   state.spacerHeight += before - feed.getBoundingClientRect().height;
   state.spacer.style.height = `${Math.max(0, state.spacerHeight)}px`;
-  layoutMasonry();
 }
 
 async function loadMore() {
   if (!state.city || state.loading || state.ended) return;
   state.loading = true;
   feed.setAttribute('aria-busy', 'true');
-  showSkeletons(skeletonCount(!state.cursor));
-  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams() });
+  showSkeletons(3);
+  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12' });
   if (state.cursor) params.set('cursor', state.cursor);
   try {
     const data = await getJson(`/api/public/feed?${params}`);
@@ -454,7 +331,6 @@ async function loadMore() {
     if (isFirstPage) {
       const pinned = Array.isArray(data.pinned) ? data.pinned : [];
       state.pinnedIds = new Set(pinned.map((item) => Number(item.id)));
-      state.pinnedSig = pinnedSignature(pinned);
       pinnedStrip.hidden = !pinned.length;
       if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
     }
@@ -465,7 +341,7 @@ async function loadMore() {
       template.innerHTML = cardMarkup(item, { featured: isFirstPage && state.entries.length === 0 && Boolean(item.cover?.src) });
       const node = template.content.firstElementChild;
       feed.append(node);
-      state.entries.push({ id: item.id, node, item, sig: itemSignature(item) });
+      state.entries.push({ id: item.id, node });
     }
     state.cursor = data.next_cursor;
     state.ended = !data.next_cursor;
@@ -477,7 +353,6 @@ async function loadMore() {
       feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
       feedMessage.textContent = '';
     }
-    layoutMasonry();
     recycleFeed();
     if (state.ended) intersectionObserver?.unobserve(sentinel);
     else intersectionObserver?.observe(sentinel);
@@ -489,197 +364,13 @@ async function loadMore() {
   }
 }
 
-// ---------- Live updates ----------
-// The server pushes a tiny "feed changed" event (SSE); we then refetch the first page and animate the difference
-// in: new cards slide in at the top, the rest of the grid glides to its new place (FLIP), edited cards crossfade
-// and removed ones fade out. A 60-second poll covers browsers or proxies where the live channel is unavailable.
-const LIVE_NEAR_TOP = 360;
-const LIVE_EASING = 'cubic-bezier(.22,.8,.26,1)';
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let liveSyncing = false;
-let liveDirty = false;
-let liveTimer = 0;
-let liveHadError = false;
-
-function createCardNode(item, featured) {
-  const template = document.createElement('template');
-  template.innerHTML = cardMarkup(item, { featured });
-  return template.content.firstElementChild;
-}
-
-// Rects of the cards that are on (or near) the screen, so only those need to be animated.
-function captureRects() {
-  const rects = new Map();
-  for (const element of [...state.entries.map((entry) => entry.node), pinnedStrip]) {
-    const rect = element.getBoundingClientRect();
-    if (rect.bottom > -300 && rect.top < innerHeight + 300) rects.set(element, rect);
-  }
-  return rects;
-}
-
-function playFlip(before, skip) {
-  if (reducedMotion.matches) return;
-  for (const [element, from] of before) {
-    if (skip.has(element) || !element.isConnected) continue;
-    const to = element.getBoundingClientRect();
-    const dx = from.left - to.left;
-    const dy = from.top - to.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-    element.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 520, easing: LIVE_EASING });
-  }
-}
-
-function animateIn(node) {
-  node.classList.add('is-fresh');
-  setTimeout(() => node.classList.remove('is-fresh'), 2600);
-  if (reducedMotion.matches) return;
-  node.animate(
-    [{ opacity: 0, transform: 'translateY(-22px) scale(.96)' }, { opacity: 1, transform: 'none' }],
-    { duration: 650, delay: 140, easing: LIVE_EASING, fill: 'backwards' },
-  );
-}
-
-function animateOut(node) {
-  if (reducedMotion.matches) return Promise.resolve();
-  return node.animate(
-    [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }],
-    { duration: 260, easing: 'ease-in', fill: 'forwards' },
-  ).finished.catch(() => {});
-}
-
-function renderPinnedStrip(pinned) {
-  pinnedStrip.hidden = !pinned.length;
-  pinnedStrip.innerHTML = pinned.length ? pinned.map(pinnedMarkup).join('') : '';
-  if (pinned.length && !reducedMotion.matches) pinnedStrip.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' });
-}
-
-async function applyLiveData(data) {
-  const plan = planLiveUpdate(state.entries, data);
-  const nextPinnedSig = pinnedSignature(plan.pinned);
-  const pinnedChanged = nextPinnedSig !== state.pinnedSig;
-  const firstId = plan.items[0]?.id ?? null;
-
-  if (!state.entries.length) {
-    // Empty state (or nothing loaded yet): simply load the feed normally when something showed up.
-    if (plan.items.length || plan.pinned.length) resetFeed();
-    return;
-  }
-  // Cards above the viewport were recycled (a spacer stands in for them): rebuilding from the top is the safe way.
-  if (plan.resync || (state.spacer && (plan.inserts.length || plan.removed.length))) { resetFeed(); return; }
-  if (!plan.inserts.length && !plan.updates.length && !plan.removed.length && !pinnedChanged) {
-    state.firstId = firstId ?? state.firstId;
-    return;
-  }
-
-  // 1) Cards that disappeared fade out first.
-  const removedNodes = state.entries.filter((entry) => plan.removed.includes(Number(entry.id))).map((entry) => entry.node);
-  if (removedNodes.length) await Promise.all(removedNodes.map(animateOut));
-  if (!state.city || state.newsId || state.loading) { liveDirty = true; return; }
-
-  // 2) Change the DOM in one go, then let the grid glide to its new layout.
-  const before = captureRects();
-  const fresh = new Set();
-  const skip = new Set();
-  for (const node of removedNodes) { node.remove(); skip.add(node); }
-  state.entries = state.entries.filter((entry) => !plan.removed.includes(Number(entry.id)));
-
-  for (const item of plan.updates) {
-    const entry = state.entries.find((candidate) => Number(candidate.id) === Number(item.id));
-    if (!entry) continue;
-    const node = createCardNode(item, entry.node.classList.contains('is-featured'));
-    entry.node.replaceWith(node);
-    if (before.has(entry.node)) before.set(node, before.get(entry.node));
-    entry.node = node;
-    entry.item = item;
-    entry.sig = itemSignature(item);
-    skip.add(node);
-    if (!reducedMotion.matches) node.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' });
-  }
-
-  for (const { item, afterId } of plan.inserts) {
-    const node = createCardNode(item, false);
-    const anchorIndex = afterId == null ? -1 : state.entries.findIndex((entry) => Number(entry.id) === Number(afterId));
-    if (anchorIndex >= 0) state.entries[anchorIndex].node.after(node);
-    else if (state.entries[0]) state.entries[0].node.before(node);
-    else feed.prepend(node);
-    state.entries.splice(anchorIndex + 1, 0, { id: item.id, node, item, sig: itemSignature(item) });
-    fresh.add(node);
-    skip.add(node);
-  }
-
-  // The first card with a cover is shown big ("featured"); keep that true after inserts/removals.
-  state.entries.forEach((entry, index) => {
-    const wanted = index === 0 && Boolean(entry.item.cover?.src);
-    if (entry.node.classList.contains('is-featured') === wanted) return;
-    const node = createCardNode(entry.item, wanted);
-    entry.node.replaceWith(node);
-    if (before.has(entry.node)) before.set(node, before.get(entry.node));
-    if (fresh.has(entry.node)) { fresh.delete(entry.node); fresh.add(node); }
-    skip.delete(entry.node);
-    skip.add(node);
-    entry.node = node;
-  });
-
-  if (pinnedChanged) {
-    renderPinnedStrip(plan.pinned);
-    state.pinnedSig = nextPinnedSig;
-  }
-  state.pinnedIds = plan.pinnedIds;
-  state.firstId = firstId ?? state.firstId;
-  newItemsBanner.hidden = true;
-  if (!state.entries.length && pinnedStrip.hidden) {
-    feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
-  }
-  layoutMasonry();
-  playFlip(before, skip);
-  for (const node of fresh) animateIn(node);
-}
-
-async function syncFeed() {
-  if (!state.city || state.newsId || state.loading || liveSyncing || document.hidden) { liveDirty = true; return; }
-  const cityId = String(state.city.id);
-  liveSyncing = true;
-  liveDirty = false;
+async function checkForNewItems() {
+  if (!state.city || state.newsId || state.loading || state.firstId == null) return;
+  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '1' });
   try {
-    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), live: String(Date.now()) });
     const data = await getJson(`/api/public/feed?${params}`);
-    if (!state.city || String(state.city.id) !== cityId || state.newsId || state.loading) { liveDirty = true; return; }
-    if (window.scrollY > LIVE_NEAR_TOP) {
-      // The reader is down the page: never move the content under their finger; just offer the banner.
-      const plan = planLiveUpdate(state.entries, data);
-      if (state.entries.length && (plan.inserts.length || plan.resync)) newItemsBanner.hidden = false;
-      liveDirty = true;
-      return;
-    }
-    await applyLiveData(data);
-  } catch {
-    // Offline or a transient error: the next event or the poll tries again.
-  } finally {
-    liveSyncing = false;
-  }
-}
-
-function startLive() {
-  if (!('EventSource' in window)) return;
-  const source = new EventSource('/api/public/live');
-  source.addEventListener('feed', () => {
-    clearTimeout(liveTimer);
-    // Jitter so thousands of open readers do not hit the server in the same instant.
-    liveTimer = setTimeout(syncFeed, 150 + Math.random() * 1800);
-  });
-  source.addEventListener('error', () => { liveHadError = true; });
-  source.addEventListener('open', () => {
-    if (liveHadError) { liveHadError = false; syncFeed(); }
-  });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && liveDirty) syncFeed(); });
-  let scrollFrame = 0;
-  window.addEventListener('scroll', () => {
-    if (!liveDirty || scrollFrame) return;
-    scrollFrame = requestAnimationFrame(() => {
-      scrollFrame = 0;
-      if (window.scrollY <= 200 && liveDirty) syncFeed();
-    });
-  }, { passive: true });
+    if (data.items?.[0]?.id && Number(data.items[0].id) !== Number(state.firstId)) newItemsBanner.hidden = false;
+  } catch {}
 }
 
 function applyFontScale() {
@@ -701,7 +392,6 @@ function changeFontScale(delta) {
   state.fontScale = Math.min(1.1, Math.max(.9, Math.round((state.fontScale + delta) * 100) / 100));
   try { localStorage.setItem('pnu.fontScale', String(state.fontScale)); } catch {}
   applyFontScale();
-  scheduleMasonry();
 }
 
 function initTheme() {
@@ -720,14 +410,126 @@ function initTheme() {
   });
 }
 
+function setMediaMetadata(title, artist) {
+  if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album: state.radioTitle || 'رادیو' });
+    navigator.mediaSession.setActionHandler('play', playRadio);
+    navigator.mediaSession.setActionHandler('pause', () => radioAudio?.pause());
+  } catch {}
+}
+
+async function playRadio() {
+  if (!radioAudio || !state.radioUrl) return;
+  if (!radioAudio.src) radioAudio.src = state.radioUrl;
+  try { await radioAudio.play(); } catch { showToast('پخش رادیو آغاز نشد؛ اتصال را بررسی کنید.'); }
+}
+
+async function refreshNowPlaying() {
+  try {
+    const data = await getJson('/api/public/radio');
+    const caption = radioRoot.querySelector('.radio-now-playing');
+    if (!caption) return;
+    const song = data.now_playing;
+    caption.textContent = song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو';
+    if (song?.title) setMediaMetadata(song.title, song.artist || state.radioTitle);
+  } catch {}
+}
+
+function renderRadio(radio) {
+  const enabled = radio?.enabled && radio.stream_url;
+  if (!enabled) {
+    if (radioAudio) {
+      radioAudio.pause();
+      radioAudio.removeAttribute('src');
+      radioAudio.load();
+    }
+    radioRoot.replaceChildren();
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.metadata = null;
+      } catch {}
+    }
+    state.radioUrl = '';
+    state.radioTitle = '';
+    clearInterval(state.nowPlayingTimer);
+    return;
+  }
+  const changed = state.radioUrl !== radio.stream_url;
+  if (changed && radioAudio) {
+    radioAudio.pause();
+    radioAudio.removeAttribute('src');
+    radioAudio.load();
+  }
+  state.radioUrl = radio.stream_url;
+  state.radioTitle = radio.title || 'رادیو';
+  if (!radioAudio) {
+    radioAudio = document.createElement('audio');
+    radioAudio.preload = 'none';
+    radioAudio.volume = .6;
+    try {
+      const saved = localStorage.getItem('pnu.radioVolume');
+      const volume = saved === null || saved === '' ? NaN : Number(saved);
+      if (volume >= 0 && volume <= 1) radioAudio.volume = volume;
+    } catch {}
+    radioAudio.addEventListener('play', () => {
+      const button = radioRoot.querySelector('.radio-play');
+      if (button) {
+        button.innerHTML = '<svg class="icon"><use href="#icon-pause"/></svg>';
+        button.setAttribute('aria-label', 'توقف رادیو');
+      }
+    });
+    radioAudio.addEventListener('pause', () => {
+      const button = radioRoot.querySelector('.radio-play');
+      if (button) {
+        button.innerHTML = '<svg class="icon"><use href="#icon-play"/></svg>';
+        button.setAttribute('aria-label', 'پخش رادیو');
+      }
+    });
+    radioAudio.addEventListener('error', () => showToast('پخش رادیو در دسترس نیست.'));
+  }
+  if (!radioRoot.querySelector('.radio-bar')) {
+    radioRoot.innerHTML = `<section class="radio-bar" aria-label="پخش رادیوی دانشگاه">
+      <button class="audio-button radio-play" type="button" aria-label="پخش رادیو"><svg class="icon"><use href="#icon-play"/></svg></button>
+      <div class="radio-info"><strong class="radio-title"></strong><span class="radio-now-playing">پخش زندهٔ رادیو</span></div>
+      <label class="volume-control" aria-label="بلندی صدا"><svg class="icon"><use href="#icon-volume"/></svg><input class="radio-volume" type="range" min="0" max="1" step="0.05" aria-label="بلندی صدا"></label>
+    </section>`;
+    radioRoot.querySelector('.radio-volume').value = String(radioAudio.volume);
+  }
+  radioRoot.querySelector('.radio-title').textContent = state.radioTitle;
+  setMediaMetadata(state.radioTitle, 'رادیوی اینترنتی');
+  clearInterval(state.nowPlayingTimer);
+  refreshNowPlaying();
+  state.nowPlayingTimer = setInterval(refreshNowPlaying, 20_000);
+}
+
+function initRadioEvents() {
+  radioRoot.addEventListener('click', async (event) => {
+    const button = event.target.closest('.radio-play');
+    if (!button || !state.radioUrl || !radioAudio) return;
+    if (!radioAudio.paused) {
+      radioAudio.pause();
+      return;
+    }
+    await playRadio();
+  });
+  radioRoot.addEventListener('input', (event) => {
+    if (!event.target.matches('.radio-volume') || !radioAudio) return;
+    radioAudio.volume = Number(event.target.value);
+    try { localStorage.setItem('pnu.radioVolume', String(radioAudio.volume)); } catch {}
+  });
+}
+
 async function refreshConfig() {
   try {
     const nextConfig = await getJson('/api/public/config');
     const regionsChanged = JSON.stringify(nextConfig.provinces) !== JSON.stringify(state.config?.provinces);
     state.config = nextConfig;
     const currentNewsTitle = state.newsId ? document.querySelector('#news-view h1')?.textContent : null;
-    document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام‌نور'}` : nextConfig.site_title || 'اخبار پیام‌نور';
-    document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام‌نور';
+    document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام نور'}` : nextConfig.site_title || 'اخبار پیام نور';
+    document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام نور';
     const selected = state.city ? findCity(state.city.id) : null;
     if (state.city && !selected) {
       state.city = null;
@@ -742,7 +544,7 @@ async function refreshConfig() {
       state.province = selected.province;
       updateSelectedCity();
     }
-    dock.renderRadio(nextConfig.radio);
+    renderRadio(nextConfig.radio);
     if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
     if (regionsChanged) {
       if (state.pickerProvince) state.pickerProvince = nextConfig.provinces.find((item) => Number(item.id) === Number(state.pickerProvince.id)) ?? null;
@@ -756,6 +558,7 @@ async function refreshConfig() {
 async function initializeReader({ newsOnly = false } = {}) {
   initTheme();
   initFontScale();
+  initRadioEvents();
   intersectionObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) loadMore();
   }, { rootMargin: '700px 0px' });
@@ -763,8 +566,8 @@ async function initializeReader({ newsOnly = false } = {}) {
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
-    document.title = config.site_title || 'اخبار پیام‌نور';
-    document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام‌نور';
+    document.title = config.site_title || 'اخبار پیام نور';
+    document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام نور';
     if (newsOnly) {
       app.hidden = true;
       newsView.hidden = false;
@@ -787,13 +590,12 @@ async function initializeReader({ newsOnly = false } = {}) {
         openPicker();
       }
     }
-    dock.renderRadio(config.radio);
+    renderRadio(config.radio);
   } catch {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
   }
   state.refreshTimer = setInterval(refreshConfig, 15_000);
-  setInterval(syncFeed, 60_000);
-  if (!newsOnly) startLive();
+  setInterval(checkForNewItems, 60_000);
 }
 
 async function loadNewsPage(id, { initial = false } = {}) {
@@ -803,7 +605,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
     intersectionObserver?.unobserve(sentinel);
   }
   state.newsId = Number(id);
-  if (!initial) newsView.innerHTML = '<div class="news-page"><div class="news-skeleton" aria-hidden="true"><div class="sk-cover"></div><div class="sk-body"><span class="sk-line sk-short"></span><span class="sk-line"></span><span class="sk-line sk-mid"></span><span class="sk-line"></span><span class="sk-line sk-tiny"></span></div></div></div>';
+  if (!initial) newsView.innerHTML = '<div class="news-page"><div class="news-skeleton" aria-hidden="true"></div></div>';
   try {
     const { item } = await getJson(`/api/public/news/${id}`);
     state.newsId = Number(item.id);
@@ -811,8 +613,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
     target.innerHTML = renderNewsPage(item, initial);
     target.hidden = false;
     if (!initial) app.hidden = true;
-    document.title = `${item.title} — ${state.config?.site_title || 'اخبار پیام‌نور'}`;
-    if ('mediaSession' in navigator) dock.setMediaMetadata(item.title, item.publisher_unit);
+    document.title = `${item.title} — ${state.config?.site_title || 'اخبار پیام نور'}`;
+    if ('mediaSession' in navigator) setMediaMetadata(item.title, item.publisher_unit);
   } catch (error) {
     const target = initial ? app : newsView;
     target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><a class="news-back" href="/">بازگشت به خبرها</a></section>`;
@@ -820,19 +622,14 @@ async function loadNewsPage(id, { initial = false } = {}) {
   }
 }
 
-let galleryImages = [];
-
 function renderNewsPage(item, initial) {
-  // Two lines: the person, then the university unit (e.g. "دانشگاه پیام‌نور بیجار").
-  const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? `<span>${escapeHtml(item.publisher_unit)}</span>` : ''].filter(Boolean);
-  const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join('')}</p>` : '';
+  const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? escapeHtml(item.publisher_unit) : ''].filter(Boolean);
+  const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join(' — ')}</p>` : '';
   const category = item.category?.name ? `<span>${escapeHtml(item.category.name)}</span>` : '';
   const date = new Date(item.published_at);
   const fullDate = `${dateFormatter.format(date)} — ${timeFormatter.format(date)}`;
-  const cover = item.cover?.src ? `<div class="news-page-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img class="news-page-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 790px) 100vw, 790px" width="${Number(item.cover.width) || 1280}" height="${Number(item.cover.height) || 720}" fetchpriority="high" alt="${escapeHtml(item.title)}"></div>` : '';
-  // Attached images except the cover; clicking one opens the lightbox (see openLightbox).
-  galleryImages = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id));
-  const gallery = galleryImages.map((image, index) => `<button type="button" class="gallery-image-frame" data-lightbox-index="${index}" aria-label="${escapeHtml(`نمایش بزرگ تصویر ${digits.format(index + 1)} از ${digits.format(galleryImages.length)}`)}">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></button>`).join('');
+  const cover = item.cover?.src ? `<div class="news-page-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img class="news-page-cover" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="(max-width: 790px) 100vw, 790px" width="${Number(item.cover.width) || 1280}" height="${Number(item.cover.height) || 720}" fetchpriority="high" alt="${escapeHtml(item.title)}"></div>` : '';
+  const gallery = (item.images ?? []).filter((image) => image.src && Number(image.id) !== Number(item.cover?.id)).map((image) => `<div class="gallery-image-frame">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></div>`).join('');
   const files = (item.files ?? []).map((file) => `<a class="attachment-link" href="${escapeHtml(file.url)}"><span>▤ ${escapeHtml(file.original_name)}</span><span>${escapeHtml(formatBytes(file.size_bytes))}</span></a>`).join('');
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
     <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1>
@@ -844,128 +641,6 @@ function renderNewsPage(item, initial) {
     <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="#icon-share"/></svg>اشتراک‌گذاری خبر</button></div>
     </article>`;
 }
-
-// ---------- Lightbox for attached images ----------
-const lightbox = document.getElementById('lightbox');
-const lightboxImage = document.getElementById('lightbox-image');
-const lightboxCaption = document.getElementById('lightbox-caption');
-const lightboxPrev = document.getElementById('lightbox-prev');
-const lightboxNext = document.getElementById('lightbox-next');
-let lightboxIndex = 0;
-let lightboxOpener = null;
-
-function showLightboxImage(index) {
-  const total = galleryImages.length;
-  if (!total) return;
-  lightboxIndex = (index + total) % total;
-  const image = galleryImages[lightboxIndex];
-  lightboxImage.removeAttribute('srcset');
-  lightboxImage.sizes = '100vw';
-  lightboxImage.srcset = image.srcset ?? '';
-  lightboxImage.src = image.src;
-  lightboxImage.alt = image.original_name ?? '';
-  lightboxCaption.textContent = total > 1 ? `${digits.format(lightboxIndex + 1)} از ${digits.format(total)}` : '';
-  lightboxPrev.hidden = lightboxNext.hidden = total < 2;
-  for (const neighbour of [galleryImages[(lightboxIndex + 1) % total], galleryImages[(lightboxIndex + total - 1) % total]]) {
-    if (neighbour && neighbour !== image) new Image().src = neighbour.src;
-  }
-}
-
-function openLightbox(index, opener) {
-  if (!lightbox || !galleryImages[index]) return;
-  lightboxOpener = opener ?? null;
-  showLightboxImage(index);
-  if (!lightbox.open) lightbox.showModal();
-}
-
-if (lightbox) {
-  document.addEventListener('click', (event) => {
-    const opener = event.target.closest?.('[data-lightbox-index]');
-    if (opener) openLightbox(Number(opener.dataset.lightboxIndex), opener);
-  });
-  lightboxPrev.addEventListener('click', () => showLightboxImage(lightboxIndex - 1));
-  lightboxNext.addEventListener('click', () => showLightboxImage(lightboxIndex + 1));
-  lightbox.querySelector('.lightbox-close').addEventListener('click', () => lightbox.close());
-  // A click on the dark area (not the image or a button) closes it.
-  lightbox.addEventListener('click', (event) => {
-    if (event.target === lightbox || event.target.classList.contains('lightbox-figure')) lightbox.close();
-  });
-  // The page is right-to-left: the left arrow goes forward, the right arrow goes back.
-  lightbox.addEventListener('keydown', (event) => {
-    if (event.key === 'ArrowLeft') { event.preventDefault(); showLightboxImage(lightboxIndex + 1); }
-    else if (event.key === 'ArrowRight') { event.preventDefault(); showLightboxImage(lightboxIndex - 1); }
-  });
-  let touchStartX = null;
-  lightbox.addEventListener('touchstart', (event) => { touchStartX = event.touches.length === 1 ? event.touches[0].clientX : null; }, { passive: true });
-  lightbox.addEventListener('touchend', (event) => {
-    if (touchStartX === null) return;
-    const delta = event.changedTouches[0].clientX - touchStartX;
-    touchStartX = null;
-    if (Math.abs(delta) > 60) showLightboxImage(lightboxIndex + (delta < 0 ? 1 : -1));
-  }, { passive: true });
-  lightbox.addEventListener('close', () => {
-    lightboxImage.removeAttribute('src');
-    lightboxImage.removeAttribute('srcset');
-    lightboxOpener?.focus?.({ preventScroll: true });
-    lightboxOpener = null;
-  });
-}
-
-// ---------- Settings and about dialogs ----------
-const settingsDialog = document.getElementById('settings-dialog');
-const aboutDialog = document.getElementById('about-dialog');
-
-let feedPrefsStale = false;
-
-function renderSettings() {
-  for (const input of settingsDialog.querySelectorAll('[data-pref]')) input.checked = Boolean(prefs[input.dataset.pref]);
-  const province = state.province?.name;
-  document.getElementById('pref-province-title').textContent = province ? `خبرهای استان ${province}` : 'خبرهای استان من';
-  document.getElementById('pref-siblings-hint').textContent = province
-    ? `خبرهای دیگر مراکز دانشگاهی استان ${province}` : 'خبرهای دیگر مراکز دانشگاهی استان شما';
-}
-
-document.getElementById('settings-button').addEventListener('click', () => {
-  renderSettings();
-  settingsDialog.showModal();
-});
-settingsDialog.addEventListener('change', (event) => {
-  const key = event.target.dataset?.pref;
-  if (!(key in DEFAULT_PREFS)) return;
-  prefs[key] = event.target.checked;
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
-  if (key === 'radio') applyRadioPreference();
-  else if (state.city && !state.newsId) resetFeed();
-  else feedPrefsStale = true;
-});
-
-document.getElementById('about-button').addEventListener('click', () => {
-  const version = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1] ?? '';
-  document.getElementById('about-version').textContent = version.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
-  aboutDialog.showModal();
-});
-
-for (const dialog of [settingsDialog, aboutDialog]) {
-  dialog.addEventListener('click', (event) => {
-    if (event.target === dialog || event.target.closest('[data-dialog-close]')) dialog.close();
-  });
-}
-
-// Opens the chat in the Telegram app when it is installed, otherwise the web page (t.me) opens in a new tab.
-document.getElementById('about-telegram').addEventListener('click', (event) => {
-  event.preventDefault();
-  const webUrl = event.currentTarget.href;
-  let left = false;
-  const markLeft = () => { left = true; };
-  window.addEventListener('blur', markLeft, { once: true });
-  document.addEventListener('visibilitychange', markLeft, { once: true });
-  location.href = 'tg://resolve?domain=RealDream';
-  setTimeout(() => {
-    window.removeEventListener('blur', markLeft);
-    document.removeEventListener('visibilitychange', markLeft);
-    if (!left) window.open(webUrl, '_blank', 'noopener,noreferrer');
-  }, 1600);
-});
 
 function formatBytes(bytes) {
   const size = Number(bytes) || 0;
@@ -1007,20 +682,12 @@ function navigateToNews(id) {
 
 function returnToFeed() {
   state.newsId = null;
-  document.title = state.config?.site_title || 'اخبار پیام‌نور';
+  document.title = state.config?.site_title || 'اخبار پیام نور';
   newsView.hidden = true;
   app.hidden = false;
   intersectionObserver?.observe(sentinel);
   const scrollY = Number(history.state?.readerScrollY) || 0;
-  if (feedPrefsStale) {
-    feedPrefsStale = false;
-    resetFeed({ scroll: true });
-    return;
-  }
-  requestAnimationFrame(() => {
-    window.scrollTo(0, scrollY);
-    if (liveDirty) syncFeed();
-  });
+  requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 // ---------- Service worker & install suggestion ----------
@@ -1060,7 +727,7 @@ function showInstallBanner(mode) {
     ? 'روی دکمهٔ اشتراک‌گذاری (مربع با فلش) بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید.'
     : 'برای دسترسی سریع‌تر، برنامه را روی دستگاه خود نصب کنید.';
   const action = mode === 'ios' ? '' : '<button type="button" class="button-primary" data-install-accept>نصب</button>';
-  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام‌نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-icon-192.v2.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب اخبار پیام نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#icon-close"/></svg></button></div>`;
 }
 
 // A new service worker waits until the visitor accepts the update banner, then the page reloads on the new version.
@@ -1071,38 +738,13 @@ let controlled = Boolean(navigator.serviceWorker?.controller);
 function showUpdateBanner(worker) {
   waitingWorker = worker; // always track the newest waiting worker, even while the banner is already open
   if (!updateRoot || updateRoot.childElementCount) return;
-  updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
+  updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-icon-192.v2.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button-primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#icon-close"/></svg></button></div>';
 }
-
-// All open tabs of the app follow an update: the tab that applies it tells the others, and they reload in the
-// background. The service worker's own "controllerchange" already reaches tabs it controls; this channel also
-// covers tabs it does not (opened with a hard refresh, or browsers that deliver the event late to hidden tabs).
-const updateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('pnu-app-update') : null;
-let reloadingForUpdate = false;
-let reloadPending = false;
-
-function reloadForUpdate() {
-  if (reloadingForUpdate) return;
-  reloadingForUpdate = true;
-  location.reload();
-}
-
-updateChannel?.addEventListener('message', (event) => {
-  if (event.data?.type !== 'reload') return;
-  reloadPending = true;
-  reloadForUpdate();
-});
-// A tab the browser has frozen in the background may not reload right away; finish the job when it is shown again.
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && reloadPending) { reloadingForUpdate = false; reloadForUpdate(); }
-});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!controlled) { controlled = true; return; } // first install taking control: nothing to reload
-    reloadPending = true;
-    updateChannel?.postMessage({ type: 'reload' });
-    reloadForUpdate();
+    location.reload();
   });
   window.addEventListener('load', async () => {
     try {
@@ -1131,7 +773,7 @@ updateRoot?.addEventListener('click', (event) => {
   accept.disabled = true;
   accept.textContent = 'در حال به‌روزرسانی…';
   worker.postMessage({ type: 'SKIP_WAITING' });
-  setTimeout(() => { updateChannel?.postMessage({ type: 'reload' }); reloadForUpdate(); }, 4000); // safety net if the worker never reports control
+  setTimeout(() => location.reload(), 4000); // safety net if the worker never reports control
 });
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -1200,22 +842,22 @@ feed.addEventListener('click', (event) => {
     return;
   }
   const card = event.target.closest('[data-news-id]');
-  if (card) openCard(card);
+  if (card) navigateToNews(card.dataset.newsId);
 });
 pinnedStrip.addEventListener('click', (event) => {
   const card = event.target.closest('[data-news-id]');
-  if (card) openCard(card);
+  if (card) navigateToNews(card.dataset.newsId);
 });
 feed.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-news-id]')) {
     event.preventDefault();
-    openCard(event.target);
+    navigateToNews(event.target.dataset.newsId);
   }
 });
 pinnedStrip.addEventListener('keydown', (event) => {
   if ((event.key === 'Enter' || event.key === ' ') && event.target.matches('[data-news-id]')) {
     event.preventDefault();
-    openCard(event.target);
+    navigateToNews(event.target.dataset.newsId);
   }
 });
 newItemsBanner.addEventListener('click', () => resetFeed({ scroll: true }));

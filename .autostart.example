@@ -10,9 +10,3 @@ DB_USER=pnu_news
 DB_PASSWORD='CHANGE_ME'
 APP_SECRET='CHANGE_ME_64_HEX_CHARS'
 UPLOAD_DIR=/workspace/PnuNews/uploads
-
-# خبرگیری پورتال: internal = زمان‌بند داخلی برنامه (پیش‌فرض)، external = با cron/systemd (scripts/fetch-portal-news.sh)
-#PORTAL_FETCH_MODE=external
-
-# اکنون‌پخش رادیو: اگر نام دامنهٔ سرور رادیو از دید سرور برنامه به نشانی داخلی (۱۰.x، ۱۹۲.۱۶۸.x) می‌رسد، نام میزبان را اینجا بگذارید (چند نام با کاما)
-#RADIO_TRUSTED_HOSTS=radiostream.pnu.ac.ir
