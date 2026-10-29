@@ -1,5 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.41.js';
-import { initRichEditor } from '/shared/rich-editor.v0.1.41.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.42.js';
 import {
   JALALI_MONTHS,
 
@@ -63,7 +62,6 @@ function showMessage(title, message, secret = '') {
   dialog.showModal();
 }
 
-const dock = initDock({ showToast });
 
 // ---------- Installable web app ----------
 // The dashboard has its own manifest (scope /dashboard/) and service worker, so it installs as a separate app.
@@ -116,10 +114,6 @@ document.getElementById('about-telegram').addEventListener('click', (event) => {
     if (!left) window.open(webUrl, '_blank', 'noopener,noreferrer');
   }, 1600);
 });
-const siteDock = document.querySelector('.site-dock');
-if (siteDock && 'ResizeObserver' in window) {
-  new ResizeObserver(() => document.documentElement.style.setProperty('--dock-height', `${siteDock.offsetHeight}px`)).observe(siteDock);
-}
 
 // SweetAlert-style dialogs (no external library; the CSP only allows our own files).
 function askDialog({ title, text = '', tone = 'warning', confirmText = 'تأیید', cancelText = 'انصراف', input = null }) {
@@ -356,7 +350,6 @@ async function prepareWorkspace() {
   document.getElementById('user-chip').textContent = `${state.user.full_name} · ${placeLabel}`;
   setScopeBanner();
   beginQuickCompose();
-  dock.loadRadio();
   document.querySelectorAll('[data-super-only]').forEach((element) => { element.hidden = state.user.role !== 'super_admin'; });
   document.getElementById('new-user-button').hidden = state.user.role === 'city_admin';
   document.querySelectorAll('[data-show-roles]').forEach((element) => { element.hidden = !element.dataset.showRoles.split(',').includes(state.user.role); });
@@ -1697,7 +1690,6 @@ async function saveSettings(event) {
     } });
     state.settings = result.settings;
     showToast('تنظیمات ذخیره شد.');
-    dock.loadRadio();
   } catch (failure) { error.textContent = failure.message; }
 }
 
