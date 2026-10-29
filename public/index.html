@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f4f7fb">
-  <meta name="description" content="خبرهای پیام نور بر اساس مرکز دانشگاهی">
+  <meta name="description" content="خبرهای پیام‌نور بر اساس مرکز دانشگاهی">
   <link rel="manifest" href="/manifest.webmanifest" id="app-manifest">
   <link rel="icon" href="/icons/favicon.v3.ico" sizes="any">
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
@@ -12,11 +12,11 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="اخبار پیام نور">
+  <meta name="apple-mobile-web-app-title" content="اخبار پیام‌نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.31.css">
-  <script src="/shared/theme.v0.1.31.js"></script>
-  <title>اخبار پیام نور</title>
+  <link rel="stylesheet" href="/reader/styles.v0.1.39.css">
+  <script src="/shared/theme.v0.1.39.js"></script>
+  <title>اخبار پیام‌نور</title>
 </head>
 <body>
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -39,7 +39,7 @@
   </svg>
   <header class="site-header">
     <div class="header-inner">
-      <a class="brand" href="/" aria-label="صفحهٔ اصلی اخبار پیام نور"><span class="brand-mark"><img src="/icons/pnu-logo.v3.png" alt="" width="38" height="38"></span><span class="brand-name" id="site-title">اخبار پیام نور</span></a>
+      <a class="brand" href="/" aria-label="صفحهٔ اصلی اخبار پیام‌نور"><span class="brand-mark"><img src="/icons/pnu-logo.v3.png" alt="" width="38" height="38"></span><span class="brand-name" id="site-title">اخبار پیام‌نور</span></a>
       <div class="header-actions">
         <button class="city-button" id="city-button" type="button" aria-haspopup="dialog" aria-controls="city-picker">
           <svg class="icon"><use href="#icon-location"/></svg><span id="selected-city-label">انتخاب مرکز دانشگاهی</span><svg class="icon city-chevron"><use href="#icon-chevron"/></svg>
@@ -49,13 +49,15 @@
           <button class="font-up" type="button" aria-label="بزرگ کردن اندازهٔ نوشته">A+</button>
         </div>
         <button class="icon-button theme-toggle" type="button" aria-label="تغییر حالت روشنایی"><svg class="icon"><use href="#icon-sun"/></svg></button>
+        <button class="icon-button" id="settings-button" type="button" aria-haspopup="dialog" aria-controls="settings-dialog" aria-label="تنظیمات" title="تنظیمات"><svg class="icon"><use href="#icon-settings"/></svg></button>
+        <button class="icon-button" id="about-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#icon-info"/></svg></button>
       </div>
     </div>
   </header>
   <div class="page-shell">
     <main id="app" class="reader-main">
       <section class="feed-intro" aria-labelledby="feed-heading">
-        <h1 id="feed-heading">خبرهای پیام نور</h1><p class="intro-copy" id="feed-description">برای دیدن خبرهای مرتبط، مرکز دانشگاهی خود را انتخاب کنید.</p>
+        <h1 id="feed-heading">خبرهای پیام‌نور</h1><p class="intro-copy" id="feed-description">برای دیدن خبرهای مرتبط، مرکز دانشگاهی خود را انتخاب کنید.</p>
       </section>
       <div id="new-items-banner" class="new-items-banner" hidden><button type="button">خبرهای تازه آماده است؛ برای دیدن به بالای فهرست بروید</button></div>
       <section id="pinned-strip" class="pinned-strip" aria-label="خبرهای مهم" hidden></section>
@@ -66,7 +68,7 @@
     <main id="news-view" class="reader-main" hidden></main>
   </div>
   <div class="floating-banners" aria-live="polite"><div id="update-root"></div><div id="install-root"></div></div>
-  <footer class="site-dock"><div class="dock-inner"><div class="dock-meta"><span class="dock-text">اخبار پیام نور</span><button class="dock-button" id="settings-button" type="button" aria-haspopup="dialog" aria-controls="settings-dialog" aria-label="تنظیمات" title="تنظیمات"><svg class="icon"><use href="#icon-settings"/></svg></button><button class="dock-button" id="about-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#icon-info"/></svg></button></div><div id="radio-root"></div></div></footer>
+  <footer class="site-dock" hidden><div class="dock-inner"><div id="radio-root"></div></div></footer>
   <dialog id="city-picker" class="city-dialog" aria-labelledby="picker-title">
     <div class="picker-panel" tabindex="-1" autofocus>
       <div class="picker-header"><div><p class="eyebrow" id="picker-step">مرحلهٔ ۱ از ۲</p><h2 id="picker-title">استان را انتخاب کنید</h2></div><button class="icon-button picker-close" type="button" aria-label="بستن پنجره"><svg class="icon"><use href="#icon-close"/></svg></button></div>
@@ -89,8 +91,8 @@
   </dialog>
   <dialog id="about-dialog" class="info-dialog" aria-labelledby="about-title">
     <div class="info-panel">
-      <div class="info-header"><div><h2 id="about-title" class="info-title">دربارهٔ اخبار پیام نور</h2><p class="info-meta"><span><svg class="icon"><use href="#icon-tag"/></svg>نسخه: <b id="about-version"></b></span></p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
-      <p class="about-text">اخبار پیام نور، پایگاه خبری دانشگاه پیام نور است که خبرها و اطلاعیه‌های سازمان مرکزی، استان‌ها و مراکز دانشگاهی را در یک‌جا گرد می‌آورد. مرکز دانشگاهی خود را انتخاب کنید تا خبرهای مرتبط با شما به‌صورت زنده نمایش داده شود؛ می‌توانید نوع خبرهای نمایش‌داده‌شده را تنظیم کنید، رادیوی دانشگاه را بشنوید، از حالت تیره و اندازهٔ دلخواه نوشته استفاده کنید و برنامه را مانند یک اپلیکیشن روی گوشی نصب کنید.</p>
+      <div class="info-header"><div><h2 id="about-title" class="info-title">دربارهٔ اخبار پیام‌نور</h2><p class="info-meta"><span><svg class="icon"><use href="#icon-tag"/></svg>نسخه: <b id="about-version"></b></span></p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
+      <p class="about-text">اخبار پیام‌نور، پایگاه خبری دانشگاه پیام‌نور است که خبرها و اطلاعیه‌های سازمان مرکزی، استان‌ها و مراکز دانشگاهی را در یک‌جا گرد می‌آورد. مرکز دانشگاهی خود را انتخاب کنید تا خبرهای مرتبط با شما به‌صورت زنده نمایش داده شود؛ می‌توانید نوع خبرهای نمایش‌داده‌شده را تنظیم کنید، رادیوی دانشگاه را بشنوید، از حالت تیره و اندازهٔ دلخواه نوشته استفاده کنید و برنامه را مانند یک اپلیکیشن روی گوشی نصب کنید.</p>
       <p class="about-label">توسعه‌دهنده:</p>
       <a class="about-link" id="about-telegram" href="https://t.me/RealDream" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#icon-telegram"/></svg>مهدی حسنی</a>
     </div>
@@ -102,6 +104,6 @@
     <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.31.js"></script>
+  <script type="module" src="/reader/app.v0.1.39.js"></script>
 </body>
 </html>

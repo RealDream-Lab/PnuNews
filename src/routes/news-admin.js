@@ -1,5 +1,6 @@
 import express from 'express';
 import { appEvents, emitNewsPublished } from '../events.js';
+import { ensureDefaultCategory } from '../news/default-category.js';
 import { canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
 import { normalizeFa } from '../lib/fa.js';
@@ -175,15 +176,33 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       if (!['all', 'manual', 'portal'].includes(source)) return response.status(400).json({ error: 'منبع خبر معتبر نیست.' });
       if (source === 'manual') clauses.push('n.source_url IS NULL');
       else if (source === 'portal') clauses.push('n.source_url IS NOT NULL');
-      const cursor = request.query.cursor ? cursorDecode(request.query.cursor) : null;
-      if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
+      const requestedLimit = Number(request.query.limit ?? 20);
+      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 20;
+      // Numbered pages (`page=N`, with a total) are what the admin panel uses; `cursor` keeps working for other clients.
+      const paged = request.query.page !== undefined;
+      const requestedPage = Number(request.query.page);
+      if (paged && (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000)) {
+        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
+      }
+      let total = null;
+      let pages = null;
+      let page = null;
+      if (paged) {
+        const [countRows] = await pool.execute(
+          `SELECT COUNT(*) AS total FROM news n JOIN users creator ON creator.id = n.created_by WHERE ${clauses.join(' AND ')}`,
+          values,
+        );
+        total = Number(countRows[0].total);
+        pages = Math.max(1, Math.ceil(total / limit));
+        page = Math.min(requestedPage, pages);
+      }
+      const cursor = !paged && request.query.cursor ? cursorDecode(request.query.cursor) : null;
+      if (!paged && request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
       if (cursor) {
         clauses.push('(n.updated_at < ? OR (n.updated_at = ? AND n.id < ?))');
         values.push(cursor.updatedAt, cursor.updatedAt, cursor.id);
       }
-      const requestedLimit = Number(request.query.limit ?? 20);
-      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 20;
-      values.push(limit + 1);
+      values.push(paged ? limit : limit + 1);
       const [items] = await pool.execute(
         `SELECT n.id, n.title, n.summary, n.category_id, n.news_type, n.status, n.published_at, n.expires_at,
                 n.is_pinned, n.is_urgent, n.view_count, n.origin_region_id, n.publisher_name,
@@ -195,10 +214,10 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
          LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          WHERE ${clauses.join(' AND ')}
-         ORDER BY n.updated_at DESC, n.id DESC LIMIT ?`,
+         ORDER BY n.updated_at DESC, n.id DESC LIMIT ?${paged ? ` OFFSET ${(page - 1) * limit}` : ''}`,
         values,
       );
-      const hasMore = items.length > limit;
+      const hasMore = !paged && items.length > limit;
       if (hasMore) items.pop();
       let nextCursor = null;
       if (hasMore && items.length) nextCursor = cursorEncode(items.at(-1));
@@ -218,7 +237,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         }
         for (const item of items) item.targets = grouped.get(item.id) ?? [];
       }
-      return response.json({ items, next_cursor: nextCursor });
+      return response.json(paged ? { items, page, pages, total, limit } : { items, next_cursor: nextCursor });
     } catch (error) {
       return next(error);
     }
@@ -228,14 +247,18 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     const content = cleanTitleAndContent(request.body ?? {});
     if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
     if (request.body?.status && request.body.status !== 'draft') return response.status(400).json({ error: 'خبر را پس از ذخیره از مسیر انتشار منتشر کنید.' });
-    const categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
-    if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
+    let categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
+    // The quick form sends no category: the default one is used (and created when missing).
+    const wantsDefaultCategory = request.body?.default_category === true && request.body?.category_id == null;
+    if (!categoryId && !wantsDefaultCategory) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
     const newsType = request.body?.news_type ?? 'news';
     if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
     try {
       const regions = await loadRegions(pool);
       const targets = await validateTargets(pool, request.user, request.body?.targets ?? [], regions);
       if (!targets) return response.status(403).json({ error: 'یک یا چند مقصد انتشار مجاز نیست.' });
+      let categoryCreated = false;
+      if (wantsDefaultCategory) ({ id: categoryId, created: categoryCreated } = await ensureDefaultCategory(pool));
       if (categoryId) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);
         if (!categories.length) return response.status(400).json({ error: 'دسته‌بندی فعال پیدا نشد.' });
@@ -260,7 +283,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         connection.release();
       }
       appEvents.emit('news.changed', { id: Number(newsId) });
-      return response.status(201).json({ id: newsId, status: 'draft' });
+      return response.status(201).json({ id: newsId, status: 'draft', category_id: categoryId, category_created: categoryCreated });
     } catch (error) {
       return next(error);
     }
@@ -279,7 +302,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       );
       const news = { ...context.news };
       delete news._regions;
-      news.body_html = sanitizeBodyHtml(news.body_html);
+      news.body_html = sanitizeBodyHtml(news.body_html, { brand: true });
       news.targets = await loadTargets(pool, id);
       news.attachments = attachments.map((attachment) => ({
         ...attachment,

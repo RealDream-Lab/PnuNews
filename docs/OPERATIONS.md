@@ -113,6 +113,36 @@ docker exec nodejs bash /workspace/PnuNews/scripts/restart.sh
 
 اسکریپت restart فقط پردازشی را که هم working directory آن `/workspace/PnuNews` و هم فرمانش `node server.js` است با `SIGTERM` متوقف می‌کند؛ `start-all.sh` پس از چند ثانیه همان برنامه را بالا می‌آورد. اگر یک یا چند پردازش دقیق پیدا نشود، اسکریپت از توقف هر پردازشی خودداری می‌کند. migrationهای جدید در startup اجرا می‌شوند.
 
+### زمان‌بندی خبرگیری از پورتال با cron یا systemd (اختیاری)
+
+به‌طور پیش‌فرض خود برنامه هر ۱۰ دقیقه خبرهای پورتال را می‌گیرد (`PORTAL_FETCH_MODE` تنظیم نشده یا `internal`). اگر می‌خواهید این کار به‌جای برنامه توسط سیستم‌عامل یا Docker زمان‌بندی شود:
+
+1. در `.autostart` سرور مقدار `PORTAL_FETCH_MODE=external` را بگذارید و برنامه را restart کنید (زمان‌بند داخلی خاموش می‌شود). برنامه در این حالت هر ۳۰ ثانیه ردیف‌های تازهٔ پورتال را در پایگاه داده می‌بیند تا کش و به‌روزرسانی زندهٔ خوانندگان همچنان کار کند.
+2. یکی از دو روش زیر را روی میزبان فعال کنید. هر دو `scripts/fetch-portal-news.sh` را داخل کانتینر `nodejs` اجرا می‌کنند؛ این اسکریپت `.autostart` را می‌خواند، با `flock` از هم‌زمانی دو اجرا جلوگیری می‌کند و بعد از ۱۲۰ ثانیه متوقف می‌شود.
+
+**cron میزبان:**
+
+```sh
+sudo cp scripts/cron/pnunews-portal.crontab /etc/cron.d/pnunews-portal
+```
+
+**systemd timer:**
+
+```sh
+sudo cp scripts/cron/pnunews-portal.service scripts/cron/pnunews-portal.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now pnunews-portal.timer
+systemctl list-timers pnunews-portal.timer
+journalctl -u pnunews-portal.service -n 20
+```
+
+اجرای دستی برای آزمایش: `docker exec nodejs bash /workspace/PnuNews/scripts/fetch-portal-news.sh` (با `--force` حتی اگر کلید پنل مدیریت خاموش باشد). کد خروجی `0` یعنی موفق یا «خاموش»، و `1` یعنی دریافت ناموفق بوده است. کلید روشن/خاموش و دکمهٔ «دریافت اکنون» در پنل مدیریت در هر دو حالت کار می‌کنند. اگر برنامه با Docker Compose جدا از این سرور اجرا می‌شود، همان فرمان را با `docker compose exec <service> bash scripts/fetch-portal-news.sh` یا یک سرویس کمکی با `restart: unless-stopped` و حلقهٔ `while true; do bash scripts/fetch-portal-news.sh; sleep 600; done` اجرا کنید.
+
+### اکنون‌پخش رادیو (متای آهنگ)
+
+نوار رادیو نام آهنگ را از سرور برنامه می‌گیرد، نه مستقیم از مرورگر: سرور برنامه نشانی «اکنون‌پخش» (مثلاً `https://radiostream.pnu.ac.ir/api/nowplaying/1`) را می‌خواند. اگر خالی باشد، `/api/nowplaying` همان سرورِ نشانی پخش آزمایش می‌شود. قالب‌های AzuraCast (یک ایستگاه یا آرایهٔ همهٔ ایستگاه‌ها)، Icecast و Shoutcast خوانده می‌شود و ریدایرکت‌ها دنبال می‌شوند.
+
+اگر به‌جای نام آهنگ فقط «پخش زندهٔ رادیو» دیده می‌شود: در پنل مدیریت → تنظیمات → «آزمایش اکنون‌پخش» را بزنید؛ دلیل دقیق را می‌نویسد (دامنه به نشانی داخلی می‌رسد، اتصال برقرار نمی‌شود، گواهی TLS، پاسخ غیر JSON و …). دلیل در لاگ سرور هم با عبارت `Radio now-playing could not be read` ثبت می‌شود. اگر سرور برنامه اصلاً به سرور رادیو نمی‌رسد (خطای TimeoutError)، پاسخ `/api/public/radio` شامل `reachable: false` می‌شود و پخش‌کنندهٔ سایت نام آهنگ را مستقیم از مرورگر بازدیدکننده می‌خواند؛ برای این کار سرور رادیو باید CORS را مجاز کرده باشد (در AzuraCast پیش‌فرض است) و برنامه خودش میزبان رادیو را به `connect-src` سیاست امنیتی محتوا (CSP) اضافه می‌کند. اگر نام دامنه از دید سرور برنامه به نشانی داخلی (مثل ۱۰.x) resolve می‌شود، برای جلوگیری از SSRF رد می‌شود؛ در این صورت در `.autostart` بنویسید `RADIO_TRUSTED_HOSTS=radiostream.pnu.ac.ir` و برنامه را restart کنید.
+
 ### reverse proxy — توقف برای تأیید مالک
 
 در Nginx Proxy Manager → Proxy Hosts → Add:

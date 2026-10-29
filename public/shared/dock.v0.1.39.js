@@ -1,17 +1,8 @@
-// Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.31.js), so it always matches the code that is running.
-const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+// Footer shared by the reader and the admin panel: it carries only the internet radio player
+// (the version number lives in the About dialog).
 
 export function initDock({ showToast = () => {} } = {}) {
   const radioRoot = document.getElementById('radio-root');
-  const dockText = document.querySelector('.dock-text');
-  const version = /dock\.v([\d.]+)\.js/.exec(import.meta.url)?.[1];
-  if (version && dockText && !dockText.querySelector('.dock-version')) {
-    const label = document.createElement('span');
-    label.className = 'dock-version';
-    label.textContent = ` · نسخه ${version.replace(/\d/g, (digit) => persianDigits[digit])}`;
-    dockText.append(label);
-  }
 
   let audio = null;
   let streamUrl = '';
@@ -79,20 +70,75 @@ export function initDock({ showToast = () => {} } = {}) {
   }
   window.addEventListener('resize', () => requestAnimationFrame(fitNowPlaying), { passive: true });
 
-  async function refreshNowPlaying() {
+  // "Now playing" normally comes from this site's server (/api/public/radio). When that server cannot reach the
+  // radio (it answers reachable:false), the browser asks the radio's own API directly instead.
+  let nowPlayingUrl = '';
+  let directMode = false;
+
+  function songFrom(song) {
+    if (!song || typeof song !== 'object') return null;
+    let title = String(song.title ?? song.name ?? '').trim();
+    let artist = String(song.artist ?? song.artist_name ?? '').trim();
+    if (!title && !artist && song.text) {
+      const text = String(song.text).trim();
+      const index = text.indexOf(' - ');
+      if (index > 0) { artist = text.slice(0, index).trim(); title = text.slice(index + 3).trim(); } else title = text;
+    }
+    return title || artist ? { title, artist } : null;
+  }
+
+  // AzuraCast (one station, or the array of all stations), Icecast and Shoutcast answers.
+  function parseNowPlaying(data) {
+    if (Array.isArray(data)) {
+      const stations = data.filter((item) => item && typeof item === 'object');
+      const match = stations.find((item) => item.station?.listen_url === streamUrl || item.station?.mounts?.some?.((mount) => mount?.url === streamUrl));
+      return parseNowPlaying(match || stations[0] || null);
+    }
+    if (!data || typeof data !== 'object') return null;
+    const direct = songFrom(data.now_playing?.song) ?? songFrom(data.song);
+    if (direct) return direct;
+    const source = data.icestats?.source;
+    for (const item of Array.isArray(source) ? source : source ? [source] : []) {
+      const found = songFrom({ title: item.title, artist: item.artist }) ?? (item.yp_currently_playing ? songFrom({ text: item.yp_currently_playing }) : null);
+      if (found) return found;
+    }
+    return typeof data.songtitle === 'string' ? songFrom({ text: data.songtitle }) : null;
+  }
+
+  async function fetchDirect() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
     try {
-      const response = await fetch('/api/public/radio', { headers: { accept: 'application/json' } });
-      if (!response.ok) return;
-      const data = await response.json();
-      const song = data.now_playing;
-      setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
-      if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
-    } catch {}
+      const response = await fetch(nowPlayingUrl, { cache: 'no-store', credentials: 'omit', signal: controller.signal, headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error('bad status');
+      return parseNowPlaying(await response.json());
+    } finally { clearTimeout(timer); }
+  }
+
+  async function refreshNowPlaying() {
+    let song = null;
+    try {
+      if (!directMode) {
+        const response = await fetch('/api/public/radio', { cache: 'no-store', headers: { accept: 'application/json' } });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.reachable === false && nowPlayingUrl) directMode = true;
+        else song = data.now_playing;
+      }
+      if (directMode) {
+        try { song = await fetchDirect(); } catch { directMode = false; } // blocked or unreachable: ask the server again next time
+      }
+    } catch { return; }
+    setNowPlayingText(song?.title ? `${song.title}${song.artist ? ` — ${song.artist}` : ''}` : 'پخش زندهٔ رادیو');
+    if (song?.title) setMediaMetadata(song.title, song.artist || stationTitle);
   }
 
   function renderRadio(radio) {
     if (!radioRoot) return;
     const enabled = radio?.enabled && radio.stream_url;
+    // The footer only exists for the radio: hide it with the attribute, not with :has() (older browsers ignore that).
+    const dockElement = radioRoot.closest('.site-dock');
+    if (dockElement) dockElement.hidden = !enabled;
     if (!enabled) {
       if (audio) stop();
       radioRoot.replaceChildren();
@@ -104,12 +150,15 @@ export function initDock({ showToast = () => {} } = {}) {
         } catch {}
       }
       streamUrl = '';
+      nowPlayingUrl = '';
+      directMode = false;
       stationTitle = '';
       clearInterval(nowPlayingTimer);
       return;
     }
     if (streamUrl !== radio.stream_url && audio) stop();
     streamUrl = radio.stream_url;
+    nowPlayingUrl = radio.nowplaying_url || '';
     stationTitle = radio.title || 'رادیو';
     if (!audio) {
       audio = document.createElement('audio');
@@ -120,7 +169,7 @@ export function initDock({ showToast = () => {} } = {}) {
         const volume = saved === null || saved === '' ? NaN : Number(saved);
         if (volume >= 0 && volume <= 1) audio.volume = volume;
       } catch {}
-      audio.addEventListener('play', () => setPlayingUi(true));
+      audio.addEventListener('play', () => { setPlayingUi(true); refreshNowPlaying(); });
       audio.addEventListener('pause', () => {
         // Paused by something else (headphone button, another app taking audio focus): still drop the stream.
         if (audio.getAttribute('src')) stop();

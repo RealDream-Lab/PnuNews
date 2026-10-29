@@ -105,7 +105,15 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-foot i{width:3px;height:3px;border-radius:50%;background:currentColor;opacity:.6;flex:none}
 .feed-sentinel{height:1px}
 .feed-message{text-align:center;color:var(--muted);min-height:2rem;padding:.5rem 0}
-.news-skeleton{height:300px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-soft)}
+.news-skeleton{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.sk-cover{aspect-ratio:16/9;background:var(--surface-soft);animation:sk-pulse 1.3s ease-in-out infinite}
+.sk-body{display:grid;gap:.6rem;padding:.95rem 1.05rem 1.1rem}
+.sk-line{display:block;height:.8rem;border-radius:999px;background:var(--surface-soft);animation:sk-pulse 1.3s ease-in-out infinite}
+.sk-line.sk-short{width:34%;height:.65rem}
+.sk-line.sk-mid{width:78%}
+.sk-line.sk-tiny{width:48%;height:.65rem;margin-top:.25rem}
+@keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.card-cover-frame:not(.is-loaded):not(.is-failed)::after,.pinned-cover-frame:not(.is-loaded):not(.is-failed)::after{content:"";position:absolute;inset:0;z-index:1;background:var(--surface-soft);animation:sk-pulse 1.3s ease-in-out infinite;pointer-events:none}
 .feed-spacer{grid-column:1/-1;display:block;width:100%;pointer-events:none}
 .empty-state{grid-column:1/-1;padding:2.5rem 1rem;text-align:center;border:1px dashed var(--border);border-radius:var(--radius);color:var(--muted);display:grid;gap:1rem;justify-items:center}
 .empty-state p{margin:0}
@@ -126,7 +134,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* ---------- Bottom dock (footer text + radio) ---------- */
 .site-dock{position:sticky;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--border);color:var(--muted);font-size:.82rem;padding-bottom:var(--safe-bottom)}
 .dock-inner{max-width:1120px;min-height:48px;margin-inline:auto;padding:.45rem max(var(--pad),env(safe-area-inset-right,0px)) .45rem max(var(--pad),env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:center;gap:.9rem}
-.dock-text{flex:none;white-space:nowrap}
 #radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
 #radio-root:empty{display:none}
 
@@ -214,9 +221,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .city-dialog{inset:auto 0 0;width:100%;height:min(88vh,760px);height:min(88dvh,760px);margin:0}
   .picker-panel{border-radius:22px 22px 0 0;padding:1rem 1rem calc(.8rem + var(--safe-bottom));border-bottom:0}
   .dock-inner{flex-direction:column;gap:.2rem;padding-block:.4rem}
-  .dock-text{font-size:.74rem;line-height:1.5}
-  .dock-meta{justify-content:center}
-  #radio-root{order:-1;flex:none;width:100%}
+      #radio-root{order:-1;flex:none;width:100%}
   .radio-bar{max-width:none}
   .radio-volume{width:65px}
   .toast{bottom:calc(7.5rem + var(--safe-bottom))}
@@ -261,10 +266,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-foot .card-kicker{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* ---------- Footer buttons (settings, about) ---------- */
-.dock-meta{display:flex;align-items:center;gap:.35rem;flex:none}
-.dock-button{width:34px;height:34px;display:inline-grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
-.dock-button .icon{width:1.15rem;height:1.15rem}
-@media(hover:hover){.dock-button:hover{background:var(--primary-soft);color:var(--primary)}}
 
 /* ---------- Settings and about dialogs ---------- */
 .info-dialog{position:fixed;inset:0;margin:auto;width:min(calc(100% - 1.5rem),520px);max-width:none;max-height:calc(100dvh - 2rem);padding:0;border:0;background:transparent;color:var(--text);overflow:visible}
@@ -294,3 +295,26 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .switch:checked::after{transform:translateX(-20px)}
 @media(prefers-reduced-motion:reduce){.switch,.switch::after{transition:none}}
 .radio-hidden #radio-root{display:none}
+/* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
+.site-dock:not(:has(.radio-bar)){display:none}
+@media(max-width:479px){
+  /* two rows: brand + small buttons, then the city picker across the full width */
+  .header-inner{flex-wrap:wrap;row-gap:.35rem;padding-block:.4rem}
+  .header-actions{display:contents}
+  .brand{flex:1 1 0;min-width:0}
+  .brand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .city-button{order:10;flex:1 0 100%;margin-inline-end:0}
+}
+
+/* ---------- Radio: no box, full width, one piece with the footer ---------- */
+.site-dock[hidden],.radio-hidden .site-dock{display:none}
+.dock-inner{max-width:none;padding-block:.3rem}
+.radio-bar{max-width:none;min-height:48px;border:0;border-radius:0;background:transparent;padding-inline:0}
+
+/* ---------- Formats made in the editor: alignment, underline, bullets, Persian numbering ---------- */
+.news-body .ta-right{text-align:right}
+.news-body .ta-left{text-align:left}
+.news-body .ta-center{text-align:center}
+.news-body .ta-justify{text-align:justify}
+.news-body ul{padding-inline-start:1.5rem}
+.news-body ol.fa-num{list-style-type:persian}

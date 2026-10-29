@@ -65,5 +65,7 @@ export function loadConfig(env = process.env) {
     }),
     appSecret: env.APP_SECRET,
     uploadDir: env.UPLOAD_DIR,
+    // Host names that may resolve to private addresses for the radio "now playing" request (set by the server operator).
+    radioTrustedHosts: Object.freeze(String(env.RADIO_TRUSTED_HOSTS ?? '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)),
   });
 }
