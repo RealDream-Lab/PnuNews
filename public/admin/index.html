@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.34.css">
-  <script src="/shared/theme.v0.1.34.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.35.css">
+  <script src="/shared/theme.v0.1.35.js"></script>
   <title>مدیریت خبرها — اخبار پیام‌نور</title>
 </head>
 <body>
@@ -347,7 +347,7 @@
                 <input name="title" class="composer-title" maxlength="240" placeholder="عنوان خبر" autocomplete="off" enterkeyhint="next" aria-label="عنوان خبر">
                 <textarea name="text" class="composer-text" rows="1" maxlength="5000" placeholder="متن خبر…" aria-label="متن خبر"></textarea>
               </div>
-              <button id="quick-send" class="composer-send" type="submit" aria-label="انتشار خبر"><svg class="icon"><use href="#admin-icon-send"/></svg></button>
+              <button id="quick-send" class="composer-send" type="submit">ارسال</button>
             </div>
             <p id="quick-error" class="form-error" role="alert"></p>
           </form>
@@ -387,7 +387,7 @@
         </section>
       </div>
     </div>
-    <footer class="site-dock"><div class="dock-inner"><div id="radio-root"></div></div></footer>
+    <footer class="site-dock" hidden><div class="dock-inner"><div id="radio-root"></div></div></footer>
     <nav id="mobile-nav" class="mobile-nav" aria-label="بخش‌های پنل">
       <button data-view="mobile-compose"><span>＋</span>خبر سریع</button>
       <button data-view="mobile-recent"><span>▤</span>خبرهای من</button>
@@ -416,6 +416,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.34.js"></script>
+  <script type="module" src="/admin/admin.v0.1.35.js"></script>
 </body>
 </html>

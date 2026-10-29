@@ -12,7 +12,7 @@ import { createStaticMiddleware } from './lib/static.js';
 export function contentSecurityPolicy(publicUrl, connectOrigins = []) {
   const mediaSources = publicUrl.startsWith('https://') ? "'self' https:" : "'self' https: http:";
   const connect = connectOrigins.length ? `connect-src 'self' ${connectOrigins.join(' ')}; ` : '';
-  return `default-src 'self'; ${connect}img-src 'self' data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
+  return `default-src 'self'; ${connect}img-src 'self' blob: data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 function csrfGuard(request, response, next) {

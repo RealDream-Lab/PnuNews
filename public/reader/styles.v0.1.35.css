@@ -297,3 +297,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .brand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .city-button{order:10;flex:1 0 100%;margin-inline-end:0}
 }
+
+/* ---------- Radio: no box, full width, one piece with the footer ---------- */
+.site-dock[hidden],.radio-hidden .site-dock{display:none}
+.dock-inner{max-width:none;padding-block:.3rem}
+.radio-bar{max-width:none;min-height:48px;border:0;border-radius:0;background:transparent;padding-inline:0}

@@ -136,6 +136,9 @@ export function initDock({ showToast = () => {} } = {}) {
   function renderRadio(radio) {
     if (!radioRoot) return;
     const enabled = radio?.enabled && radio.stream_url;
+    // The footer only exists for the radio: hide it with the attribute, not with :has() (older browsers ignore that).
+    const dockElement = radioRoot.closest('.site-dock');
+    if (dockElement) dockElement.hidden = !enabled;
     if (!enabled) {
       if (audio) stop();
       radioRoot.replaceChildren();
