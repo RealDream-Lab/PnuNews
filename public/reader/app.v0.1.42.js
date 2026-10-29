@@ -417,7 +417,7 @@ function resetFeed({ scroll = false } = {}) {
   feedMessage.textContent = '';
   if (scroll) {
     const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    document.getElementById('feed-heading').scrollIntoView({ block: 'start', behavior });
+    window.scrollTo({ top: 0, behavior });
   }
   loadMore();
 }
@@ -1235,6 +1235,30 @@ window.addEventListener('popstate', () => {
   if (match) loadNewsPage(match[1]);
   else if (state.newsId) returnToFeed();
 });
+
+// Page title bar: big and centred at the top, small and pinned to the start once the page scrolls.
+function initTitleBar() {
+  const bar = document.getElementById('feed-title-bar');
+  const header = document.querySelector('.site-header');
+  if (!bar) return;
+  if (header) {
+    const syncHeaderHeight = () => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
+    syncHeaderHeight();
+    if ('ResizeObserver' in window) new ResizeObserver(syncHeaderHeight).observe(header);
+    else window.addEventListener('resize', syncHeaderHeight);
+  }
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    const y = window.scrollY;
+    // small hysteresis so the title does not flicker around the threshold
+    if (y > 48) bar.classList.add('is-compact');
+    else if (y < 16) bar.classList.remove('is-compact');
+  };
+  window.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, { passive: true });
+  update();
+}
+initTitleBar();
 
 const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
 if (initialNewsMatch) {
