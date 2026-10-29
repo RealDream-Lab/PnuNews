@@ -27,7 +27,7 @@ export function createPortalImporter({ pool, uploadRoot, fetchImpl = fetch, cloc
   async function status() {
     let lastRun = null;
     try { lastRun = JSON.parse(await getSetting('portal_news_last_run') || 'null'); } catch { lastRun = null; }
-    return { enabled: (await getSetting('portal_news_enabled')) !== '0', last_run: lastRun };
+    return { enabled: (await getSetting('portal_news_enabled')) !== '0', last_run: lastRun, source: sourceUrl, limit: PORTAL_LIMIT };
   }
 
   // The bot user, the category and the country region are created on first use and found again afterwards.

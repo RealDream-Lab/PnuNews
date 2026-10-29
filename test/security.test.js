@@ -207,3 +207,8 @@ test('feed honours the reader\'s news-source choices and validates them', async 
     server.closeAllConnections?.();
   }
 });
+
+test('the radio origin is added to connect-src only when given', () => {
+  assert.doesNotMatch(contentSecurityPolicy('https://news.example.ir'), /connect-src/);
+  assert.match(contentSecurityPolicy('https://news.example.ir', ['https://radiostream.pnu.ac.ir']), /connect-src 'self' https:\/\/radiostream\.pnu\.ac\.ir;/);
+});
