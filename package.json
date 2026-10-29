@@ -1,6 +1,6 @@
 {
   "name": "pnunews",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,7 +15,7 @@
     "fetch-portal": "node --import ./scripts/load-env.js scripts/fetch-portal-news.js",
     "reset-2fa": "node --import ./scripts/load-env.js scripts/reset-2fa.js",
     "bump": "node scripts/bump-version.js",
-    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js test/brand.test.js test/nowplaying.test.js test/default-category.test.js"
+    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js test/brand.test.js test/nowplaying.test.js test/default-category.test.js test/rich-text.test.js"
   },
   "dependencies": {
     "busboy": "1.6.0",

@@ -1,4 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.36.js';
+import { initDock } from '/shared/dock.v0.1.37.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.37.js';
 import {
   JALALI_MONTHS,
 
@@ -1738,21 +1739,6 @@ async function unpublishEditorNews() {
   } catch (error) { showToast(error.message); }
 }
 
-async function editorCommand(button) {
-  const command = button.dataset.command;
-  const editor = document.getElementById('editor-body');
-  editor.focus();
-  if (command === 'createLink') {
-    const selection = getSelection();
-    const saved = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-    const url = await promptDialog({ title: 'افزودن پیوند', text: 'نشانی پیوند را وارد کنید.', input: { type: 'url', dir: 'ltr', placeholder: 'https://' } });
-    if (!url) return;
-    editor.focus();
-    if (saved) { selection.removeAllRanges(); selection.addRange(saved); }
-    document.execCommand(command, false, url);
-  } else document.execCommand(command, false, button.dataset.value || null);
-}
-
 function showBackupCodes(codes) {
   document.getElementById('backup-codes').innerHTML = codes.map((code) => `<li>${escapeHtml(code)}</li>`).join('');
   showAuth('backup-card');
@@ -1945,7 +1931,11 @@ function bindEvents() {
   document.querySelector('#user-form [name="province_id"]').addEventListener('change', fillUserRegions);
   document.getElementById('new-region-button').addEventListener('click', () => { document.getElementById('region-form').hidden = false; populateRegionParents(); });
   document.querySelector('#region-form [name="type"]').addEventListener('change', populateRegionParents);
-  document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => editorCommand(button)));
+  initRichEditor({
+    editor: document.getElementById('editor-body'),
+    toolbar: document.querySelector('.rich-toolbar'),
+    askLink: () => promptDialog({ title: 'افزودن پیوند', text: 'نشانی پیوند را وارد کنید.', input: { type: 'url', dir: 'ltr', placeholder: 'https://' } }),
+  });
   document.getElementById('jalali-prev').addEventListener('click', () => {
     state.calendar.month -= 1;
     if (state.calendar.month < 1) { state.calendar.month = 12; state.calendar.year -= 1; }

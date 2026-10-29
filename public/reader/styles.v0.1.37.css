@@ -302,3 +302,11 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .site-dock[hidden],.radio-hidden .site-dock{display:none}
 .dock-inner{max-width:none;padding-block:.3rem}
 .radio-bar{max-width:none;min-height:48px;border:0;border-radius:0;background:transparent;padding-inline:0}
+
+/* ---------- Formats made in the editor: alignment, underline, bullets, Persian numbering ---------- */
+.news-body .ta-right{text-align:right}
+.news-body .ta-left{text-align:left}
+.news-body .ta-center{text-align:center}
+.news-body .ta-justify{text-align:justify}
+.news-body ul{padding-inline-start:1.5rem}
+.news-body ol.fa-num{list-style-type:persian}

@@ -401,3 +401,22 @@ html select:not([multiple]){padding-inline-start:.8rem}
   .chat-composer{bottom:calc(3.9rem + var(--safe-bottom) + var(--dock-height,0px))}
   .chat-compose{min-height:calc(100svh - 62px - 3.9rem - var(--safe-bottom) - var(--dock-height,0px))}
 }
+
+/* ---------- News editor toolbar and the formats it makes ---------- */
+.editor-label{flex-wrap:wrap;gap:.45rem}
+.rich-toolbar{flex-wrap:wrap;align-items:center;gap:.3rem}
+.rich-toolbar button{display:inline-grid;place-items:center;min-width:36px;height:36px;padding:0 .35rem;color:var(--text);cursor:pointer}
+.rich-toolbar button:hover{border-color:var(--primary);color:var(--primary)}
+.rich-toolbar button[aria-pressed="true"]{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+.rich-toolbar b,.rich-toolbar i,.rich-toolbar u{font-size:.95rem;line-height:1;font-family:ui-serif,Georgia,serif}
+.tool-icon{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tool-text{font-size:.74rem;line-height:1;white-space:nowrap;direction:ltr;unicode-bidi:isolate}
+.tool-sep{width:1px;height:22px;background:var(--border);margin-inline:.2rem}
+.rich-editor p{margin:.4rem 0}
+.rich-editor ul,.rich-editor ol,.admin-news-body ul,.admin-news-body ol{padding-inline-start:1.6rem}
+.rich-editor a,.admin-news-body a{color:var(--primary);text-decoration:underline}
+.rich-editor .ta-right,.admin-news-body .ta-right{text-align:right}
+.rich-editor .ta-left,.admin-news-body .ta-left{text-align:left}
+.rich-editor .ta-center,.admin-news-body .ta-center{text-align:center}
+.rich-editor .ta-justify,.admin-news-body .ta-justify{text-align:justify}
+.rich-editor ol.fa-num,.admin-news-body ol.fa-num{list-style-type:persian}
