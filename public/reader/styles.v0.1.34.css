@@ -126,7 +126,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* ---------- Bottom dock (footer text + radio) ---------- */
 .site-dock{position:sticky;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--border);color:var(--muted);font-size:.82rem;padding-bottom:var(--safe-bottom)}
 .dock-inner{max-width:1120px;min-height:48px;margin-inline:auto;padding:.45rem max(var(--pad),env(safe-area-inset-right,0px)) .45rem max(var(--pad),env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:center;gap:.9rem}
-.dock-text{flex:none;white-space:nowrap}
 #radio-root{flex:1;min-width:0;display:flex;justify-content:flex-end}
 #radio-root:empty{display:none}
 
@@ -214,9 +213,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .city-dialog{inset:auto 0 0;width:100%;height:min(88vh,760px);height:min(88dvh,760px);margin:0}
   .picker-panel{border-radius:22px 22px 0 0;padding:1rem 1rem calc(.8rem + var(--safe-bottom));border-bottom:0}
   .dock-inner{flex-direction:column;gap:.2rem;padding-block:.4rem}
-  .dock-text{font-size:.74rem;line-height:1.5}
-  .dock-meta{justify-content:center}
-  #radio-root{order:-1;flex:none;width:100%}
+      #radio-root{order:-1;flex:none;width:100%}
   .radio-bar{max-width:none}
   .radio-volume{width:65px}
   .toast{bottom:calc(7.5rem + var(--safe-bottom))}
@@ -261,10 +258,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-foot .card-kicker{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* ---------- Footer buttons (settings, about) ---------- */
-.dock-meta{display:flex;align-items:center;gap:.35rem;flex:none}
-.dock-button{width:34px;height:34px;display:inline-grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
-.dock-button .icon{width:1.15rem;height:1.15rem}
-@media(hover:hover){.dock-button:hover{background:var(--primary-soft);color:var(--primary)}}
 
 /* ---------- Settings and about dialogs ---------- */
 .info-dialog{position:fixed;inset:0;margin:auto;width:min(calc(100% - 1.5rem),520px);max-width:none;max-height:calc(100dvh - 2rem);padding:0;border:0;background:transparent;color:var(--text);overflow:visible}
@@ -294,3 +287,13 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .switch:checked::after{transform:translateX(-20px)}
 @media(prefers-reduced-motion:reduce){.switch,.switch::after{transition:none}}
 .radio-hidden #radio-root{display:none}
+/* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
+.site-dock:not(:has(.radio-bar)){display:none}
+@media(max-width:479px){
+  /* two rows: brand + small buttons, then the city picker across the full width */
+  .header-inner{flex-wrap:wrap;row-gap:.35rem;padding-block:.4rem}
+  .header-actions{display:contents}
+  .brand{flex:1 1 0;min-width:0}
+  .brand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .city-button{order:10;flex:1 0 100%;margin-inline-end:0}
+}

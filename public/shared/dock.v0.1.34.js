@@ -1,17 +1,8 @@
-// Footer shared by the reader and the admin panel: app name + running version + the internet radio player.
-// The version comes from this file's own versioned name (dock.v0.1.33.js), so it always matches the code that is running.
-const persianDigits = '۰۱۲۳۴۵۶۷۸۹';
+// Footer shared by the reader and the admin panel: it carries only the internet radio player
+// (the version number lives in the About dialog).
 
 export function initDock({ showToast = () => {} } = {}) {
   const radioRoot = document.getElementById('radio-root');
-  const dockText = document.querySelector('.dock-text');
-  const version = /dock\.v([\d.]+)\.js/.exec(import.meta.url)?.[1];
-  if (version && dockText && !dockText.querySelector('.dock-version')) {
-    const label = document.createElement('span');
-    label.className = 'dock-version';
-    label.textContent = ` · نسخه ${version.replace(/\d/g, (digit) => persianDigits[digit])}`;
-    dockText.append(label);
-  }
 
   let audio = null;
   let streamUrl = '';

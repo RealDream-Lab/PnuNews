@@ -8,8 +8,8 @@
   <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
   <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="stylesheet" href="/admin/styles.v0.1.33.css">
-  <script src="/shared/theme.v0.1.33.js"></script>
+  <link rel="stylesheet" href="/admin/styles.v0.1.34.css">
+  <script src="/shared/theme.v0.1.34.js"></script>
   <title>مدیریت خبرها — اخبار پیام‌نور</title>
 </head>
 <body>
@@ -29,6 +29,10 @@
     <symbol id="admin-icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></symbol>
     <symbol id="admin-icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
     <symbol id="admin-icon-telegram" viewBox="0 0 24 24"><path d="M21 3 3 10.4l6 2.4 2.4 6.6 3.2-4.3L21 3Z"/><path d="m9 12.8 12-9.8"/></symbol>
+    <symbol id="admin-icon-clip" viewBox="0 0 24 24"><path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></symbol>
+    <symbol id="admin-icon-send" viewBox="0 0 24 24"><path d="M21.5 3 3 10.6l6.4 2.5L12 20l2.6-5.4L21.5 3Z"/><path d="m9.4 13.1 12-10.1"/></symbol>
+    <symbol id="admin-icon-tick" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="admin-icon-ticks" viewBox="0 0 24 24"><path d="m2.5 12.5 4.5 4.5L16 7.5M10 16.5l1 .9L21 7.5"/></symbol>
     <symbol id="admin-icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
     <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
     <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.7 8.7 0 1 0 20.5 14.2Z"/></symbol>
@@ -93,6 +97,7 @@
       <a class="admin-brand" href="/admin"><span class="brand-mark"><img src="/icons/pnu-logo.v3.png" alt="" width="38" height="38"></span><span>مدیریت اخبار پیام‌نور</span></a>
       <div class="admin-header-actions">
         <button id="admin-theme" class="icon-button theme-toggle" type="button" aria-label="تغییر حالت روشنایی"><svg class="icon"><use href="#icon-sun"/></svg></button>
+        <button id="about-button" class="icon-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#admin-icon-info"/></svg></button>
         <span id="user-chip" class="user-chip"></span>
         <button id="logout-button" class="button subtle" type="button">خروج</button>
       </div>
@@ -317,24 +322,33 @@
           <div id="stats-counts" class="stat-grid"></div>
           <div class="panel"><h2>پربازدیدترین خبرها</h2><div id="most-viewed" class="compact-list"></div></div>
         </section>
-        <section id="mobile-compose-view" class="admin-view mobile-panel" data-panel="mobile-compose" hidden>
-          <div class="view-heading"><div><p class="eyebrow">انتشار سریع</p><h1>خبر تازه</h1></div></div>
-          <form id="quick-form" class="panel quick-form">
-            <label>عنوان کوتاه<input name="title" maxlength="240" required></label>
-            <label>متن کوتاه<textarea name="summary" rows="4" maxlength="600" required></textarea></label>
-            <label class="upload-field">انتخاب از گالری یا گرفتن عکس<input name="cover" type="file" accept="image/*"></label>
-            <small class="muted">اگر عکسی انتخاب نکنید، جلد پیش‌فرضِ «خبر» یا «اطلاعیه» (بر اساس نوع مطلب) استفاده می‌شود.</small>
-            <progress id="quick-progress" class="upload-progress" max="100" value="0" hidden></progress>
-            <div class="type-group">
-              <span class="field-label">نوع مطلب</span>
-              <div class="seg" role="radiogroup" aria-label="نوع مطلب">
-                <label class="seg-item"><input type="radio" name="news_type" value="news" checked><span>خبر</span></label>
-                <label class="seg-item"><input type="radio" name="news_type" value="announcement"><span>اطلاعیه</span></label>
-              </div>
+        <section id="mobile-compose-view" class="admin-view mobile-panel chat-compose" data-panel="mobile-compose" hidden>
+          <div class="chat-top">
+            <span class="chat-avatar"><img src="/icons/pnu-logo.v3.png" alt="" width="36" height="36"></span>
+            <div class="chat-top-text"><strong>انتشار خبر</strong><small id="quick-scope-label"></small></div>
+          </div>
+          <div class="chat-stage" aria-live="polite">
+            <article id="quick-bubble" class="bubble is-empty" aria-label="پیش‌نمایش خبر">
+              <figure class="bubble-cover" hidden><img alt=""></figure>
+              <h3 class="bubble-title">عنوان خبر</h3>
+              <p class="bubble-text">متن خبر شما اینجا مثل یک پیام دیده می‌شود.</p>
+              <div class="bubble-meta"><span class="bubble-type">خبر</span><span class="bubble-state">پیش‌نویس</span><svg class="icon bubble-ticks" aria-hidden="true"><use href="#admin-icon-tick"/></svg></div>
+            </article>
+          </div>
+          <form id="quick-form" class="chat-composer" novalidate>
+            <div id="quick-attachment" class="attach-chip" hidden>
+              <img alt="" width="44" height="44"><span class="attach-info"><strong class="attach-name"></strong><small class="attach-size"></small></span>
+              <button id="quick-attachment-remove" class="attach-remove" type="button" aria-label="حذف عکس"><svg class="icon"><use href="#admin-icon-close"/></svg></button>
             </div>
-            <label>دسته‌بندی<select name="category_id" required></select></label>
-            <fieldset id="quick-target-fieldset" class="target-picker"></fieldset>
-            <button class="button success wide" type="submit">انتشار خبر</button>
+            <progress id="quick-progress" class="upload-progress" max="100" value="0" hidden></progress>
+            <div class="composer-bar">
+              <label class="composer-icon" aria-label="افزودن عکس از گالری یا دوربین" title="افزودن عکس"><svg class="icon"><use href="#admin-icon-clip"/></svg><input name="cover" type="file" accept="image/*" hidden></label>
+              <div class="composer-fields">
+                <input name="title" class="composer-title" maxlength="240" placeholder="عنوان خبر" autocomplete="off" enterkeyhint="next" aria-label="عنوان خبر">
+                <textarea name="text" class="composer-text" rows="1" maxlength="5000" placeholder="متن خبر…" aria-label="متن خبر"></textarea>
+              </div>
+              <button id="quick-send" class="composer-send" type="submit" aria-label="انتشار خبر"><svg class="icon"><use href="#admin-icon-send"/></svg></button>
+            </div>
             <p id="quick-error" class="form-error" role="alert"></p>
           </form>
         </section>
@@ -373,7 +387,7 @@
         </section>
       </div>
     </div>
-    <footer class="site-dock"><div class="dock-inner"><div class="dock-meta"><span class="dock-text">اخبار پیام‌نور</span><button class="dock-button" id="about-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#admin-icon-info"/></svg></button></div><div id="radio-root"></div></div></footer>
+    <footer class="site-dock"><div class="dock-inner"><div id="radio-root"></div></div></footer>
     <nav id="mobile-nav" class="mobile-nav" aria-label="بخش‌های پنل">
       <button data-view="mobile-compose"><span>＋</span>خبر سریع</button>
       <button data-view="mobile-recent"><span>▤</span>خبرهای من</button>
@@ -402,6 +416,6 @@
   </dialog>
   <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
   <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/admin/admin.v0.1.33.js"></script>
+  <script type="module" src="/admin/admin.v0.1.34.js"></script>
 </body>
 </html>

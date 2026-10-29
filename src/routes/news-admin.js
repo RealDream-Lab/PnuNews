@@ -1,5 +1,6 @@
 import express from 'express';
 import { appEvents, emitNewsPublished } from '../events.js';
+import { ensureDefaultCategory } from '../news/default-category.js';
 import { canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
 import { normalizeFa } from '../lib/fa.js';
@@ -246,14 +247,18 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     const content = cleanTitleAndContent(request.body ?? {});
     if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
     if (request.body?.status && request.body.status !== 'draft') return response.status(400).json({ error: 'خبر را پس از ذخیره از مسیر انتشار منتشر کنید.' });
-    const categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
-    if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
+    let categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
+    // The quick form sends no category: the default one is used (and created when missing).
+    const wantsDefaultCategory = request.body?.default_category === true && request.body?.category_id == null;
+    if (!categoryId && !wantsDefaultCategory) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
     const newsType = request.body?.news_type ?? 'news';
     if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
     try {
       const regions = await loadRegions(pool);
       const targets = await validateTargets(pool, request.user, request.body?.targets ?? [], regions);
       if (!targets) return response.status(403).json({ error: 'یک یا چند مقصد انتشار مجاز نیست.' });
+      let categoryCreated = false;
+      if (wantsDefaultCategory) ({ id: categoryId, created: categoryCreated } = await ensureDefaultCategory(pool));
       if (categoryId) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);
         if (!categories.length) return response.status(400).json({ error: 'دسته‌بندی فعال پیدا نشد.' });
@@ -278,7 +283,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         connection.release();
       }
       appEvents.emit('news.changed', { id: Number(newsId) });
-      return response.status(201).json({ id: newsId, status: 'draft' });
+      return response.status(201).json({ id: newsId, status: 'draft', category_id: categoryId, category_created: categoryCreated });
     } catch (error) {
       return next(error);
     }

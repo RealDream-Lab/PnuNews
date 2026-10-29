@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.33.js';
+import { initDock } from '/shared/dock.v0.1.34.js';
 import {
   JALALI_MONTHS,
 
@@ -1008,25 +1008,99 @@ async function publishEditor() {
   finally { setEditorBusy(false); }
 }
 
+// ---------- Quick news (messenger-style): title + text + optional cover; everything else is automatic ----------
+// Type = news, published immediately, category "اخبار" (the server creates it when missing), published to the user's own scope.
+const QUICK_SUMMARY_LENGTH = 300;
+
+function quickExcerpt(text) {
+  const plain = text.replace(/\s+/g, ' ').trim();
+  if (plain.length <= QUICK_SUMMARY_LENGTH) return plain;
+  const cut = plain.slice(0, QUICK_SUMMARY_LENGTH);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), QUICK_SUMMARY_LENGTH - 40)).trim()}…`;
+}
+
+function quickBodyHtml(text) {
+  return text.split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
+}
+
+function setQuickCover(file) {
+  const form = document.getElementById('quick-form');
+  const chip = document.getElementById('quick-attachment');
+  if (state.quickCoverUrl) URL.revokeObjectURL(state.quickCoverUrl);
+  state.quickCoverUrl = '';
+  if (file && !file.type.startsWith('image/')) { document.getElementById('quick-error').textContent = 'فقط فایل عکس پذیرفته می‌شود.'; file = null; form.elements.cover.value = ''; }
+  if (file) {
+    state.quickCoverUrl = URL.createObjectURL(file);
+    chip.querySelector('img').src = state.quickCoverUrl;
+    chip.querySelector('.attach-name').textContent = file.name;
+    chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(file.size / 1024)))} کیلوبایت`;
+  } else {
+    chip.querySelector('img').removeAttribute('src');
+  }
+  chip.hidden = !file;
+  renderQuickPreview();
+}
+
+function renderQuickPreview() {
+  const form = document.getElementById('quick-form');
+  const bubble = document.getElementById('quick-bubble');
+  const title = form.elements.title.value.trim();
+  const text = form.elements.text.value.trim();
+  const cover = bubble.querySelector('.bubble-cover');
+  bubble.classList.toggle('is-empty', !title && !text && !state.quickCoverUrl);
+  bubble.querySelector('.bubble-title').textContent = title || 'عنوان خبر';
+  bubble.querySelector('.bubble-text').textContent = text || 'متن خبر شما اینجا مثل یک پیام دیده می‌شود.';
+  cover.hidden = !state.quickCoverUrl;
+  if (state.quickCoverUrl) cover.querySelector('img').src = state.quickCoverUrl;
+  const textarea = form.elements.text;
+  textarea.style.height = 'auto';
+  textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+}
+
+function setQuickBubbleState(mode) {
+  const bubble = document.getElementById('quick-bubble');
+  bubble.classList.toggle('is-sending', mode === 'sending');
+  bubble.classList.toggle('is-sent', mode === 'sent');
+  bubble.querySelector('.bubble-state').textContent = mode === 'sent' ? 'منتشر شد' : mode === 'sending' ? 'در حال ارسال…' : 'پیش‌نویس';
+  bubble.querySelector('.bubble-ticks use').setAttribute('href', mode === 'sent' ? '#admin-icon-ticks' : '#admin-icon-tick');
+}
+
 function beginQuickCompose() {
-  const select = document.querySelector('#quick-form [name="category_id"]');
-  select.innerHTML = categoryOptionsHtml();
-  select.value = '';
-  renderTargetPicker('quick-target-fieldset');
+  const form = document.getElementById('quick-form');
+  form.reset();
+  setQuickCover(null);
+  setQuickBubbleState('draft');
+  document.getElementById('quick-error').textContent = '';
+  const model = targetModel();
+  const scope = model?.rootLabel || state.regions.find((region) => Number(region.id) === Number(model?.rootId))?.name || '';
+  document.getElementById('quick-scope-label').textContent = scope ? `منتشر می‌شود برای: ${scope}` : '';
+  renderQuickPreview();
 }
 
 async function submitQuickCompose(event) {
   event.preventDefault();
+  if (state.quickBusy) return;
   const error = document.getElementById('quick-error');
   error.textContent = '';
   const form = event.currentTarget;
   const title = form.elements.title.value.trim();
-  const summary = form.elements.summary.value.trim();
+  const text = form.elements.text.value.trim();
+  const send = document.getElementById('quick-send');
   try {
-    const targets = requireTargets('quick-target-fieldset');
+    if (!title) { form.elements.title.focus(); throw new Error('عنوان خبر را بنویسید.'); }
+    if (!text) { form.elements.text.focus(); throw new Error('متن خبر را بنویسید.'); }
+    const rootId = targetModel()?.rootId;
+    if (!rootId) throw new Error('محدودهٔ انتشار شما مشخص نیست.');
+    state.quickBusy = true;
+    send.disabled = true;
+    setQuickBubbleState('sending');
     const created = await api('/api/admin/news', {
-      method: 'POST', body: { title, summary, news_type: form.elements.news_type.value === 'announcement' ? 'announcement' : 'news', category_id: Number(form.elements.category_id.value), body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
+      method: 'POST',
+      body: { title, summary: quickExcerpt(text), news_type: 'news', default_category: true, body_html: quickBodyHtml(text), targets: [rootId] },
     });
+    if (created.category_created) {
+      try { state.categories = (await api('/api/admin/categories')).categories; } catch {}
+    }
     const cover = form.elements.cover.files[0];
     if (cover) {
       const formData = new FormData();
@@ -1039,11 +1113,18 @@ async function submitQuickCompose(event) {
       } finally { bar.hidden = true; }
     }
     await api(`/api/admin/news/${created.id}/publish`, { method: 'POST', body: {} });
-    form.reset();
-    beginQuickCompose();
+    setQuickBubbleState('sent');
     showToast('خبر با موفقیت منتشر شد.');
-    await loadMobileNews('mine', 1);
-  } catch (failure) { error.textContent = failure.message; }
+    loadMobileNews('mine', 1);
+    // keep the delivered "message" on screen for a moment, then get ready for the next one
+    setTimeout(() => { if (document.getElementById('quick-bubble').classList.contains('is-sent')) beginQuickCompose(); }, 1600);
+  } catch (failure) {
+    setQuickBubbleState('draft');
+    error.textContent = failure.message;
+  } finally {
+    state.quickBusy = false;
+    send.disabled = false;
+  }
 }
 
 async function loadMobileNews(scope, page = state.mobilePages[scope] ?? 1) {
@@ -1808,6 +1889,10 @@ function bindEvents() {
   });
   document.getElementById('news-editor').addEventListener('submit', handleEditorSubmit);
   document.getElementById('quick-form').addEventListener('submit', submitQuickCompose);
+  const quickForm = document.getElementById('quick-form');
+  quickForm.addEventListener('input', renderQuickPreview);
+  quickForm.elements.cover.addEventListener('change', (event) => setQuickCover(event.target.files[0] ?? null));
+  document.getElementById('quick-attachment-remove').addEventListener('click', () => { quickForm.elements.cover.value = ''; setQuickCover(null); });
   document.getElementById('user-form').addEventListener('submit', submitUser);
   document.getElementById('region-form').addEventListener('submit', submitRegion);
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
