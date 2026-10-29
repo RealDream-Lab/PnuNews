@@ -1,0 +1,5 @@
+# /etc/cron.d/pnunews-portal  (روی میزبان سرور؛ هر ۱۰ دقیقه خبرهای پورتال را می‌گیرد)
+# جایگزین زمان‌بند داخلی برنامه: در .autostart مقدار PORTAL_FETCH_MODE=external بگذارید.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/10 * * * * root docker exec nodejs bash /workspace/PnuNews/scripts/fetch-portal-news.sh >> /var/log/pnunews-portal.log 2>&1

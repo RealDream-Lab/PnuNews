@@ -1,13 +1,18 @@
 import express from 'express';
+import { brandNameOutput } from './lib/brand-output.js';
+import { resolveNowPlayingUrl } from './lib/nowplaying.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createMediaRouter } from './routes/media.js';
 import { createPublicRouter } from './routes/public.js';
 import { createStaticMiddleware } from './lib/static.js';
 
-export function contentSecurityPolicy(publicUrl) {
+// connectOrigins: the radio server, so the player can read "now playing" straight from the visitor's browser
+// when this server cannot reach it.
+export function contentSecurityPolicy(publicUrl, connectOrigins = []) {
   const mediaSources = publicUrl.startsWith('https://') ? "'self' https:" : "'self' https: http:";
-  return `default-src 'self'; img-src 'self' data:; media-src ${mediaSources}; script-src 'self'; style-src 'self'; frame-ancestors 'none'`;
+  const connect = connectOrigins.length ? `connect-src 'self' ${connectOrigins.join(' ')}; ` : '';
+  return `default-src 'self'; ${connect}img-src 'self' blob: data: https://pnu.ac.ir; media-src ${mediaSources}; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
 }
 
 function csrfGuard(request, response, next) {
@@ -37,23 +42,56 @@ function csrfGuard(request, response, next) {
   return next();
 }
 
-export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, staticAssets }) {
+export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, staticAssets, portalImporter = null }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy ? 1 : false);
-  app.use((request, response, next) => {
+  // The radio origin comes from the settings table; it is cached briefly so the header costs no query per request.
+  let radioOrigins = { value: [], expiresAt: 0 };
+  async function currentRadioOrigins() {
+    if (radioOrigins.expiresAt > clock()) return radioOrigins.value;
+    let value = [];
+    try {
+      const [rows] = await pool.query("SELECT k, v FROM settings WHERE k IN ('radio_enabled', 'radio_nowplaying_url', 'radio_stream_url')");
+      const settings = Object.fromEntries(rows.map((row) => [row.k, row.v]));
+      if (settings.radio_enabled === '1') {
+        const url = resolveNowPlayingUrl({ nowPlayingUrl: settings.radio_nowplaying_url, streamUrl: settings.radio_stream_url });
+        if (url && (url.protocol === 'https:' || (url.protocol === 'http:' && !config.publicUrl.startsWith('https://')))) value = [url.origin];
+      }
+    } catch {}
+    radioOrigins = { value, expiresAt: clock() + 30_000 };
+    return value;
+  }
+  app.use(async (request, response, next) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    response.setHeader('Content-Security-Policy', contentSecurityPolicy(config.publicUrl));
+    response.setHeader('Content-Security-Policy', contentSecurityPolicy(config.publicUrl, await currentRadioOrigins()));
+    response.setHeader('X-Frame-Options', 'DENY');
+    response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    if (config.publicUrl.startsWith('https://')) {
+      response.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
     next();
   });
+  // Authentication and admin responses (sessions state, temporary passwords, audit log) must never be cached.
+  app.use(['/api/auth', '/api/admin'], (request, response, next) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Pragma', 'no-cache');
+    next();
+  });
+  app.use('/api', brandNameOutput);
   app.use(express.json({ limit: '1mb', strict: true }));
   app.use(csrfGuard);
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
-  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir }));
+  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter, fetchImpl }));
+  // The management panel moved from /admin to /dashboard; old links and bookmarks keep working.
+  app.use('/admin', (request, response, next) => {
+    if (!['GET', 'HEAD'].includes(request.method)) return next();
+    return response.redirect(301, `/dashboard${request.originalUrl.slice('/admin'.length)}`);
+  });
   app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));
