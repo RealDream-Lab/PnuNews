@@ -54,15 +54,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 
 /* ---------- Page ---------- */
 .page-shell{max-width:1120px;margin-inline:auto;padding:0 max(var(--pad),env(safe-area-inset-right,0px)) 2rem max(var(--pad),env(safe-area-inset-left,0px));width:100%;flex:1 0 auto}
-/* Page title: big and centred at the top; once the page scrolls it shrinks, moves to the start (right in RTL) and stays pinned under the header.
-   The bar has a fixed height and the big title overflows into its bottom margin, so nothing below jumps when the state flips. */
-.feed-title-bar{position:sticky;top:var(--header-h,64px);z-index:14;height:2.6rem;margin:.6rem 0 1.5rem;background:transparent;transition:box-shadow .2s ease}
-.feed-title-bar h1{position:absolute;top:.35rem;right:50%;transform:translateX(50%);margin:0;white-space:nowrap;font-size:clamp(1.7rem,6vw,2.4rem);line-height:1.5;font-weight:700;letter-spacing:-.02em;transition:right .25s ease,transform .25s ease,font-size .25s ease,top .25s ease}
-.feed-title-bar.is-compact{margin-bottom:1.5rem;background:var(--bg);box-shadow:0 0 0 100vmax var(--bg);clip-path:inset(0 -100vmax)}
-.feed-title-bar.is-compact h1{top:0;right:0;transform:none;font-size:1.05rem;line-height:2.6rem}
-.feed-intro{padding:0 0 1rem;text-align:center}
-.feed-intro .intro-copy{margin-inline:auto}
-@media(prefers-reduced-motion:reduce){.feed-title-bar h1,.feed-title-bar{transition:none}}
+.feed-intro{padding:1.4rem 0 1rem}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .intro-copy{margin:.1rem 0 0;color:var(--muted);font-size:.92rem;max-width:42rem}
 .new-items-banner{margin:.9rem 0 1rem}.new-items-banner button{width:100%;padding:.55rem 1rem;background:var(--primary-soft);border-color:transparent;color:var(--primary);font-weight:500}
 
@@ -219,8 +212,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .city-button>.icon:first-child{width:1.05rem;height:1.05rem}
   .font-controls{height:38px}.font-controls button{min-width:34px}
   .icon-button{width:38px;height:38px;border-radius:10px}
-  .feed-intro{padding:0 0 .3rem}
-  .feed-title-bar{margin-top:.4rem}
+  .feed-intro{padding:1rem 0 .3rem}
   .intro-copy{font-size:.86rem}
   .news-card h2{font-size:1.06rem}
   .card-content{padding:.85rem .95rem .9rem}
