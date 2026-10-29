@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.38.js';
-import { initRichEditor } from '/shared/rich-editor.v0.1.38.js';
+import { initDock } from '/shared/dock.v0.1.39.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.39.js';
 import {
   JALALI_MONTHS,
 
@@ -577,6 +577,49 @@ function editorReturnView() {
   return matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news';
 }
 
+// ---------- Unsaved-changes guard ----------
+function editorSnapshot() {
+  const form = document.getElementById('news-editor');
+  return JSON.stringify({
+    id: form.elements.news_id.value,
+    title: form.elements.title.value,
+    summary: form.elements.summary.value,
+    body: document.getElementById('editor-body').innerHTML,
+    category: form.elements.category_id.value,
+    type: form.elements.news_type.value,
+    pinned: form.elements.is_pinned.checked,
+    urgent: form.elements.is_urgent.checked,
+    mode: form.elements.schedule_mode.value,
+    dates: state.newsDates,
+    targets: [...readTargets('editor-target-fieldset')].sort(),
+    uploads: allUploadEntries().map((entry) => `${entry.file.name}:${entry.file.size}`),
+  });
+}
+
+function markEditorClean() {
+  state.editorBaseline = editorSnapshot();
+}
+
+function editorIsDirty() {
+  return state.activeView === 'editor' && state.currentNews?.can_edit !== false && editorSnapshot() !== state.editorBaseline;
+}
+
+async function confirmLeaveEditor() {
+  if (!editorIsDirty()) return true;
+  return confirmDialog({
+    title: 'از ویرایشگر خارج می‌شوید؟',
+    text: 'این خبر هنوز ذخیره یا منتشر نشده و اگر خارج شوید، تغییرات شما پاک می‌شود.',
+    tone: 'warning',
+    confirmText: 'بله، خارج شو',
+    cancelText: 'ماندن در ویرایشگر',
+  });
+}
+
+async function goToViewGuarded(view) {
+  if (state.activeView === 'editor' && view !== 'editor' && !await confirmLeaveEditor()) return;
+  goToView(view);
+}
+
 function resetEditor() {
   state.editorFromFeed = false;
   const form = document.getElementById('news-editor');
@@ -602,6 +645,7 @@ function resetEditor() {
   resetUploads();
   setEditorMode(null);
   goToView('editor');
+  markEditorClean();
 }
 
 async function openEditor(id) {
@@ -637,6 +681,7 @@ async function openEditor(id) {
     if (canDeleteImported) document.getElementById('editor-delete').disabled = false;
     setEditorMode(item.status);
     goToView('editor');
+    markEditorClean();
   } catch (error) { showToast(error.message); }
 }
 
@@ -1005,7 +1050,8 @@ async function publishEditor() {
       method: 'POST', body: { published_at: publishedAt, expires_at: state.newsDates.expires_at },
     });
     showToast(scheduled ? 'انتشار خبر زمان‌بندی شد.' : 'خبر منتشر شد.');
-    await openEditor(id);
+    markEditorClean();
+    goToView(editorReturnView());
   } catch (failure) { error.textContent = failure.message; }
   finally { setEditorBusy(false); }
 }
@@ -1982,11 +2028,17 @@ function bindEvents() {
   document.getElementById('auth-theme').addEventListener('click', toggleTheme);
   document.getElementById('desktop-nav').addEventListener('click', (event) => {
     const button = event.target.closest('[data-view]');
-    if (button) goToView(button.dataset.view);
+    if (button) goToViewGuarded(button.dataset.view);
   });
   document.getElementById('mobile-nav').addEventListener('click', (event) => {
     const button = event.target.closest('[data-view]');
-    if (button) goToView(button.dataset.view);
+    if (button) goToViewGuarded(button.dataset.view);
+  });
+  // Closing or reloading the tab with an unsaved news asks the browser to confirm as well.
+  window.addEventListener('beforeunload', (event) => {
+    if (!editorIsDirty()) return;
+    event.preventDefault();
+    event.returnValue = '';
   });
   document.querySelector('.admin-content').addEventListener('click', (event) => {
     const viewButton = event.target.closest('[data-view-link]');
@@ -1994,7 +2046,7 @@ function bindEvents() {
     const newButton = event.target.closest('[data-action="new-news"]');
     if (newButton) return resetEditor();
     const backButton = event.target.closest('[data-action="back-news"]');
-    if (backButton) return goToView(editorReturnView());
+    if (backButton) return goToViewGuarded(editorReturnView());
     const editButton = event.target.closest('[data-action="edit-news"]');
     if (editButton) return openEditor(Number(editButton.dataset.id));
     const removeButton = event.target.closest('[data-remove-attachment]');

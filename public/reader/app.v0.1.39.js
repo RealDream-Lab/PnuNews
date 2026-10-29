@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.38.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.38.js';
+import { initDock } from '/shared/dock.v0.1.39.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.39.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -346,11 +346,45 @@ masonryQuery.addEventListener('change', layoutMasonry);
 window.addEventListener('resize', scheduleMasonry, { passive: true });
 document.fonts?.ready.then(layoutMasonry);
 
+// Any change of a card's height (font-size buttons, wrapping, images) re-packs the grid, so cards never overlap.
+const masonryObserver = 'ResizeObserver' in window ? new ResizeObserver(scheduleMasonry) : null;
+
+// Cover frames show a shimmer until their image has loaded (or failed).
+function settleCover(image) {
+  image.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add(image.complete && !image.naturalWidth ? 'is-failed' : 'is-loaded');
+}
+document.addEventListener('load', (event) => { if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) settleCover(event.target); }, true);
+document.addEventListener('error', (event) => {
+  if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) event.target.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add('is-failed');
+}, true);
+
+function watchFeedNode(node) {
+  if (node.nodeType !== 1) return;
+  if (!node.classList.contains('feed-spacer') && !node.classList.contains('news-skeleton')) masonryObserver?.observe(node);
+  node.querySelectorAll?.('img.card-cover').forEach((image) => { if (image.complete && image.naturalWidth) settleCover(image); });
+}
+new MutationObserver((records) => {
+  for (const record of records) {
+    record.addedNodes.forEach(watchFeedNode);
+    record.removedNodes.forEach((node) => { if (node.nodeType === 1) masonryObserver?.unobserve(node); });
+  }
+}).observe(feed, { childList: true });
+new MutationObserver((records) => {
+  for (const record of records) record.addedNodes.forEach((node) => node.nodeType === 1 && node.querySelectorAll?.('img').forEach((image) => { if (image.complete && image.naturalWidth) settleCover(image); }));
+}).observe(pinnedStrip, { childList: true });
+
+// Placeholder cards shaped like real ones (cover, kicker, title lines, footer) that pulse until the data arrives.
+function skeletonCount(first) {
+  const perRow = masonryQuery.matches ? 3 : matchMedia('(min-width: 640px)').matches ? 2 : 1;
+  return first ? Math.max(3, perRow * 2) : perRow;
+}
+
 function showSkeletons(count = 4) {
   for (let index = 0; index < count; index += 1) {
     const skeleton = document.createElement('div');
     skeleton.className = 'news-skeleton';
     skeleton.setAttribute('aria-hidden', 'true');
+    skeleton.innerHTML = '<div class="sk-cover"></div><div class="sk-body"><span class="sk-line sk-short"></span><span class="sk-line"></span><span class="sk-line sk-mid"></span><span class="sk-line sk-tiny"></span></div>';
     feed.append(skeleton);
   }
   layoutMasonry();
@@ -410,7 +444,7 @@ async function loadMore() {
   if (!state.city || state.loading || state.ended) return;
   state.loading = true;
   feed.setAttribute('aria-busy', 'true');
-  showSkeletons(3);
+  showSkeletons(skeletonCount(!state.cursor));
   const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams() });
   if (state.cursor) params.set('cursor', state.cursor);
   try {
@@ -667,6 +701,7 @@ function changeFontScale(delta) {
   state.fontScale = Math.min(1.1, Math.max(.9, Math.round((state.fontScale + delta) * 100) / 100));
   try { localStorage.setItem('pnu.fontScale', String(state.fontScale)); } catch {}
   applyFontScale();
+  scheduleMasonry();
 }
 
 function initTheme() {
@@ -768,7 +803,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
     intersectionObserver?.unobserve(sentinel);
   }
   state.newsId = Number(id);
-  if (!initial) newsView.innerHTML = '<div class="news-page"><div class="news-skeleton" aria-hidden="true"></div></div>';
+  if (!initial) newsView.innerHTML = '<div class="news-page"><div class="news-skeleton" aria-hidden="true"><div class="sk-cover"></div><div class="sk-body"><span class="sk-line sk-short"></span><span class="sk-line"></span><span class="sk-line sk-mid"></span><span class="sk-line"></span><span class="sk-line sk-tiny"></span></div></div></div>';
   try {
     const { item } = await getJson(`/api/public/news/${id}`);
     state.newsId = Number(item.id);
