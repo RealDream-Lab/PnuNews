@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.40.js';
-import { initRichEditor } from '/shared/rich-editor.v0.1.40.js';
+import { initDock } from '/shared/dock.v0.1.41.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.41.js';
 import {
   JALALI_MONTHS,
 
