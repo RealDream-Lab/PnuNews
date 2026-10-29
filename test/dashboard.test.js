@@ -27,6 +27,7 @@ test('dashboard lives at /dashboard, /admin is gone, and it is an installable we
     assert.equal(page.status, 200);
     assert.match(page.body, /<link rel="manifest" href="\/dashboard\/manifest\.webmanifest"/);
     assert.ok(!page.body.includes('/admin/'), 'the page must not reference /admin/ any more');
+    assert.ok(!/site-dock|radio-root/.test(page.body), 'the dashboard has no radio player or bottom dock');
 
     // The old page address is gone for good: no redirect, no leftover files.
     for (const old of ['/admin', '/admin/', '/admin/index.html']) assert.equal((await get(server, old)).status, 404, old);
@@ -46,6 +47,7 @@ test('dashboard lives at /dashboard, /admin is gone, and it is an installable we
 
     const worker = await get(server, '/dashboard/sw.js');
     assert.equal(worker.status, 200);
+    assert.ok(!worker.body.includes('dock'), 'the dashboard worker must not pre-cache the radio dock');
     assert.match(worker.headers['content-type'], /javascript/);
     assert.equal(worker.headers['cache-control'], 'no-cache');
     // Every file the worker pre-caches must exist, or installing the worker would fail.
