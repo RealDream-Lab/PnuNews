@@ -1,14 +1,13 @@
-const CACHE_NAME = 'pnunews-shell-v0.1.39';
+const CACHE_NAME = 'pnunews-shell-v0.1.6';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
-  '/icons/pnu-logo.v3.png',
-  '/reader/styles.v0.1.39.css',
-  '/reader/app.v0.1.39.js',
-  '/shared/theme.v0.1.39.js',
-  '/shared/dock.v0.1.39.js',
-  '/shared/live-plan.v0.1.39.js',
+  '/icons/pnu-icon-192.v2.png',
+  '/reader/styles.v0.1.6.css',
+  '/reader/app.v0.1.6.js',
+  '/shared/theme.v0.1.6.js',
+  '/shared/manifest-switch.v1.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
 
   '/fonts/Vazirmatn-Bold.v1.woff2',
@@ -77,7 +76,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/media/img/') || url.pathname.startsWith('/media/placeholder/') || url.pathname.startsWith('/covers/')) {
+  if (url.pathname.startsWith('/media/img/') || url.pathname.startsWith('/media/placeholder/')) {
     event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE, event));
     return;
   }

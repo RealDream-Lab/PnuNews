@@ -4,16 +4,11 @@ import { appEvents } from '../events.js';
 
 import { createMicroCache } from '../lib/microcache.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
-import { normalizeBrandName } from '../lib/fa.js';
-import { fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { sanitizeBodyHtml } from '../news/content.js';
 
 const FEED_SCOPES = new Set(['all', 'country', 'province', 'city']);
 const VIEW_DEDUPE_MS = 30 * 60_000;
 const VIEW_DEDUPE_LIMIT = 50_000;
-const LIVE_CLIENT_LIMIT = 2000;
-// Generous on purpose: a whole campus can sit behind one NAT address.
-const LIVE_CLIENT_LIMIT_PER_IP = 50;
 const faCollator = new Intl.Collator('fa', { sensitivity: 'base' });
 
 function idValue(value) {
@@ -46,24 +41,6 @@ function imageUrls(storedName) {
   };
 }
 
-// Cover used when a news item has no uploaded cover (and no imported source image): one per news type.
-const DEFAULT_COVERS = {
-  news: { name: 'default-news', dominant_color: '#a0a6ab' },
-  announcement: { name: 'default-announcement', dominant_color: '#93979d' },
-};
-
-function defaultCover(newsType) {
-  const { name, dominant_color: dominantColor } = DEFAULT_COVERS[newsType] ?? DEFAULT_COVERS.news;
-  return {
-    src: `/covers/${name}.v1.800.webp`,
-    srcset: [400, 800, 1280].map((width) => `/covers/${name}.v1.${width}.webp ${width}w`).join(', '),
-    dominant_color: dominantColor,
-    width: 1280,
-    height: 720,
-    is_default: true,
-  };
-}
-
 function plainString(value, maxLength = 200) {
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, maxLength) : '';
 }
@@ -76,12 +53,10 @@ function escapeHtml(value) {
 
 function publicItem(row) {
   const image = imageUrls(row.cover_stored_name);
-  const external = !image && row.source_image_url ? { src: row.source_image_url, srcset: '', external: true } : null;
   return {
     id: Number(row.id),
     title: row.title,
     summary: row.summary,
-    news_type: row.news_type === 'announcement' ? 'announcement' : 'news',
     category: row.category_id == null ? null : { id: Number(row.category_id), name: row.category_name },
     published_at: row.published_at.toISOString(),
     expires_at: row.expires_at?.toISOString() ?? null,
@@ -90,9 +65,8 @@ function publicItem(row) {
     view_count: Number(row.view_count),
     publisher_name: row.publisher_name,
     publisher_unit: row.publisher_unit,
-    source_url: row.source_url || null,
     scope: { type: row.scope_type, id: Number(row.scope_region_id), name: row.scope_name },
-    cover: image ? { ...image, dominant_color: row.cover_dominant_color, width: row.cover_width, height: row.cover_height } : (external ?? defaultCover(row.news_type)),
+    cover: image ? { ...image, dominant_color: row.cover_dominant_color, width: row.cover_width, height: row.cover_height } : null,
   };
 }
 
@@ -139,38 +113,15 @@ async function visibleRegions(pool) {
     .sort((left, right) => faCollator.compare(left.name, right.name));
 }
 
-// Other visible university centers of the reader's own province.
-async function siblingCityIds(pool, city) {
-  const [rows] = await pool.execute(
-    `SELECT sibling.id FROM regions sibling
-     WHERE sibling.type = 'city' AND sibling.parent_id = ? AND sibling.id <> ? AND sibling.visibility_override <> 'hide'
-       AND (sibling.visibility_override = 'show' OR EXISTS (
-         SELECT 1 FROM users u WHERE u.region_id = sibling.id AND u.role = 'city_admin' AND u.is_active = 1
-       ))`,
-    [city.province_id, city.id],
-  );
-  return rows.map((row) => Number(row.id));
-}
-
-// The reader's own center is always included; national, provincial and sibling-center news are the reader's choice.
-async function feedRegionIds(pool, city, { country, province, siblings }) {
-  const ids = [Number(city.id)];
-  if (country) ids.push(Number(city.country_id));
-  if (province) ids.push(Number(city.province_id));
-  if (siblings) ids.push(...await siblingCityIds(pool, city));
-  return ids;
-}
-
-async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = false }) {
-  const marks = regionIds.map(() => '?').join(', ');
+async function feedRows(pool, city, { scope, cursor, limit, pinned = false }) {
   const filters = [
     "n.status = 'published'",
     'n.published_at <= UTC_TIMESTAMP()',
     'n.deleted_at IS NULL',
     '(n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())',
-    `EXISTS (SELECT 1 FROM news_targets visible_target WHERE visible_target.news_id = n.id AND visible_target.region_id IN (${marks}))`,
+    'EXISTS (SELECT 1 FROM news_targets visible_target WHERE visible_target.news_id = n.id AND visible_target.region_id IN (?, ?, ?))',
   ];
-  const values = [...regionIds];
+  const values = [city.country_id, city.province_id, city.id];
   if (scope !== 'all') {
     filters.push(`EXISTS (
       SELECT 1 FROM news_targets scope_target JOIN regions scope_region ON scope_region.id = scope_target.region_id
@@ -185,10 +136,10 @@ async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = 
   }
 
   const [rows] = await pool.execute(
-    `SELECT n.id, n.title, n.summary, n.news_type, n.category_id, c.name AS category_name,
+    `SELECT n.id, n.title, n.summary, n.category_id, c.name AS category_name,
             n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
-            n.publisher_name, n.publisher_unit, n.source_url,
-            n.source_image_url, cover.stored_name AS cover_stored_name, cover.width AS cover_width,
+            n.publisher_name, n.publisher_unit,
+            cover.stored_name AS cover_stored_name, cover.width AS cover_width,
             cover.height AS cover_height, cover.dominant_color AS cover_dominant_color,
             matched.id AS scope_region_id, matched.type AS scope_type, matched.name AS scope_name
      FROM news n
@@ -196,13 +147,13 @@ async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = 
      LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
      LEFT JOIN regions matched ON matched.id = (
        SELECT target.region_id FROM news_targets target JOIN regions target_region ON target_region.id = target.region_id
-       WHERE target.news_id = n.id AND target.region_id IN (${marks})
-       ORDER BY FIELD(target_region.type, 'country', 'province', 'city'), (target.region_id = ?) DESC, target.region_id LIMIT 1
+       WHERE target.news_id = n.id AND target.region_id IN (?, ?, ?)
+       ORDER BY FIELD(target_region.type, 'country', 'province', 'city') LIMIT 1
      )
      WHERE ${filters.join(' AND ')}
      ORDER BY ${pinned ? 'n.is_urgent DESC, n.is_pinned DESC, ' : ''}n.published_at DESC, n.id DESC
      LIMIT ?`,
-    [...regionIds, Number(city.id), ...values, limit + (pinned ? 0 : 1)],
+    [city.country_id, city.province_id, city.id, ...values, limit + (pinned ? 0 : 1)],
   );
   return rows;
 }
@@ -221,11 +172,10 @@ function injectOpenGraph(shell, { title, summary, image, canonical, siteTitle })
     `<meta name="twitter:title" content="${escapeHtml(title)}">`,
     `<meta name="twitter:description" content="${escapeHtml(summary)}">`,
   ].join('\n');
-  // Function replacers: a string replacement would interpret `$&`, `$\`` etc. inside the (admin-written) title.
   return shell
-    .replace(/<title>[\s\S]*?<\/title>/i, () => titleTag)
-    .replace(/<meta name="description"[^>]*>/i, () => descriptionTag)
-    .replace('</head>', () => `${metadata}\n</head>`);
+    .replace(/<title>[\s\S]*?<\/title>/i, titleTag)
+    .replace(/<meta name="description"[^>]*>/i, descriptionTag)
+    .replace('</head>', `${metadata}\n</head>`);
 }
 
 function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
@@ -237,7 +187,7 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f4f7fb">
+<meta name="theme-color" content="#1F5FBF">
 <title>${escapeHtml(title)} — ${escapeHtml(siteTitle)}</title>
 <meta name="description" content="${escapeHtml(summary)}">
 <link rel="canonical" href="${escapeHtml(canonical)}">
@@ -249,12 +199,11 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.39.css">
-<script src="/shared/theme.v0.1.39.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.6.css">
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.39.js"></script>
+<script type="module" src="/reader/app.v0.1.6.js"></script>
 </body>
 </html>`;
 }
@@ -275,50 +224,6 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   events.on('regions.changed', clearCaches);
   router.use(['/api/public', '/n'], rateLimit);
 
-  // Live channel: tells open readers that the feed changed so they can refetch the first page and animate it in.
-  // The event carries no news data (readers refetch through the normal, cached feed endpoint).
-  const liveClients = new Set();
-  let liveVersion = Date.now();
-  let liveTimer = null;
-  const broadcastLive = () => {
-    clearTimeout(liveTimer);
-    liveTimer = setTimeout(() => {
-      liveVersion += 1;
-      for (const client of liveClients) client.write(`event: feed\nid: ${liveVersion}\ndata: ${liveVersion}\n\n`);
-    }, 400);
-    liveTimer.unref?.();
-  };
-  events.on('news.changed', broadcastLive);
-  events.on('news.published', broadcastLive);
-  const heartbeat = setInterval(() => { for (const client of liveClients) client.write(': ping\n\n'); }, 25_000);
-  heartbeat.unref?.();
-
-  const liveClientsByIp = new Map();
-  router.get('/api/public/live', (request, response) => {
-    if (liveClients.size >= LIVE_CLIENT_LIMIT) return response.status(503).json({ error: 'ظرفیت به‌روزرسانی زنده تکمیل است.' });
-    // One address must not be able to hold every live slot.
-    const clientKey = request.ip || request.socket.remoteAddress || 'unknown';
-    const openFromIp = liveClientsByIp.get(clientKey) ?? 0;
-    if (openFromIp >= LIVE_CLIENT_LIMIT_PER_IP) return response.status(429).json({ error: 'تعداد اتصال‌های زندهٔ این نشانی از حد مجاز بیشتر است.' });
-    liveClientsByIp.set(clientKey, openFromIp + 1);
-    request.socket.setTimeout(0);
-    response.status(200).set({
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-    response.flushHeaders();
-    response.write('retry: 5000\n\n');
-    liveClients.add(response);
-    request.on('close', () => {
-      liveClients.delete(response);
-      const remaining = (liveClientsByIp.get(clientKey) ?? 1) - 1;
-      if (remaining > 0) liveClientsByIp.set(clientKey, remaining);
-      else liveClientsByIp.delete(clientKey);
-    });
-  });
-
   router.get('/media/placeholder/:color.svg', (request, response) => {
     const color = request.params.color;
     if (!/^[a-f\d]{6}$/i.test(color)) return response.status(404).end();
@@ -332,7 +237,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     try {
       const result = await cache.get('config', async () => {
         const [settings, provinces] = await Promise.all([
-          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
+          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url']),
           visibleRegions(pool),
         ]);
         let radio = { enabled: false };
@@ -341,12 +246,6 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             const streamUrl = new URL(settings.radio_stream_url);
             if (['http:', 'https:'].includes(streamUrl.protocol) && !streamUrl.username && !streamUrl.password && !(config.publicUrl.startsWith('https://') && streamUrl.protocol === 'http:')) {
               radio = { enabled: true, title: settings.radio_title?.trim() || 'رادیو', stream_url: streamUrl.href };
-              // lets the player read "now playing" from the browser when this server cannot reach the radio
-              try {
-                const nowPlayingUrl = resolveNowPlayingUrl({ nowPlayingUrl: settings.radio_nowplaying_url, streamUrl: streamUrl.href });
-                if (nowPlayingUrl && ['http:', 'https:'].includes(nowPlayingUrl.protocol) && !nowPlayingUrl.username && !nowPlayingUrl.password &&
-                    !(config.publicUrl.startsWith('https://') && nowPlayingUrl.protocol === 'http:')) radio.nowplaying_url = nowPlayingUrl.href;
-              } catch {}
             }
           } catch {}
         }
@@ -368,23 +267,16 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 12) {
       return response.status(400).json({ error: 'تعداد خبر در هر صفحه باید بین ۱ تا ۱۲ باشد.' });
     }
-    const flags = {};
-    for (const [name, fallback] of [['country', '1'], ['province', '1'], ['siblings', '0']]) {
-      const value = String(request.query[name] ?? fallback);
-      if (value !== '0' && value !== '1') return response.status(400).json({ error: 'گزینهٔ نمایش خبر معتبر نیست.' });
-      flags[name] = value === '1';
-    }
     const cursor = request.query.cursor ? decodeCursor(request.query.cursor) : null;
     if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
     try {
       const city = await loadVisibleCity(pool, cityId);
       if (!city) return response.status(400).json({ error: 'مرکز دانشگاهی انتخاب‌شده در دسترس نیست.' });
-      const key = `feed:${cityId}:${scope}:${Number(flags.country)}${Number(flags.province)}${Number(flags.siblings)}:${requestedLimit}:${request.query.cursor ?? ''}`;
+      const key = `feed:${cityId}:${scope}:${requestedLimit}:${request.query.cursor ?? ''}`;
       const result = await cache.get(key, async () => {
-        const regionIds = await feedRegionIds(pool, city, flags);
         const [rows, pinnedRows] = await Promise.all([
-          feedRows(pool, city, { scope, cursor, limit: requestedLimit, regionIds }),
-          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, regionIds, pinned: true }),
+          feedRows(pool, city, { scope, cursor, limit: requestedLimit }),
+          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, pinned: true }),
         ]);
         const hasMore = rows.length > requestedLimit;
         const items = rows.slice(0, requestedLimit).map(publicItem);
@@ -406,9 +298,9 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!id) return response.status(404).json({ error: 'خبر پیدا نشد.' });
     try {
       const [rows] = await pool.execute(
-        `SELECT n.id, n.title, n.summary, n.body_html, n.news_type, n.category_id, c.name AS category_name,
+        `SELECT n.id, n.title, n.summary, n.body_html, n.category_id, c.name AS category_name,
                 n.published_at, n.expires_at, n.is_pinned, n.is_urgent, n.view_count,
-                n.publisher_name, n.publisher_unit, n.source_url, n.source_image_url, n.cover_attachment_id,
+                n.publisher_name, n.publisher_unit, n.cover_attachment_id,
                 settings.v AS byline_show_person
          FROM news n LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN settings ON settings.k = 'byline_show_person'
@@ -452,8 +344,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       return response.json({
         item: {
           id: Number(news.id), title: news.title, summary: news.summary,
-          news_type: news.news_type === 'announcement' ? 'announcement' : 'news',
-          body_html: sanitizeBodyHtml(news.body_html, { brand: true }),
+          body_html: sanitizeBodyHtml(news.body_html),
           category: news.category_id == null ? null : { id: Number(news.category_id), name: news.category_name },
           published_at: news.published_at.toISOString(), expires_at: news.expires_at?.toISOString() ?? null,
           is_pinned: Boolean(news.is_pinned), is_urgent: Boolean(news.is_urgent),
@@ -464,7 +355,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
                       width: coverAttachment.width,
                       height: coverAttachment.height,
                       dominant_color: coverAttachment.dominant_color,
-                    } : (news.source_image_url ? { src: news.source_image_url, srcset: '', external: true } : defaultCover(news.news_type)),
+                    } : null,
           images: imageAttachments, files,
         },
       });
@@ -473,32 +364,30 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     }
   });
 
-  let radioFailureLoggedAt = 0;
   router.get('/api/public/radio', async (request, response) => {
-    response.setHeader('Cache-Control', 'no-store');
     try {
-      const settings = await settingsMap(pool, ['radio_enabled', 'radio_nowplaying_url', 'radio_stream_url']);
-      if (settings.radio_enabled !== '1') return response.json({ now_playing: null });
-      const url = resolveNowPlayingUrl({ nowPlayingUrl: settings.radio_nowplaying_url, streamUrl: settings.radio_stream_url });
-      if (!url) return response.json({ now_playing: null });
+      const settings = await settingsMap(pool, ['radio_enabled', 'radio_nowplaying_url']);
+      if (settings.radio_enabled !== '1' || !settings.radio_nowplaying_url) return response.json({ now_playing: null });
+      const url = new URL(settings.radio_nowplaying_url);
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password ||
+          (config.publicUrl.startsWith('https://') && url.protocol === 'http:')) {
+        return response.json({ now_playing: null });
+      }
       if (radioCache.url === url.href && radioCache.expiresAt > clock()) return response.json(radioCache.value);
       let nowPlaying = null;
-      let unreachable = false;
       try {
-        nowPlaying = await fetchNowPlaying(url, {
-          fetchImpl, publicUrl: config.publicUrl, streamUrl: settings.radio_stream_url || '', resolvesPublic: makeRadioResolver(config.radioTrustedHosts),
-        });
-      } catch (error) {
-        unreachable = ['network', 'internal'].includes(error.code);
-        // Not an error for the visitor (the bar just shows the station), but the administrator needs to see why.
-        if (clock() - radioFailureLoggedAt > 300_000) {
-          radioFailureLoggedAt = clock();
-          console.warn(`Radio now-playing could not be read from ${url.origin}${url.pathname}: ${error.message}`);
+        const upstream = await fetchImpl(url, { signal: AbortSignal.timeout(5000), redirect: 'error', headers: { accept: 'application/json' } });
+        if (upstream.ok) {
+          const data = await upstream.json();
+          const song = data?.now_playing?.song ?? data?.song ?? null;
+          if (song && typeof song === 'object') {
+            const title = plainString(song.title ?? song.name);
+            const artist = plainString(song.artist ?? song.artist_name);
+            if (title || artist) nowPlaying = { title, artist };
+          }
         }
-      }
-      // unreachable: this server cannot reach the radio, so the player may try from the visitor's browser instead.
-      // That state is remembered longer so every poll does not wait for a new timeout.
-      radioCache = { url: url.href, expiresAt: clock() + (nowPlaying ? 15_000 : unreachable ? 60_000 : 5_000), value: unreachable ? { now_playing: null, reachable: false } : { now_playing: nowPlaying } };
+      } catch {}
+      radioCache = { url: url.href, expiresAt: clock() + 20_000, value: { now_playing: nowPlaying } };
       return response.json(radioCache.value);
     } catch {
       return response.json({ now_playing: null });
@@ -510,7 +399,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     if (!id) return response.status(404).type('text/plain').send('خبر پیدا نشد.');
     try {
       const [rows] = await pool.execute(
-        `SELECT n.title, n.summary, n.news_type, n.published_at, cover.stored_name, settings.v AS site_title
+        `SELECT n.title, n.summary, n.published_at, cover.stored_name, settings.v AS site_title
          FROM news n
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          LEFT JOIN settings ON settings.k = 'site_title'
@@ -522,11 +411,11 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       );
       const news = rows[0];
       if (!news) return response.status(404).type('text/plain').send('خبر پیدا نشد.');
-      const title = normalizeBrandName(plainString(news.title, 240));
-      const summary = normalizeBrandName(plainString(news.summary, 600));
-      const imagePath = imageUrls(news.stored_name)?.src ?? defaultCover(news.news_type).src;
+      const title = plainString(news.title, 240);
+      const summary = plainString(news.summary, 600);
+      const imagePath = imageUrls(news.stored_name)?.src;
       const image = imagePath ? new URL(imagePath, config.publicUrl).href : null;
-      const siteTitle = normalizeBrandName(plainString(news.site_title || 'اخبار پیام نور', 160));
+      const siteTitle = plainString(news.site_title || 'اخبار پیام نور', 160);
       const canonical = new URL(`/n/${id}`, config.publicUrl).href;
       const shell = staticAssets?.get('/index.html')?.body.toString('utf8');
       const html = shell ? injectOpenGraph(shell, { title, summary, image, canonical, siteTitle })

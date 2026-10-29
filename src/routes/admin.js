@@ -1,15 +1,12 @@
-import { describeNowPlayingError, fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { randomBytes } from 'node:crypto';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
-import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
+import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, adminRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText } from '../lib/fa.js';
-import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
-import { createCategoryAdminRouter } from './categories-admin.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -72,50 +69,19 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null, fetchImpl = fetch }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
-  router.use('/categories', createCategoryAdminRouter({ pool }));
 
-  // internal = the app's own timer (every 10 minutes); external = an OS scheduler runs scripts/fetch-portal-news.sh
-  const portalMode = () => (process.env.PORTAL_FETCH_MODE === 'external' ? 'external' : 'internal');
-
-  // Automatic portal news: status, on/off switch and "fetch now" (main admin only).
-  router.get('/portal-news', async (request, response, next) => {
-    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
-    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
-    try { return response.json({ ...(await portalImporter.status()), mode: portalMode() }); } catch (error) { return next(error); }
-  });
-  router.post('/portal-news', async (request, response, next) => {
-    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد به خبرخوان پورتال دسترسی دارد.' });
-    if (!portalImporter) return response.status(503).json({ error: 'خبرخوان پورتال در این اجرا فعال نیست.' });
+  router.get('/categories', async (request, response, next) => {
     try {
-      if (typeof request.body?.enabled === 'boolean') await portalImporter.setEnabled(request.body.enabled);
-      const result = request.body?.run === true ? await portalImporter.runOnce({ force: true }) : null;
-      return response.json({ ...(await portalImporter.status()), mode: portalMode(), result });
-    } catch (error) { return next(error); }
-  });
-
-  // Tries the radio "now playing" address from this server and says exactly why it fails (main admin only).
-  router.post('/radio/nowplaying-test', async (request, response, next) => {
-    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند رادیو را آزمایش کند.' });
-    try {
-      const [rows] = await pool.query("SELECT k, v FROM settings WHERE k IN ('radio_nowplaying_url', 'radio_stream_url')");
-      const saved = Object.fromEntries(rows.map((row) => [row.k, row.v]));
-      const pick = (key) => (typeof request.body?.[key] === 'string' ? request.body[key].trim() : String(saved[key] ?? ''));
-      const streamUrl = pick('stream_url');
-      let url;
-      try { url = resolveNowPlayingUrl({ nowPlayingUrl: pick('url'), streamUrl }); } catch { url = null; }
-      if (!url) return response.json({ ok: false, error: 'نشانی اکنون‌پخش (یا دست‌کم نشانی پخش) معتبر وارد نشده است.' });
-      try {
-        const nowPlaying = await fetchNowPlaying(url, { fetchImpl, publicUrl: config.publicUrl, streamUrl, resolvesPublic: makeRadioResolver(config.radioTrustedHosts) });
-        return response.json({ ok: true, now_playing: nowPlaying, url: url.href });
-      } catch (error) {
-        return response.json({ ok: false, code: error.code ?? 'unknown', url: url.href, error: describeNowPlayingError(error) });
-      }
-    } catch (error) { return next(error); }
+      const [categories] = await pool.query('SELECT id, name, sort_order FROM categories WHERE is_active = 1 ORDER BY sort_order, id');
+      return response.json({ categories });
+    } catch (error) {
+      return next(error);
+    }
   });
 
   router.get('/settings', async (request, response, next) => {
@@ -161,9 +127,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
             if (config.publicUrl.startsWith('https://') && url.protocol === 'http:') {
               return response.status(400).json({ error: 'در سایت امن HTTPS، نشانی HTTP رادیو به‌دلیل محتوای ناامن پذیرفته نمی‌شود.' });
             }
-            if (key === 'radio_nowplaying_url' && isObviouslyInternalHost(url.hostname)) {
-              return response.status(400).json({ error: 'نشانی «در حال پخش» نمی‌تواند به شبکهٔ داخلی یا localhost اشاره کند.' });
-            }
             updates[key] = url.href;
           } else updates[key] = '';
         } else if (key === 'radio_title' || key === 'site_title') {
@@ -208,33 +171,31 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
 
   router.get('/stats', async (request, response, next) => {
     try {
-      const clauses = ['n.deleted_at IS NULL'];
+      const clauses = ['deleted_at IS NULL'];
       const values = [];
-      const regions = await getRegions(pool);
-      const [peerRows] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
-      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: peerRows[0]?.v === '1' });
-      if (visibility) {
-        clauses.push(visibility.sql);
-        values.push(...visibility.values);
+      if (request.user.role !== 'super_admin') {
+        const regions = await getRegions(pool);
+        const allowed = [...adminRegionIds(request.user, regions)];
+        if (!allowed.length) return response.json({ counts: { total: 0, draft: 0, scheduled: 0, published: 0, views: 0 }, latest: [], most_viewed: [] });
+        clauses.push(`origin_region_id IN (${allowed.map(() => '?').join(', ')})`);
+        values.push(...allowed);
       }
       const where = clauses.join(' AND ');
       const [countRows, latest, mostViewed] = await Promise.all([
         pool.execute(
-          `SELECT COUNT(*) AS total, SUM(n.status = 'draft') AS drafts,
-                  SUM(n.status = 'scheduled') AS scheduled, SUM(n.status = 'published') AS published,
-                  COALESCE(SUM(n.view_count), 0) AS views FROM news n JOIN users creator ON creator.id = n.created_by WHERE ${where}`,
+          `SELECT COUNT(*) AS total, SUM(status = 'draft') AS drafts,
+                  SUM(status = 'scheduled') AS scheduled, SUM(status = 'published') AS published,
+                  COALESCE(SUM(view_count), 0) AS views FROM news WHERE ${where}`,
           values,
         ),
         pool.execute(
-          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.updated_at, n.source_url
-           FROM news n JOIN users creator ON creator.id = n.created_by
-           WHERE ${where} ORDER BY n.updated_at DESC, n.id DESC LIMIT 10`,
+          `SELECT id, title, status, published_at, view_count, updated_at FROM news
+           WHERE ${where} ORDER BY updated_at DESC, id DESC LIMIT 10`,
           values,
         ),
         pool.execute(
-          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.source_url
-           FROM news n JOIN users creator ON creator.id = n.created_by
-           WHERE ${where} ORDER BY n.view_count DESC, n.id DESC LIMIT 10`,
+          `SELECT id, title, status, published_at, view_count FROM news
+           WHERE ${where} ORDER BY view_count DESC, id DESC LIMIT 10`,
           values,
         ),
       ]);
@@ -259,29 +220,12 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.created_by, u.is_active,
                 u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
                 r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id
-         FROM users u JOIN regions r ON r.id = u.region_id WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, u.username`,
+         FROM users u JOIN regions r ON r.id = u.region_id ORDER BY r.sort_order, u.role, u.username`,
       );
       const users = request.user.role === 'super_admin'
         ? rows
         : rows.filter((user) => canManageUser(request.user, user, 'view', regions));
-      const mapped = users.map((user) => ({
-        ...safeUser(user),
-        // shown in the delete confirmation: how many city users sit under a province admin
-        subordinate_count: user.role === 'province_admin'
-          ? users.filter((item) => item.role === 'city_admin' && Number(item.parent_region_id) === Number(user.region_id)).length
-          : 0,
-      }));
-      if (request.query.page === undefined) return response.json({ users: mapped });
-      // Numbered pages (`page=N&limit=M`); without `page` the full list is returned for the forms that need it.
-      const requestedPage = Number(request.query.page);
-      if (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000) {
-        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
-      }
-      const requestedLimit = Number(request.query.limit ?? 15);
-      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 15;
-      const pages = Math.max(1, Math.ceil(mapped.length / limit));
-      const page = Math.min(requestedPage, pages);
-      return response.json({ users: mapped.slice((page - 1) * limit, page * limit), page, pages, total: mapped.length, limit });
+      return response.json({ users: users.map(safeUser) });
     } catch (error) {
       return next(error);
     }
@@ -624,20 +568,16 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
 
   router.get('/audit', async (request, response, next) => {
     try {
-      const paged = request.query.page !== undefined;
-      const requestedPage = Number(request.query.page);
-      if (paged && (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000)) {
-        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
-      }
-      const cursor = !paged && request.query.before ? parseId(request.query.before) : null;
-      if (!paged && request.query.before && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
+      const cursor = request.query.before ? parseId(request.query.before) : null;
+      if (request.query.before && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
       const limitValue = Number(request.query.limit ?? 50);
       const limit = Number.isInteger(limitValue) ? Math.max(1, Math.min(100, limitValue)) : 50;
       const clauses = [];
       const values = [];
       if (request.user.role !== 'super_admin') {
         const regions = await getRegions(pool);
-        const scope = [...auditRegionIds(request.user, regions)];
+        const allowed = adminRegionIds(request.user, regions);
+        const scope = regions.filter((region) => allowed.has(Number(region.id)) && region.type !== 'country').map((region) => Number(region.id));
         const placeholders = scope.map(() => '?').join(', ');
         clauses.push(`(actor.region_id IN (${placeholders}) OR target.region_id IN (${placeholders}))`);
         values.push(...scope, ...scope);
@@ -646,23 +586,8 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         clauses.push('a.id < ?');
         values.push(cursor);
       }
-      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
-      let total = null;
-      let pages = null;
-      let page = null;
-      if (paged) {
-        const [countRows] = await pool.execute(
-          `SELECT COUNT(*) AS total FROM audit_log a
-           LEFT JOIN users actor ON actor.id = a.user_id
-           LEFT JOIN users target ON a.entity = 'user' AND target.id = a.entity_id
-           ${where}`,
-          values,
-        );
-        total = Number(countRows[0].total);
-        pages = Math.max(1, Math.ceil(total / limit));
-        page = Math.min(requestedPage, pages);
-      }
       values.push(limit);
+      const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       const [items] = await pool.execute(
         `SELECT a.id, a.user_id, a.action, a.entity, a.entity_id, a.meta, a.ip, a.created_at,
                 actor.username AS actor_username, target.username AS target_username
@@ -670,10 +595,9 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
          LEFT JOIN users actor ON actor.id = a.user_id
          LEFT JOIN users target ON a.entity = 'user' AND target.id = a.entity_id
          ${where}
-         ORDER BY a.id DESC LIMIT ?${paged ? ` OFFSET ${(page - 1) * limit}` : ''}`,
+         ORDER BY a.id DESC LIMIT ?`,
         values,
       );
-      if (paged) return response.json({ items, page, pages, total, limit });
       return response.json({ items, next_cursor: items.length === limit ? String(items.at(-1).id) : null });
     } catch (error) {
       return next(error);

@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import express from 'express';
 import QRCode from 'qrcode';
 import {
@@ -26,18 +26,13 @@ import {
   setOpaqueCookie,
 } from '../auth/sessions.js';
 
-import { createRateLimiter } from '../lib/ratelimit.js';
-
-// Per (client address, username): stops one client guessing.
 const FAILURE_THRESHOLD = 5;
-// Per username across all addresses: stops a distributed guess. Higher, so that it is hard to use for locking someone out.
-const GLOBAL_FAILURE_THRESHOLD = 30;
 const FAILURE_LOCK_SECONDS = 15 * 60;
-const MAX_USERNAME_LENGTH = 80;
-const MAX_PASSWORD_LENGTH = 1024;
-const MAX_PENDING_CODE_FAILURES = 5;
 const DUMMY_PASSWORD_HASH = `scrypt$16384$8$1$${'00'.repeat(16)}$${'00'.repeat(64)}`;
-const ANY_ADDRESS = '*';
+
+function hashIdentity(value) {
+  return createHash('sha256').update(value).digest();
+}
 
 function audit(pool, userId, action, entity, entityId, request, meta = null) {
   return pool.execute(
@@ -48,20 +43,20 @@ function audit(pool, userId, action, entity, entityId, request, meta = null) {
 }
 
 function validPassword(password, username) {
-  return typeof password === 'string' && password.length >= 10 && password.length <= MAX_PASSWORD_LENGTH &&
-    password.toLocaleLowerCase() !== username.toLocaleLowerCase();
+  return typeof password === 'string' && password.length >= 10 && password.toLocaleLowerCase() !== username.toLocaleLowerCase();
 }
 
-async function isLocked(pool, ipHash, usernameHash, anyAddressHash) {
+
+async function isLocked(pool, ipHash, usernameHash) {
   const [rows] = await pool.execute(
-    `SELECT COUNT(*) AS locked FROM login_attempts
-     WHERE username_hash = ? AND ip_hash IN (?, ?) AND locked_until IS NOT NULL AND locked_until > UTC_TIMESTAMP()`,
-    [usernameHash, ipHash, anyAddressHash],
+    `SELECT locked_until IS NOT NULL AND locked_until > UTC_TIMESTAMP() AS is_locked
+     FROM login_attempts WHERE ip_hash = ? AND username_hash = ?`,
+    [ipHash, usernameHash],
   );
-  return Number(rows[0]?.locked) > 0;
+  return Number(rows[0]?.is_locked) === 1;
 }
 
-async function recordFailure(pool, ipHash, usernameHash, threshold = FAILURE_THRESHOLD) {
+async function recordFailure(pool, ipHash, usernameHash) {
   await pool.execute(
     `INSERT INTO login_attempts (ip_hash, username_hash, failed_count, locked_until, updated_at)
      VALUES (?, ?, 1, NULL, UTC_TIMESTAMP())
@@ -69,15 +64,12 @@ async function recordFailure(pool, ipHash, usernameHash, threshold = FAILURE_THR
        failed_count = IF(locked_until IS NOT NULL AND locked_until <= UTC_TIMESTAMP(), 1, failed_count + 1),
        locked_until = IF(failed_count >= ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${FAILURE_LOCK_SECONDS} SECOND), NULL),
        updated_at = UTC_TIMESTAMP()`,
-    [ipHash, usernameHash, threshold],
+    [ipHash, usernameHash, FAILURE_THRESHOLD],
   );
 }
 
-async function clearFailures(pool, ipHash, usernameHash, anyAddressHash) {
-  await pool.execute(
-    'DELETE FROM login_attempts WHERE username_hash = ? AND ip_hash IN (?, ?)',
-    [usernameHash, ipHash, anyAddressHash],
-  );
+async function clearFailures(pool, ipHash, usernameHash) {
+  await pool.execute('DELETE FROM login_attempts WHERE ip_hash = ? AND username_hash = ?', [ipHash, usernameHash]);
 }
 
 export function createAuthMiddleware(pool, config, clock = Date.now) {
@@ -117,47 +109,8 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
   const router = express.Router();
   const pendingStore = createPendingStore(clock);
   const authenticate = createAuthMiddleware(pool, config, clock);
-  // Password hashing is expensive, so the credential endpoints get their own per-address budget on top of the lockout.
-  const credentialRateLimit = createRateLimiter({ limit: 30, windowMs: 60_000, clock });
-  router.use(['/login', '/totp', '/change-password'], (request, response, next) => (
-    request.method === 'POST' ? credentialRateLimit(request, response, next) : next()
-  ));
-
-  // Keyed with APP_SECRET so the stored values cannot be reversed by hashing the IPv4 space.
-  const hashIdentity = (value) => createHmac('sha256', config.appSecret).update(String(value)).digest();
-  const anyAddressHash = hashIdentity(ANY_ADDRESS);
-  // `username` must be the canonical stored name when the account exists: the database compares
-  // names case-insensitively, so keying by what was typed would let "Admin"/"aDmin" dodge the lockout.
-  function attemptKeys(request, username) {
-    return {
-      ipHash: hashIdentity(request.ip ?? 'unknown'),
-      usernameHash: hashIdentity(String(username).normalize('NFKC').toLocaleLowerCase()),
-    };
-  }
-  async function lockedOut(request, username) {
-    const { ipHash, usernameHash } = attemptKeys(request, username);
-    return isLocked(pool, ipHash, usernameHash, anyAddressHash);
-  }
-  async function countFailure(request, username) {
-    const { ipHash, usernameHash } = attemptKeys(request, username);
-    await recordFailure(pool, ipHash, usernameHash);
-    await recordFailure(pool, anyAddressHash, usernameHash, GLOBAL_FAILURE_THRESHOLD);
-  }
-  // Counters are only reset once the *whole* login (password and second factor) has succeeded;
-  // resetting after the password step alone would give unlimited second-factor guesses.
-  async function resetFailures(request, username) {
-    const { ipHash, usernameHash } = attemptKeys(request, username);
-    await clearFailures(pool, ipHash, usernameHash, anyAddressHash);
-  }
-  // A pending (password-verified) login may only try a few codes before it has to start over.
-  function countPendingFailure(context) {
-    context.pending.failures = (context.pending.failures ?? 0) + 1;
-    if (context.pending.failures >= MAX_PENDING_CODE_FAILURES) pendingStore.delete(context.token);
-  }
-
   async function finishLogin(request, response, user, { rememberDevice = false, extra = {} } = {}) {
     const now = clock();
-    await resetFailures(request, user.username);
     const session = await createSession(pool, user.id, request, now);
     setOpaqueCookie(response, 'session', session.token, config.nodeEnv, now);
     const pendingToken = readCookie(request, 'pending', config.nodeEnv);
@@ -190,8 +143,10 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     try {
       const username = typeof request.body?.username === 'string' ? request.body.username.trim() : '';
       const password = typeof request.body?.password === 'string' ? request.body.password : '';
-      if (username.length > MAX_USERNAME_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-        return response.status(401).json({ error: 'نام کاربری یا گذرواژه نادرست است.' });
+      const ipHash = hashIdentity(request.ip ?? 'unknown');
+      const usernameHash = hashIdentity(username.toLocaleLowerCase());
+      if (await isLocked(pool, ipHash, usernameHash)) {
+        return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
       }
       const [rows] = await pool.execute(
         `SELECT id, username, full_name, role, region_id, password_hash, is_active,
@@ -200,16 +155,13 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         [username],
       );
       const user = rows[0];
-      const lockName = user?.username ?? username;
-      if (await lockedOut(request, lockName)) {
-        return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
-      }
       const passwordOk = await verifyPassword(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
       if (!user || !user.is_active || !passwordOk) {
-        await countFailure(request, lockName);
+        await recordFailure(pool, ipHash, usernameHash);
         await audit(pool, user?.id, 'auth.login_failed', 'user', user?.id, request);
         return response.status(401).json({ error: 'نام کاربری یا گذرواژه نادرست است.' });
       }
+      await clearFailures(pool, ipHash, usernameHash);
 
       if (user.totp_enabled) {
         const deviceToken = readCookie(request, 'device', config.nodeEnv);
@@ -258,14 +210,15 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         return response.status(401).json({ error: 'ابتدا راه‌اندازی برنامهٔ رمزساز را انجام دهید.' });
       }
       const code = typeof request.body?.code === 'string' ? request.body.code : '';
-      if (await lockedOut(request, context.user.username)) {
+      const ipHash = hashIdentity(request.ip ?? 'unknown');
+      const usernameHash = hashIdentity(context.user.username.toLocaleLowerCase());
+      if (await isLocked(pool, ipHash, usernameHash)) {
         return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
       }
       const secretBytes = base32Decode(context.pending.totpSecret);
       const step = verifyTotp(code, secretBytes, { time: clock(), lastStep: -1 });
       if (step === null) {
-        await countFailure(request, context.user.username);
-        countPendingFailure(context);
+        await recordFailure(pool, ipHash, usernameHash);
         await audit(pool, context.user.id, 'auth.totp_failed', 'user', context.user.id, request);
         return response.status(401).json({ error: 'کد واردشده معتبر نیست.' });
       }
@@ -290,6 +243,7 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       } finally {
         connection.release();
       }
+      await clearFailures(pool, hashIdentity(request.ip ?? 'unknown'), hashIdentity(context.user.username.toLocaleLowerCase()));
       await audit(pool, context.user.id, 'auth.totp_enabled', 'user', context.user.id, request);
       return finishLogin(request, response, context.user, { extra: { backup_codes: codes } });
     } catch (error) {
@@ -303,8 +257,10 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       if (!context || !context.user.totp_enabled || !context.user.totp_secret_enc) {
         return response.status(401).json({ error: 'مرحلهٔ تأیید دومعتبره منقضی شده است؛ دوباره وارد شوید.' });
       }
-      const code = typeof request.body?.code === 'string' ? request.body.code.trim().slice(0, 64) : '';
-      if (await lockedOut(request, context.user.username)) {
+      const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+      const ipHash = hashIdentity(request.ip ?? 'unknown');
+      const usernameHash = hashIdentity(context.user.username.toLocaleLowerCase());
+      if (await isLocked(pool, ipHash, usernameHash)) {
         return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
       }
 
@@ -338,11 +294,11 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       }
 
       if (!valid) {
-        await countFailure(request, context.user.username);
-        countPendingFailure(context);
+        await recordFailure(pool, ipHash, usernameHash);
         await audit(pool, context.user.id, 'auth.totp_failed', 'user', context.user.id, request);
         return response.status(401).json({ error: 'کد واردشده معتبر نیست.' });
       }
+      await clearFailures(pool, ipHash, usernameHash);
       const rememberDevice = request.body?.remember === undefined || request.body.remember === true;
       if (rememberDevice) {
         const device = await createTrustedDevice(pool, context.user.id, request, clock());
@@ -386,14 +342,11 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
 
   router.post('/change-password', authenticate, async (request, response, next) => {
     try {
-      const oldPassword = typeof request.body?.old_password === 'string' ? request.body.old_password.slice(0, MAX_PASSWORD_LENGTH + 1) : '';
+      const oldPassword = typeof request.body?.old_password === 'string' ? request.body.old_password : '';
       const newPassword = typeof request.body?.new_password === 'string' ? request.body.new_password : '';
       const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ?', [request.user.id]);
       if (!await verifyPassword(oldPassword, rows[0]?.password_hash ?? DUMMY_PASSWORD_HASH)) {
         return response.status(400).json({ error: 'گذرواژهٔ فعلی نادرست است.' });
-      }
-      if (newPassword === oldPassword) {
-        return response.status(400).json({ error: 'گذرواژهٔ تازه نباید با گذرواژهٔ فعلی یکسان باشد.' });
       }
       if (!validPassword(newPassword, request.user.username)) {
         return response.status(400).json({ error: 'گذرواژهٔ تازه باید دست‌کم ۱۰ نویسه باشد و با نام کاربری یکسان نباشد.' });
