@@ -109,9 +109,33 @@ export function initRichEditor({ editor, toolbar, askLink = async () => '' }) {
     prepare();
     if (command === 'bold' || command === 'italic' || command === 'underline') document.execCommand(command);
     else if (command === 'link') await applyLink();
+    else if (command === 'unlink') {
+      // With only the caret in a link, or part of one selected, the browser does nothing or cuts the link in two:
+      // take the whole link, which is what "remove link" means.
+      const range = selectionInside()?.getRangeAt(0);
+      const whole = range && elementOf(range.commonAncestorContainer)?.closest('a');
+      if (whole && editor.contains(whole)) {
+        const selection = getSelection();
+        selection.removeAllRanges();
+        const wholeRange = document.createRange();
+        wholeRange.selectNodeContents(whole);
+        selection.addRange(wholeRange);
+      }
+      document.execCommand('unlink');
+    }
     else if (ALIGN_BY_COMMAND[command]) applyAlignment(ALIGN_BY_COMMAND[command]);
     else if (command === 'bullets' || command === 'numbers' || command === 'persian') applyList(command);
     refresh();
+  }
+
+  // The link the caret or the selection touches, so "remove link" is only offered where there is one.
+  function linkAtSelection() {
+    const selection = selectionInside();
+    if (!selection) return null;
+    const range = selection.getRangeAt(0);
+    const inside = elementOf(range.commonAncestorContainer)?.closest('a');
+    if (inside && editor.contains(inside)) return inside;
+    return [...editor.querySelectorAll('a')].find((anchor) => range.intersectsNode(anchor)) ?? null;
   }
 
   function refresh() {
@@ -128,6 +152,7 @@ export function initRichEditor({ editor, toolbar, askLink = async () => '' }) {
           else if (command === 'persian') { const list = currentList(); pressed = list?.tagName === 'OL' && list.classList.contains('fa-num'); }
         } catch {}
       }
+      if (command === 'unlink') { button.disabled = !(selection && linkAtSelection()); continue; }
       button.setAttribute('aria-pressed', String(Boolean(pressed)));
     }
   }

@@ -420,3 +420,5 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .rich-editor .ta-center,.admin-news-body .ta-center{text-align:center}
 .rich-editor .ta-justify,.admin-news-body .ta-justify{text-align:justify}
 .rich-editor ol.fa-num,.admin-news-body ol.fa-num{list-style-type:persian}
+.rich-toolbar button:disabled{opacity:.4;cursor:default}
+.rich-toolbar button:disabled:hover{border-color:var(--border);color:var(--text)}
