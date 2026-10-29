@@ -1,4 +1,4 @@
-import { initRichEditor } from '/shared/rich-editor.v0.1.42.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.43.js';
 import {
   JALALI_MONTHS,
 
@@ -1090,23 +1090,40 @@ function quickBodyHtml(text) {
   return text.split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
 }
 
+// The preview is a data: URL (read with FileReader), never blob: - the policy and some proxies refuse blob: images,
+// which left the thumbnail broken. If the browser cannot decode the picture (e.g. HEIC), the preview is skipped but the file is still sent.
+let quickCoverToken = 0;
+
 function setQuickCover(file) {
   const form = document.getElementById('quick-form');
   const chip = document.getElementById('quick-attachment');
-  if (state.quickCoverUrl) URL.revokeObjectURL(state.quickCoverUrl);
+  const thumb = chip.querySelector('img');
+  const token = ++quickCoverToken;
   state.quickCoverUrl = '';
+  thumb.removeAttribute('src');
   if (file && !file.type.startsWith('image/')) { document.getElementById('quick-error').textContent = 'فقط فایل عکس پذیرفته می‌شود.'; file = null; form.elements.cover.value = ''; }
   if (file) {
-    state.quickCoverUrl = URL.createObjectURL(file);
-    chip.querySelector('img').src = state.quickCoverUrl;
     chip.querySelector('.attach-name').textContent = file.name;
     chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(file.size / 1024)))} کیلوبایت`;
-  } else {
-    chip.querySelector('img').removeAttribute('src');
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (token !== quickCoverToken) return;
+      state.quickCoverUrl = String(reader.result);
+      thumb.hidden = false;
+      thumb.src = state.quickCoverUrl;
+      renderQuickPreview();
+    };
+    reader.onerror = () => { if (token === quickCoverToken) thumb.hidden = true; };
+    reader.readAsDataURL(file);
   }
   chip.hidden = !file;
   renderQuickPreview();
 }
+
+// A picture the browser cannot decode must not show as a broken thumbnail; the file itself is still uploaded.
+document.querySelectorAll('#quick-attachment img, #quick-bubble .bubble-cover img').forEach((image) => {
+  image.addEventListener('error', () => { if (image.getAttribute('src')) image.hidden = true; });
+});
 
 function renderQuickPreview() {
   const form = document.getElementById('quick-form');
@@ -1118,7 +1135,8 @@ function renderQuickPreview() {
   bubble.querySelector('.bubble-title').textContent = title || 'عنوان خبر';
   bubble.querySelector('.bubble-text').textContent = text || 'متن خبر شما اینجا مثل یک پیام دیده می‌شود.';
   cover.hidden = !state.quickCoverUrl;
-  if (state.quickCoverUrl) cover.querySelector('img').src = state.quickCoverUrl;
+  const coverImage = cover.querySelector('img');
+  if (state.quickCoverUrl) { coverImage.hidden = false; coverImage.src = state.quickCoverUrl; } else coverImage.removeAttribute('src');
   const textarea = form.elements.text;
   // Measured while the screen is hidden, scrollHeight is 0 and the box used to collapse until the first keystroke.
   textarea.style.height = 'auto';
