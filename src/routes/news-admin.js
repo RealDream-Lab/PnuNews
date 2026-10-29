@@ -1,11 +1,13 @@
 import express from 'express';
 import { appEvents, emitNewsPublished } from '../events.js';
-import { canDeleteNews, canEditNews, canPublishTo, canViewNews, adminRegionIds } from '../auth/policy.js';
+import { ensureDefaultCategory } from '../news/default-category.js';
+import { canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
 import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
 
 const NEWS_STATUSES = new Set(['draft', 'scheduled', 'published']);
+const NEWS_TYPES = new Set(['news', 'announcement']);
 
 function idValue(value) {
   const id = Number(value);
@@ -79,14 +81,17 @@ async function loadTargets(pool, newsId) {
   return rows;
 }
 
-async function validateTargets(pool, user, targetIds, regions) {
+async function validateTargets(pool, user, targetIds, regions, keepIds = []) {
   if (!Array.isArray(targetIds) || targetIds.length > 100) return null;
   const ids = targetIds.map(idValue);
   if (ids.some((id) => !id) || new Set(ids).size !== ids.length) return null;
   if (!ids.length) return [];
   const regionMap = new Map(regions.map((region) => [Number(region.id), region]));
   const targets = ids.map((id) => regionMap.get(id));
-  if (targets.some((region) => !region || !canPublishTo(user, region, regions))) return null;
+  const kept = new Set(keepIds.map(Number));
+  // Targets already attached to the news were validated when they were added; a moderator (e.g. the
+  // central PR user editing a province's news) must be able to keep them even if they could not add them.
+  if (targets.some((region) => !region || (!kept.has(Number(region.id)) && !canPublishTo(user, region, regions)))) return null;
   return targets;
 }
 
@@ -102,14 +107,14 @@ async function getPolicyNews(pool, user, id) {
   ]);
   if (!news) return null;
   news._regions = regions;
-  const canView = canViewNews(user, news, regions);
-  return { news, regions, canView, canEdit: canView && editorCanEdit(user, news, peerEditEnabled) };
+  const canView = canViewNews(user, news, { regions, peerEditEnabled });
+  return { news, regions, canView, canEdit: canView && !news.source_url && editorCanEdit(user, news, peerEditEnabled) };
 }
 
-function publisherUnit(user, region) {
-  if (region.type === 'country') return 'روابط عمومی کل کشور';
-  if (region.type === 'province') return `روابط عمومی استان ${region.name}`;
-  return `روابط عمومی مرکز دانشگاهی ${region.name}`;
+function publisherUnit(creatorRole, region) {
+  if (region.type === 'country') return creatorRole === 'country_admin' ? 'روابط عمومی سازمان مرکزی' : 'روابط عمومی کل کشور';
+  if (region.type === 'province') return `دانشگاه پیام نور استان ${region.name}`;
+  return `دانشگاه پیام نور ${region.name}`;
 }
 
 function auditNews(connection, userId, action, newsId, request, meta = null) {
@@ -135,17 +140,22 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const regions = await loadRegions(pool);
       const clauses = ['n.deleted_at IS NULL'];
       const values = [];
-      if (request.user.role !== 'super_admin') {
-        const ids = [...adminRegionIds(request.user, regions)];
-        if (!ids.length) return response.json({ items: [], next_cursor: null });
-        clauses.push(`n.origin_region_id IN (${ids.map(() => '?').join(', ')})`);
-        values.push(...ids);
+      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: await loadPeerSetting(pool) });
+      if (visibility) {
+        clauses.push(visibility.sql);
+        values.push(...visibility.values);
       }
       const status = request.query.status;
       if (status && status !== 'all') {
         if (!NEWS_STATUSES.has(status)) return response.status(400).json({ error: 'وضعیت خبر معتبر نیست.' });
         clauses.push('n.status = ?');
         values.push(status);
+      }
+      const type = request.query.type;
+      if (type && type !== 'all') {
+        if (!NEWS_TYPES.has(type)) return response.status(400).json({ error: 'نوع مطلب معتبر نیست.' });
+        clauses.push('n.news_type = ?');
+        values.push(type);
       }
       const categoryId = request.query.category ? idValue(request.query.category) : null;
       if (request.query.category && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
@@ -161,29 +171,53 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const scope = request.query.scope ?? (request.query.mine === '1' ? 'mine' : 'all');
       if (!['mine', 'all'].includes(scope)) return response.status(400).json({ error: 'محدودهٔ خبر معتبر نیست.' });
       if (scope === 'mine') { clauses.push('n.created_by = ?'); values.push(request.user.id); }
-      const cursor = request.query.cursor ? cursorDecode(request.query.cursor) : null;
-      if (request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
+      // source=manual leaves out the automatic portal news (they are handled in the news-feed view)
+      const source = request.query.source ?? 'all';
+      if (!['all', 'manual', 'portal'].includes(source)) return response.status(400).json({ error: 'منبع خبر معتبر نیست.' });
+      if (source === 'manual') clauses.push('n.source_url IS NULL');
+      else if (source === 'portal') clauses.push('n.source_url IS NOT NULL');
+      const requestedLimit = Number(request.query.limit ?? 20);
+      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 20;
+      // Numbered pages (`page=N`, with a total) are what the admin panel uses; `cursor` keeps working for other clients.
+      const paged = request.query.page !== undefined;
+      const requestedPage = Number(request.query.page);
+      if (paged && (!Number.isSafeInteger(requestedPage) || requestedPage < 1 || requestedPage > 100_000)) {
+        return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
+      }
+      let total = null;
+      let pages = null;
+      let page = null;
+      if (paged) {
+        const [countRows] = await pool.execute(
+          `SELECT COUNT(*) AS total FROM news n JOIN users creator ON creator.id = n.created_by WHERE ${clauses.join(' AND ')}`,
+          values,
+        );
+        total = Number(countRows[0].total);
+        pages = Math.max(1, Math.ceil(total / limit));
+        page = Math.min(requestedPage, pages);
+      }
+      const cursor = !paged && request.query.cursor ? cursorDecode(request.query.cursor) : null;
+      if (!paged && request.query.cursor && !cursor) return response.status(400).json({ error: 'نشانگر صفحه معتبر نیست.' });
       if (cursor) {
         clauses.push('(n.updated_at < ? OR (n.updated_at = ? AND n.id < ?))');
         values.push(cursor.updatedAt, cursor.updatedAt, cursor.id);
       }
-      const requestedLimit = Number(request.query.limit ?? 20);
-      const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(50, requestedLimit)) : 20;
-      values.push(limit + 1);
+      values.push(paged ? limit : limit + 1);
       const [items] = await pool.execute(
-        `SELECT n.id, n.title, n.summary, n.category_id, n.status, n.published_at, n.expires_at,
+        `SELECT n.id, n.title, n.summary, n.category_id, n.news_type, n.status, n.published_at, n.expires_at,
                 n.is_pinned, n.is_urgent, n.view_count, n.origin_region_id, n.publisher_name,
-                n.publisher_unit, n.created_by, n.updated_at, r.name AS origin_region_name,
+                n.publisher_unit, n.source_url, n.created_by, n.updated_at, r.name AS origin_region_name,
                 r.type AS origin_region_type, c.name AS category_name,
                 cover.stored_name AS cover_stored_name, cover.dominant_color AS cover_dominant_color
          FROM news n JOIN regions r ON r.id = n.origin_region_id
+         JOIN users creator ON creator.id = n.created_by
          LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          WHERE ${clauses.join(' AND ')}
-         ORDER BY n.updated_at DESC, n.id DESC LIMIT ?`,
+         ORDER BY n.updated_at DESC, n.id DESC LIMIT ?${paged ? ` OFFSET ${(page - 1) * limit}` : ''}`,
         values,
       );
-      const hasMore = items.length > limit;
+      const hasMore = !paged && items.length > limit;
       if (hasMore) items.pop();
       let nextCursor = null;
       if (hasMore && items.length) nextCursor = cursorEncode(items.at(-1));
@@ -203,7 +237,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         }
         for (const item of items) item.targets = grouped.get(item.id) ?? [];
       }
-      return response.json({ items, next_cursor: nextCursor });
+      return response.json(paged ? { items, page, pages, total, limit } : { items, next_cursor: nextCursor });
     } catch (error) {
       return next(error);
     }
@@ -213,12 +247,18 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     const content = cleanTitleAndContent(request.body ?? {});
     if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
     if (request.body?.status && request.body.status !== 'draft') return response.status(400).json({ error: 'خبر را پس از ذخیره از مسیر انتشار منتشر کنید.' });
-    const categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
-    if (request.body?.category_id != null && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
+    let categoryId = request.body?.category_id == null ? null : idValue(request.body.category_id);
+    // The quick form sends no category: the default one is used (and created when missing).
+    const wantsDefaultCategory = request.body?.default_category === true && request.body?.category_id == null;
+    if (!categoryId && !wantsDefaultCategory) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
+    const newsType = request.body?.news_type ?? 'news';
+    if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
     try {
       const regions = await loadRegions(pool);
       const targets = await validateTargets(pool, request.user, request.body?.targets ?? [], regions);
       if (!targets) return response.status(403).json({ error: 'یک یا چند مقصد انتشار مجاز نیست.' });
+      let categoryCreated = false;
+      if (wantsDefaultCategory) ({ id: categoryId, created: categoryCreated } = await ensureDefaultCategory(pool));
       if (categoryId) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);
         if (!categories.length) return response.status(400).json({ error: 'دسته‌بندی فعال پیدا نشد.' });
@@ -228,9 +268,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       try {
         await connection.beginTransaction();
         const [result] = await connection.execute(
-          `INSERT INTO news (title, summary, body_html, search_text, category_id, origin_region_id, created_by, updated_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [content.title, content.summary, content.body_html, content.search_text, categoryId, request.user.region_id, request.user.id, request.user.id],
+          `INSERT INTO news (title, summary, body_html, search_text, category_id, news_type, origin_region_id, created_by, updated_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [content.title, content.summary, content.body_html, content.search_text, categoryId, newsType, request.user.region_id, request.user.id, request.user.id],
         );
         newsId = result.insertId;
         await updateNewsTargets(connection, newsId, targets);
@@ -243,7 +283,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         connection.release();
       }
       appEvents.emit('news.changed', { id: Number(newsId) });
-      return response.status(201).json({ id: newsId, status: 'draft' });
+      return response.status(201).json({ id: newsId, status: 'draft', category_id: categoryId, category_created: categoryCreated });
     } catch (error) {
       return next(error);
     }
@@ -262,7 +302,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       );
       const news = { ...context.news };
       delete news._regions;
-      news.body_html = sanitizeBodyHtml(news.body_html);
+      news.body_html = sanitizeBodyHtml(news.body_html, { brand: true });
       news.targets = await loadTargets(pool, id);
       news.attachments = attachments.map((attachment) => ({
         ...attachment,
@@ -292,14 +332,18 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       });
       if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });
       const categoryId = request.body?.category_id === undefined ? context.news.category_id : request.body.category_id == null ? null : idValue(request.body.category_id);
-      if (request.body?.category_id !== undefined && request.body.category_id != null && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
-      if (categoryId) {
+      if (!categoryId) return response.status(400).json({ error: 'انتخاب دسته‌بندی الزامی است.' });
+      // A category that was deactivated after this news was written may stay on it; only a *change* needs an active one.
+      if (categoryId && Number(categoryId) !== Number(context.news.category_id)) {
         const [categories] = await pool.execute('SELECT id FROM categories WHERE id = ? AND is_active = 1', [categoryId]);
         if (!categories.length) return response.status(400).json({ error: 'دسته‌بندی فعال پیدا نشد.' });
       }
+      const newsType = request.body?.news_type === undefined ? context.news.news_type : request.body.news_type;
+      if (!NEWS_TYPES.has(newsType)) return response.status(400).json({ error: 'نوع مطلب باید «خبر» یا «اطلاعیه» باشد.' });
       let targets = null;
       if (request.body?.targets !== undefined) {
-        targets = await validateTargets(pool, request.user, request.body.targets, context.regions);
+        const existingTargets = await loadTargets(pool, id);
+        targets = await validateTargets(pool, request.user, request.body.targets, context.regions, existingTargets.map((target) => target.id));
         if (!targets) return response.status(403).json({ error: 'یک یا چند مقصد انتشار مجاز نیست.' });
       }
       const expiresAt = request.body?.expires_at === undefined ? context.news.expires_at : parseDate(request.body.expires_at);
@@ -308,9 +352,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       try {
         await connection.beginTransaction();
         await connection.execute(
-          `UPDATE news SET title = ?, summary = ?, body_html = ?, search_text = ?, category_id = ?, expires_at = ?, updated_by = ?
+          `UPDATE news SET title = ?, summary = ?, body_html = ?, search_text = ?, category_id = ?, news_type = ?, expires_at = ?, updated_by = ?
            WHERE id = ? AND deleted_at IS NULL`,
-          [content.title, content.summary, content.body_html, content.search_text, categoryId, expiresAt, request.user.id, id],
+          [content.title, content.summary, content.body_html, content.search_text, categoryId, newsType, expiresAt, request.user.id, id],
         );
         if (targets) await updateNewsTargets(connection, id, targets);
         await auditNews(connection, request.user.id, 'news.update', id, request, targets ? { target_ids: targets.map((target) => target.id) } : null);
@@ -364,7 +408,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       if (!context?.canView) return response.status(404).json({ error: 'خبر پیدا نشد.' });
       if (!context.canEdit) return response.status(403).json({ error: 'اجازهٔ انتشار این خبر را ندارید.' });
       const targets = await loadTargets(pool, id);
-      if (!targets.length || targets.some((target) => !canPublishTo(request.user, target, context.regions))) {
+      if (!targets.length) {
         return response.status(400).json({ error: 'برای انتشار باید دست‌کم یک مقصد مجاز انتخاب کنید.' });
       }
       const publishedAt = request.body?.published_at === undefined ? new Date(clock()) : parseDate(request.body.published_at);
@@ -375,7 +419,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const scheduled = publishedAt.getTime() > clock();
       const status = scheduled ? 'scheduled' : 'published';
       const origin = context.regions.find((region) => Number(region.id) === Number(context.news.origin_region_id));
-      const unit = publisherUnit(request.user, origin);
+      const unit = publisherUnit(context.news.created_by_role, origin);
       const firstPublish = context.news.published_by_user_id == null;
       const publisherName = firstPublish ? request.user.full_name : context.news.publisher_name;
       const publisherUnitSnapshot = firstPublish ? unit : context.news.publisher_unit;
