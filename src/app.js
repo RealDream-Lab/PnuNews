@@ -87,11 +87,6 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
   app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter, fetchImpl }));
-  // The management panel moved from /admin to /dashboard; old links and bookmarks keep working.
-  app.use('/admin', (request, response, next) => {
-    if (!['GET', 'HEAD'].includes(request.method)) return next();
-    return response.redirect(301, `/dashboard${request.originalUrl.slice('/admin'.length)}`);
-  });
   app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));

@@ -18,7 +18,7 @@ async function get(server, path) {
   });
 }
 
-test('dashboard lives at /dashboard, /admin redirects there, and it is an installable web app', async () => {
+test('dashboard lives at /dashboard, /admin is gone, and it is an installable web app', async () => {
   const staticAssets = await createStaticAssets(fileURLToPath(new URL('../public/', import.meta.url)));
   const server = http.createServer(createApp({ pool: {}, config, staticAssets }));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -28,11 +28,8 @@ test('dashboard lives at /dashboard, /admin redirects there, and it is an instal
     assert.match(page.body, /<link rel="manifest" href="\/dashboard\/manifest\.webmanifest"/);
     assert.ok(!page.body.includes('/admin/'), 'the page must not reference /admin/ any more');
 
-    for (const [from, to] of [['/admin', '/dashboard'], ['/admin/', '/dashboard/'], ['/admin?x=1', '/dashboard?x=1']]) {
-      const moved = await get(server, from);
-      assert.equal(moved.status, 301, from);
-      assert.equal(moved.headers.location, to, from);
-    }
+    // The old page address is gone for good: no redirect, no leftover files.
+    for (const old of ['/admin', '/admin/', '/admin/index.html']) assert.equal((await get(server, old)).status, 404, old);
     // The JSON API keeps its path and is not caught by the page redirect.
     assert.equal((await get(server, '/api/admin/stats')).status, 401);
 
