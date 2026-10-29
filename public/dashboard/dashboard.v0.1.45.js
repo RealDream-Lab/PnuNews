@@ -1,4 +1,4 @@
-import { initRichEditor } from '/shared/rich-editor.v0.1.44.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.45.js';
 import {
   JALALI_MONTHS,
 
@@ -902,7 +902,7 @@ function uploadWithProgress(path, formData, onProgress) {
       else if (request.status === 413) reject(new Error('حجم عکس از حد مجاز سرور بیشتر است؛ عکس کوچک‌تری انتخاب کنید.'));
       else reject(new Error(payload.error || 'ارسال فایل ناموفق بود.'));
     });
-    request.addEventListener('error', () => reject(new Error('ارسال عکس نیمه‌کاره قطع شد. اگر اینترنت وصل است، احتمالاً حجم عکس از حد پروکسی سرور بیشتر است؛ عکس کوچک‌تری امتحان کنید یا مدیر سرور را در جریان بگذارید.')));
+    request.addEventListener('error', () => reject(new Error('عکس به سرور نرسید. اگر اینترنت وصل است، عکس را دوباره از گالری یا دوربین انتخاب کنید.')));
     request.addEventListener('timeout', () => reject(new Error('مهلت ارسال تمام شد؛ دوباره تلاش کنید.')));
     request.addEventListener('abort', () => reject(new Error('ارسال لغو شد.')));
     request.send(formData);
@@ -1096,7 +1096,12 @@ function quickBodyHtml(text) {
 // previewed and sent. If the browser cannot decode it (e.g. HEIC on Android) the original file is used unchanged.
 const QUICK_COVER_MAX_SIDE = 1600;
 
-async function prepareQuickCover(file) {
+async function prepareQuickCover(original) {
+  // The bytes are read into memory right away. A picture the phone cannot read (a cloud-only gallery item, a revoked
+  // permission) fails here with a clear message, and the upload never touches the original file handle, which on
+  // Android can make the request fail before it leaves the phone.
+  const buffer = await original.arrayBuffer();
+  const file = new File([buffer], original.name || 'cover', { type: original.type || 'image/jpeg' });
   if (file.size < 400 * 1024 && /^image\/(jpeg|png|webp)$/.test(file.type)) return file;
   try {
     const bitmap = await createImageBitmap(file);
@@ -1128,6 +1133,7 @@ async function setQuickCover(original) {
   const token = ++quickCoverToken;
   state.quickCoverUrl = '';
   state.quickCoverFile = null;
+  state.quickCoverPreparing = false;
   thumb.removeAttribute('src');
   let file = original;
   if (file && !file.type.startsWith('image/')) { document.getElementById('quick-error').textContent = 'فقط فایل عکس پذیرفته می‌شود.'; file = null; form.elements.cover.value = ''; }
@@ -1136,8 +1142,20 @@ async function setQuickCover(original) {
   if (!file) return;
   chip.querySelector('.attach-name').textContent = file.name;
   chip.querySelector('.attach-size').textContent = 'در حال آماده‌سازی…';
-  const prepared = await prepareQuickCover(file);
+  state.quickCoverPreparing = true;
+  let prepared;
+  try {
+    prepared = await prepareQuickCover(file);
+  } catch {
+    if (token !== quickCoverToken) return;
+    state.quickCoverPreparing = false;
+    form.elements.cover.value = '';
+    chip.hidden = true;
+    document.getElementById('quick-error').textContent = 'این عکس از گوشی خوانده نمی‌شود (شاید هنوز دانلود نشده یا فقط در حافظهٔ ابری است). آن را دوباره از گالری یا با دوربین انتخاب کنید.';
+    return;
+  }
   if (token !== quickCoverToken) return;
+  state.quickCoverPreparing = false;
   state.quickCoverFile = prepared;
   chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(prepared.size / 1024)))} کیلوبایت`;
   const reader = new FileReader();
@@ -1209,6 +1227,8 @@ async function submitQuickCompose(event) {
     if (!text) { form.elements.text.focus(); throw new Error('متن خبر را بنویسید.'); }
     const rootId = targetModel()?.rootId;
     if (!rootId) throw new Error('محدودهٔ انتشار شما مشخص نیست.');
+    if (state.quickCoverPreparing) throw new Error('عکس هنوز آماده نشده؛ چند لحظه صبر کنید.');
+    if (form.elements.cover.files[0] && !state.quickCoverFile) throw new Error('عکس خوانده نشد؛ آن را دوباره انتخاب کنید یا حذفش کنید.');
     state.quickBusy = true;
     send.disabled = true;
     setQuickBubbleState('sending');
@@ -1227,7 +1247,7 @@ async function submitQuickCompose(event) {
       state.quickDraft = { id: created.id, signature, coverSent: false };
       created = state.quickDraft;
     }
-    const cover = created.coverSent ? null : (state.quickCoverFile ?? form.elements.cover.files[0]);
+    const cover = created.coverSent ? null : state.quickCoverFile;
     if (cover) {
       const formData = new FormData();
       formData.append('cover', cover);
