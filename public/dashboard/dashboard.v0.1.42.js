@@ -1,4 +1,4 @@
-import { initRichEditor } from '/shared/rich-editor.v0.1.45.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.42.js';
 import {
   JALALI_MONTHS,
 
@@ -899,10 +899,9 @@ function uploadWithProgress(path, formData, onProgress) {
       let payload = {};
       try { payload = JSON.parse(request.responseText); } catch {}
       if (request.status >= 200 && request.status < 300) resolve(payload);
-      else if (request.status === 413) reject(new Error('حجم عکس از حد مجاز سرور بیشتر است؛ عکس کوچک‌تری انتخاب کنید.'));
       else reject(new Error(payload.error || 'ارسال فایل ناموفق بود.'));
     });
-    request.addEventListener('error', () => reject(new Error('عکس به سرور نرسید. اگر اینترنت وصل است، عکس را دوباره از گالری یا دوربین انتخاب کنید.')));
+    request.addEventListener('error', () => reject(new Error('ارتباط با سرور قطع شد؛ اتصال اینترنت را بررسی کنید.')));
     request.addEventListener('timeout', () => reject(new Error('مهلت ارسال تمام شد؛ دوباره تلاش کنید.')));
     request.addEventListener('abort', () => reject(new Error('ارسال لغو شد.')));
     request.send(formData);
@@ -1091,89 +1090,23 @@ function quickBodyHtml(text) {
   return text.split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
 }
 
-// Phone photos are several megabytes; a proxy with a small body limit cuts such an upload and the browser then
-// reports a bare "connection lost". The picture is therefore scaled down to at most 1600 px (JPEG) before it is
-// previewed and sent. If the browser cannot decode it (e.g. HEIC on Android) the original file is used unchanged.
-const QUICK_COVER_MAX_SIDE = 1600;
-
-async function prepareQuickCover(original) {
-  // The bytes are read into memory right away. A picture the phone cannot read (a cloud-only gallery item, a revoked
-  // permission) fails here with a clear message, and the upload never touches the original file handle, which on
-  // Android can make the request fail before it leaves the phone.
-  const buffer = await original.arrayBuffer();
-  const file = new File([buffer], original.name || 'cover', { type: original.type || 'image/jpeg' });
-  if (file.size < 400 * 1024 && /^image\/(jpeg|png|webp)$/.test(file.type)) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, QUICK_COVER_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext('2d');
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close?.();
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-    if (!blob || (scale === 1 && blob.size >= file.size)) return file;
-    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'cover'}.jpg`, { type: 'image/jpeg' });
-  } catch {
-    return file;
-  }
-}
-
-// The preview is a data: URL (read with FileReader), never blob: - the policy and some proxies refuse blob: images,
-// which left the thumbnail broken. If the browser cannot decode the picture the preview is skipped but the file is still sent.
-let quickCoverToken = 0;
-
-async function setQuickCover(original) {
+function setQuickCover(file) {
   const form = document.getElementById('quick-form');
   const chip = document.getElementById('quick-attachment');
-  const thumb = chip.querySelector('img');
-  const token = ++quickCoverToken;
+  if (state.quickCoverUrl) URL.revokeObjectURL(state.quickCoverUrl);
   state.quickCoverUrl = '';
-  state.quickCoverFile = null;
-  state.quickCoverPreparing = false;
-  thumb.removeAttribute('src');
-  let file = original;
   if (file && !file.type.startsWith('image/')) { document.getElementById('quick-error').textContent = 'فقط فایل عکس پذیرفته می‌شود.'; file = null; form.elements.cover.value = ''; }
+  if (file) {
+    state.quickCoverUrl = URL.createObjectURL(file);
+    chip.querySelector('img').src = state.quickCoverUrl;
+    chip.querySelector('.attach-name').textContent = file.name;
+    chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(file.size / 1024)))} کیلوبایت`;
+  } else {
+    chip.querySelector('img').removeAttribute('src');
+  }
   chip.hidden = !file;
   renderQuickPreview();
-  if (!file) return;
-  chip.querySelector('.attach-name').textContent = file.name;
-  chip.querySelector('.attach-size').textContent = 'در حال آماده‌سازی…';
-  state.quickCoverPreparing = true;
-  let prepared;
-  try {
-    prepared = await prepareQuickCover(file);
-  } catch {
-    if (token !== quickCoverToken) return;
-    state.quickCoverPreparing = false;
-    form.elements.cover.value = '';
-    chip.hidden = true;
-    document.getElementById('quick-error').textContent = 'این عکس از گوشی خوانده نمی‌شود (شاید هنوز دانلود نشده یا فقط در حافظهٔ ابری است). آن را دوباره از گالری یا با دوربین انتخاب کنید.';
-    return;
-  }
-  if (token !== quickCoverToken) return;
-  state.quickCoverPreparing = false;
-  state.quickCoverFile = prepared;
-  chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(prepared.size / 1024)))} کیلوبایت`;
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (token !== quickCoverToken) return;
-    state.quickCoverUrl = String(reader.result);
-    thumb.hidden = false;
-    thumb.src = state.quickCoverUrl;
-    renderQuickPreview();
-  };
-  reader.onerror = () => { if (token === quickCoverToken) thumb.hidden = true; };
-  reader.readAsDataURL(prepared);
 }
-
-// A picture the browser cannot decode must not show as a broken thumbnail; the file itself is still uploaded.
-document.querySelectorAll('#quick-attachment img, #quick-bubble .bubble-cover img').forEach((image) => {
-  image.addEventListener('error', () => { if (image.getAttribute('src')) image.hidden = true; });
-});
 
 function renderQuickPreview() {
   const form = document.getElementById('quick-form');
@@ -1185,8 +1118,7 @@ function renderQuickPreview() {
   bubble.querySelector('.bubble-title').textContent = title || 'عنوان خبر';
   bubble.querySelector('.bubble-text').textContent = text || 'متن خبر شما اینجا مثل یک پیام دیده می‌شود.';
   cover.hidden = !state.quickCoverUrl;
-  const coverImage = cover.querySelector('img');
-  if (state.quickCoverUrl) { coverImage.hidden = false; coverImage.src = state.quickCoverUrl; } else coverImage.removeAttribute('src');
+  if (state.quickCoverUrl) cover.querySelector('img').src = state.quickCoverUrl;
   const textarea = form.elements.text;
   // Measured while the screen is hidden, scrollHeight is 0 and the box used to collapse until the first keystroke.
   textarea.style.height = 'auto';
@@ -1227,27 +1159,17 @@ async function submitQuickCompose(event) {
     if (!text) { form.elements.text.focus(); throw new Error('متن خبر را بنویسید.'); }
     const rootId = targetModel()?.rootId;
     if (!rootId) throw new Error('محدودهٔ انتشار شما مشخص نیست.');
-    if (state.quickCoverPreparing) throw new Error('عکس هنوز آماده نشده؛ چند لحظه صبر کنید.');
-    if (form.elements.cover.files[0] && !state.quickCoverFile) throw new Error('عکس خوانده نشد؛ آن را دوباره انتخاب کنید یا حذفش کنید.');
     state.quickBusy = true;
     send.disabled = true;
     setQuickBubbleState('sending');
-    // If an earlier attempt created the draft but the picture failed, retry with that draft instead of making a duplicate.
-    const signature = JSON.stringify([title, text, rootId]);
-    let created = state.quickDraft?.signature === signature ? state.quickDraft : null;
-    if (!created) {
-      state.quickDraft = null;
-      created = await api('/api/admin/news', {
-        method: 'POST',
-        body: { title, summary: quickExcerpt(text), news_type: 'news', default_category: true, body_html: quickBodyHtml(text), targets: [rootId] },
-      });
-      if (created.category_created) {
-        try { state.categories = (await api('/api/admin/categories')).categories; } catch {}
-      }
-      state.quickDraft = { id: created.id, signature, coverSent: false };
-      created = state.quickDraft;
+    const created = await api('/api/admin/news', {
+      method: 'POST',
+      body: { title, summary: quickExcerpt(text), news_type: 'news', default_category: true, body_html: quickBodyHtml(text), targets: [rootId] },
+    });
+    if (created.category_created) {
+      try { state.categories = (await api('/api/admin/categories')).categories; } catch {}
     }
-    const cover = created.coverSent ? null : state.quickCoverFile;
+    const cover = form.elements.cover.files[0];
     if (cover) {
       const formData = new FormData();
       formData.append('cover', cover);
@@ -1256,11 +1178,9 @@ async function submitQuickCompose(event) {
       bar.hidden = false;
       try {
         await uploadWithProgress(`/api/admin/news/${created.id}/attachments`, formData, (ratio) => { bar.value = Math.round(ratio * 100); });
-        created.coverSent = true;
       } finally { bar.hidden = true; }
     }
     await api(`/api/admin/news/${created.id}/publish`, { method: 'POST', body: {} });
-    state.quickDraft = null;
     setQuickBubbleState('sent');
     showToast('خبر با موفقیت منتشر شد.');
     loadMobileNews('mine', 1);
