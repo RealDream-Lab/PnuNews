@@ -1,4 +1,4 @@
-import { initDock } from '/shared/dock.v0.1.35.js';
+import { initDock } from '/shared/dock.v0.1.36.js';
 import {
   JALALI_MONTHS,
 
@@ -301,6 +301,7 @@ function goToView(view) {
   else if (actualView === 'mobile-recent') loadMobileNews('mine', 1);
   else if (actualView === 'mobile-feed') loadMobileNews('all', 1);
   else if (actualView === 'profile') loadProfile();
+  if (actualView === 'mobile-compose') renderQuickPreview();
   document.querySelector('.admin-content').scrollIntoView({ block: 'start', behavior: 'auto' });
 }
 
@@ -1053,8 +1054,9 @@ function renderQuickPreview() {
   cover.hidden = !state.quickCoverUrl;
   if (state.quickCoverUrl) cover.querySelector('img').src = state.quickCoverUrl;
   const textarea = form.elements.text;
+  // Measured while the screen is hidden, scrollHeight is 0 and the box used to collapse until the first keystroke.
   textarea.style.height = 'auto';
-  textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+  if (textarea.scrollHeight > 0) textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
 }
 
 function setQuickBubbleState(mode) {
@@ -1888,6 +1890,16 @@ function bindEvents() {
     showAuth('login-card');
   });
   document.getElementById('news-editor').addEventListener('submit', handleEditorSubmit);
+  // The quick-news screen exists only on phones: when the window grows to desktop size (or a phone is rotated wide),
+  // move to a screen that exists there instead of leaving a blank page. Going back to phone size maps desktop screens
+  // to the quick-news screen through goToView().
+  matchMedia('(max-width: 767px)').addEventListener('change', (event) => {
+    if (!state.user) return;
+    const current = state.activeView;
+    if (event.matches) goToView(current || 'dashboard');
+    else if (current === 'mobile-compose') goToView('dashboard');
+    else if (current === 'mobile-recent') goToView('news');
+  });
   document.getElementById('quick-form').addEventListener('submit', submitQuickCompose);
   const quickForm = document.getElementById('quick-form');
   quickForm.addEventListener('input', renderQuickPreview);

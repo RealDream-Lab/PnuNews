@@ -377,7 +377,7 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .composer-fields{flex:1;min-width:0;display:grid;padding:.25rem .9rem;border-radius:22px;background:var(--soft)}
 .chat-composer .composer-title,.chat-composer .composer-text{width:100%;min-height:0;border:0;border-radius:0;background:transparent;color:var(--text);font:inherit;padding:.1rem 0;box-shadow:none;outline:none}
 .chat-composer .composer-title{font-weight:700;font-size:.92rem;border-bottom:1px solid var(--border)}
-.chat-composer .composer-text{resize:none;max-height:150px;font-size:.92rem;line-height:1.8}
+.chat-composer .composer-text{resize:none;min-height:1.9rem;max-height:150px;font-size:.92rem;line-height:1.8}
 .chat-composer .composer-title::placeholder,.chat-composer .composer-text::placeholder{color:var(--muted);font-weight:400}
 .composer-send{width:46px;height:46px;display:grid;place-items:center;border:0;border-radius:50%;background:var(--primary);color:#fff;cursor:pointer;flex:none;transition:opacity .15s ease,transform .15s ease}
 :root[data-theme="dark"] .composer-send{color:#07111f}
