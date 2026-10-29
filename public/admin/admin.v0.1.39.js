@@ -1,4 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.31.js';
+import { initDock } from '/shared/dock.v0.1.39.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.39.js';
 import {
   JALALI_MONTHS,
 
@@ -14,8 +15,10 @@ const state = {
   categories: [],
   settings: {},
   currentNews: null,
-  newsCursor: null,
-  auditCursor: null,
+  newsPage: 1,
+  auditPage: 1,
+  mobilePages: { mine: 1, all: 1 },
+  usersPage: 1,
   newsDates: { published_at: null, expires_at: null },
   calendar: { year: 0, month: 0, day: 0, hour: 12, minute: 0, target: 'published_at' },
   toastTimer: null,
@@ -166,7 +169,7 @@ function scopeText() {
   if (state.user?.role === 'super_admin') return 'شما برای کل کشور منتشر می‌کنید.';
   if (state.user?.role === 'country_admin') return 'شما برای کل کشور و استان‌ها منتشر می‌کنید.';
   if (region?.type === 'province') return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای دانشگاه پیام نور ${region?.name || 'خود'} منتشر می‌کنید.`;
+  return `شما برای دانشگاه پیام‌نور ${region?.name || 'خود'} منتشر می‌کنید.`;
 }
 
 function setScopeBanner() {
@@ -187,7 +190,7 @@ function statusLabel(status) {
 
 function scopeLabel(targets = []) {
   if (!targets.length) return 'بدون مقصد';
-  return targets.map((target) => target.type === 'country' ? 'سراسری' : target.type === 'province' ? `استان ${target.name}` : `دانشگاه پیام نور ${target.name}`).join('، ');
+  return targets.map((target) => target.type === 'country' ? 'سراسری' : target.type === 'province' ? `استان ${target.name}` : `دانشگاه پیام‌نور ${target.name}`).join('، ');
 }
 
 function displayDateTime(value) {
@@ -289,16 +292,17 @@ function goToView(view) {
   document.querySelectorAll('#mobile-nav [data-view]').forEach((button) => button.classList.toggle('active', button.dataset.view === actualView));
   state.activeView = actualView;
   if (actualView === 'dashboard') loadDashboard();
-  else if (actualView === 'news') loadNewsList(true);
-  else if (actualView === 'users') loadUsers();
+  else if (actualView === 'news') loadNewsList(1);
+  else if (actualView === 'users') loadUsers(1);
   else if (actualView === 'regions') loadRegions();
   else if (actualView === 'categories') loadCategories();
   else if (actualView === 'settings') loadSettings();
-  else if (actualView === 'audit') loadAudit(true);
+  else if (actualView === 'audit') loadAudit(1);
   else if (actualView === 'stats') loadStats();
-  else if (actualView === 'mobile-recent') loadMobileNews('mine');
-  else if (actualView === 'mobile-feed') loadMobileNews('all');
+  else if (actualView === 'mobile-recent') loadMobileNews('mine', 1);
+  else if (actualView === 'mobile-feed') loadMobileNews('all', 1);
   else if (actualView === 'profile') loadProfile();
+  if (actualView === 'mobile-compose') renderQuickPreview();
   document.querySelector('.admin-content').scrollIntoView({ block: 'start', behavior: 'auto' });
 }
 
@@ -364,29 +368,64 @@ function renderNewsTable(items) {
   </tr>`).join('')}</tbody></table>`;
 }
 
-async function loadNewsList(reset = false) {
-  if (reset) state.newsCursor = null;
+// ---------- Pagination (numbered pages, shared by every long list) ----------
+const PAGE_SIZE = 10;
+const USERS_PAGE_SIZE = 15;
+
+function pageWindow(page, pages) {
+  const wanted = new Set([1, pages, page - 1, page, page + 1]);
+  const list = [...wanted].filter((value) => value >= 1 && value <= pages).sort((a, b) => a - b);
+  const result = [];
+  for (const value of list) {
+    if (result.length && value - result.at(-1) > 1) result.push(null);
+    result.push(value);
+  }
+  return result;
+}
+
+// Fills the pager element: previous / numbers / next plus "from-to of total". Buttons carry data-page.
+function renderPager(element, { page, pages, total, limit }) {
+  if (!element) return;
+  if (!total || pages <= 1) {
+    element.innerHTML = total ? `<p class="pager-info">${faDigits.format(total)} مورد</p>` : '';
+    return;
+  }
+  const from = (page - 1) * limit + 1;
+  const to = Math.min(total, page * limit);
+  const numbers = pageWindow(page, pages).map((value) => (value === null
+    ? '<span class="pager-gap" aria-hidden="true">…</span>'
+    : `<button type="button" class="pager-button pager-number${value === page ? ' is-current' : ''}" data-page="${value}" ${value === page ? 'aria-current="page"' : ''} aria-label="صفحهٔ ${faDigits.format(value)}">${faDigits.format(value)}</button>`)).join('');
+  element.innerHTML = `<nav class="pager" aria-label="صفحه‌بندی">
+    <button type="button" class="pager-button pager-step" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>› قبلی</button>
+    <div class="pager-numbers">${numbers}</div>
+    <button type="button" class="pager-button pager-step" data-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>بعدی ‹</button>
+  </nav><p class="pager-info">${faDigits.format(from)} تا ${faDigits.format(to)} از ${faDigits.format(total)} · صفحهٔ ${faDigits.format(page)} از ${faDigits.format(pages)}</p>`;
+}
+
+function scrollToList(element) {
+  const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  element?.closest('.admin-view')?.scrollIntoView({ block: 'start', behavior });
+}
+
+async function loadNewsList(page = state.newsPage) {
+  state.newsPage = page;
   const params = new URLSearchParams({
     status: document.getElementById('news-status').value || 'all',
     scope: document.getElementById('news-scope').value || 'all',
     text: document.getElementById('news-search').value.trim(),
-    limit: '20',
+    limit: String(PAGE_SIZE),
+    page: String(page),
     source: 'manual', // automatic portal news are managed from the news-feed view
   });
-  if (state.newsCursor) params.set('cursor', state.newsCursor);
   const container = document.getElementById('news-table');
-  if (reset) container.innerHTML = '<p class="empty-panel">در حال دریافت خبرها…</p>';
+  const pager = document.getElementById('news-pager');
+  if (!container.querySelector('table')) container.innerHTML = '<p class="empty-panel">در حال دریافت خبرها…</p>';
   try {
     const data = await api(`/api/admin/news?${params}`);
-    if (reset) container.innerHTML = renderNewsTable(data.items);
-    else {
-      const existing = container.querySelector('tbody');
-      if (existing && data.items.length) existing.insertAdjacentHTML('beforeend', renderNewsTable(data.items).replace(/^.*?<tbody>|<\/tbody>.*$/gs, ''));
-      else container.innerHTML = renderNewsTable(data.items);
-    }
-    state.newsCursor = data.next_cursor;
-    document.getElementById('news-more').hidden = !state.newsCursor;
-  } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
+    state.newsPage = data.page;
+    container.innerHTML = renderNewsTable(data.items);
+    renderPager(pager, data);
+  } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; if (pager) pager.innerHTML = ''; }
 }
 
 function faKey(value) {
@@ -531,6 +570,56 @@ function setCategoryOptions(value = '') {
   select.value = value == null ? '' : String(value);
 }
 
+// Where the editor's back button / delete leads: the feed for portal items, otherwise the news list
+// (on a phone that list is "خبرهای من").
+function editorReturnView() {
+  if (state.editorFromFeed) return 'mobile-feed';
+  return matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news';
+}
+
+// ---------- Unsaved-changes guard ----------
+function editorSnapshot() {
+  const form = document.getElementById('news-editor');
+  return JSON.stringify({
+    id: form.elements.news_id.value,
+    title: form.elements.title.value,
+    summary: form.elements.summary.value,
+    body: document.getElementById('editor-body').innerHTML,
+    category: form.elements.category_id.value,
+    type: form.elements.news_type.value,
+    pinned: form.elements.is_pinned.checked,
+    urgent: form.elements.is_urgent.checked,
+    mode: form.elements.schedule_mode.value,
+    dates: state.newsDates,
+    targets: [...readTargets('editor-target-fieldset')].sort(),
+    uploads: allUploadEntries().map((entry) => `${entry.file.name}:${entry.file.size}`),
+  });
+}
+
+function markEditorClean() {
+  state.editorBaseline = editorSnapshot();
+}
+
+function editorIsDirty() {
+  return state.activeView === 'editor' && state.currentNews?.can_edit !== false && editorSnapshot() !== state.editorBaseline;
+}
+
+async function confirmLeaveEditor() {
+  if (!editorIsDirty()) return true;
+  return confirmDialog({
+    title: 'از ویرایشگر خارج می‌شوید؟',
+    text: 'این خبر هنوز ذخیره یا منتشر نشده و اگر خارج شوید، تغییرات شما پاک می‌شود.',
+    tone: 'warning',
+    confirmText: 'بله، خارج شو',
+    cancelText: 'ماندن در ویرایشگر',
+  });
+}
+
+async function goToViewGuarded(view) {
+  if (state.activeView === 'editor' && view !== 'editor' && !await confirmLeaveEditor()) return;
+  goToView(view);
+}
+
 function resetEditor() {
   state.editorFromFeed = false;
   const form = document.getElementById('news-editor');
@@ -556,6 +645,7 @@ function resetEditor() {
   resetUploads();
   setEditorMode(null);
   goToView('editor');
+  markEditorClean();
 }
 
 async function openEditor(id) {
@@ -591,6 +681,7 @@ async function openEditor(id) {
     if (canDeleteImported) document.getElementById('editor-delete').disabled = false;
     setEditorMode(item.status);
     goToView('editor');
+    markEditorClean();
   } catch (error) { showToast(error.message); }
 }
 
@@ -959,30 +1050,106 @@ async function publishEditor() {
       method: 'POST', body: { published_at: publishedAt, expires_at: state.newsDates.expires_at },
     });
     showToast(scheduled ? 'انتشار خبر زمان‌بندی شد.' : 'خبر منتشر شد.');
-    await openEditor(id);
+    markEditorClean();
+    goToView(editorReturnView());
   } catch (failure) { error.textContent = failure.message; }
   finally { setEditorBusy(false); }
 }
 
+// ---------- Quick news (messenger-style): title + text + optional cover; everything else is automatic ----------
+// Type = news, published immediately, category "اخبار" (the server creates it when missing), published to the user's own scope.
+const QUICK_SUMMARY_LENGTH = 300;
+
+function quickExcerpt(text) {
+  const plain = text.replace(/\s+/g, ' ').trim();
+  if (plain.length <= QUICK_SUMMARY_LENGTH) return plain;
+  const cut = plain.slice(0, QUICK_SUMMARY_LENGTH);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), QUICK_SUMMARY_LENGTH - 40)).trim()}…`;
+}
+
+function quickBodyHtml(text) {
+  return text.split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('');
+}
+
+function setQuickCover(file) {
+  const form = document.getElementById('quick-form');
+  const chip = document.getElementById('quick-attachment');
+  if (state.quickCoverUrl) URL.revokeObjectURL(state.quickCoverUrl);
+  state.quickCoverUrl = '';
+  if (file && !file.type.startsWith('image/')) { document.getElementById('quick-error').textContent = 'فقط فایل عکس پذیرفته می‌شود.'; file = null; form.elements.cover.value = ''; }
+  if (file) {
+    state.quickCoverUrl = URL.createObjectURL(file);
+    chip.querySelector('img').src = state.quickCoverUrl;
+    chip.querySelector('.attach-name').textContent = file.name;
+    chip.querySelector('.attach-size').textContent = `${faDigits.format(Math.max(1, Math.round(file.size / 1024)))} کیلوبایت`;
+  } else {
+    chip.querySelector('img').removeAttribute('src');
+  }
+  chip.hidden = !file;
+  renderQuickPreview();
+}
+
+function renderQuickPreview() {
+  const form = document.getElementById('quick-form');
+  const bubble = document.getElementById('quick-bubble');
+  const title = form.elements.title.value.trim();
+  const text = form.elements.text.value.trim();
+  const cover = bubble.querySelector('.bubble-cover');
+  bubble.classList.toggle('is-empty', !title && !text && !state.quickCoverUrl);
+  bubble.querySelector('.bubble-title').textContent = title || 'عنوان خبر';
+  bubble.querySelector('.bubble-text').textContent = text || 'متن خبر شما اینجا مثل یک پیام دیده می‌شود.';
+  cover.hidden = !state.quickCoverUrl;
+  if (state.quickCoverUrl) cover.querySelector('img').src = state.quickCoverUrl;
+  const textarea = form.elements.text;
+  // Measured while the screen is hidden, scrollHeight is 0 and the box used to collapse until the first keystroke.
+  textarea.style.height = 'auto';
+  if (textarea.scrollHeight > 0) textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+}
+
+function setQuickBubbleState(mode) {
+  const bubble = document.getElementById('quick-bubble');
+  bubble.classList.toggle('is-sending', mode === 'sending');
+  bubble.classList.toggle('is-sent', mode === 'sent');
+  bubble.querySelector('.bubble-state').textContent = mode === 'sent' ? 'منتشر شد' : mode === 'sending' ? 'در حال ارسال…' : 'پیش‌نویس';
+  bubble.querySelector('.bubble-ticks use').setAttribute('href', mode === 'sent' ? '#admin-icon-ticks' : '#admin-icon-tick');
+}
+
 function beginQuickCompose() {
-  const select = document.querySelector('#quick-form [name="category_id"]');
-  select.innerHTML = categoryOptionsHtml();
-  select.value = '';
-  renderTargetPicker('quick-target-fieldset');
+  const form = document.getElementById('quick-form');
+  form.reset();
+  setQuickCover(null);
+  setQuickBubbleState('draft');
+  document.getElementById('quick-error').textContent = '';
+  const model = targetModel();
+  const scope = model?.rootLabel || state.regions.find((region) => Number(region.id) === Number(model?.rootId))?.name || '';
+  document.getElementById('quick-scope-label').textContent = scope ? `منتشر می‌شود برای: ${scope}` : '';
+  renderQuickPreview();
 }
 
 async function submitQuickCompose(event) {
   event.preventDefault();
+  if (state.quickBusy) return;
   const error = document.getElementById('quick-error');
   error.textContent = '';
   const form = event.currentTarget;
   const title = form.elements.title.value.trim();
-  const summary = form.elements.summary.value.trim();
+  const text = form.elements.text.value.trim();
+  const send = document.getElementById('quick-send');
   try {
-    const targets = requireTargets('quick-target-fieldset');
+    if (!title) { form.elements.title.focus(); throw new Error('عنوان خبر را بنویسید.'); }
+    if (!text) { form.elements.text.focus(); throw new Error('متن خبر را بنویسید.'); }
+    const rootId = targetModel()?.rootId;
+    if (!rootId) throw new Error('محدودهٔ انتشار شما مشخص نیست.');
+    state.quickBusy = true;
+    send.disabled = true;
+    setQuickBubbleState('sending');
     const created = await api('/api/admin/news', {
-      method: 'POST', body: { title, summary, news_type: form.elements.news_type.value === 'announcement' ? 'announcement' : 'news', category_id: Number(form.elements.category_id.value), body_html: `<p>${escapeHtml(summary).replace(/\n/g, '<br>')}</p>`, targets },
+      method: 'POST',
+      body: { title, summary: quickExcerpt(text), news_type: 'news', default_category: true, body_html: quickBodyHtml(text), targets: [rootId] },
     });
+    if (created.category_created) {
+      try { state.categories = (await api('/api/admin/categories')).categories; } catch {}
+    }
     const cover = form.elements.cover.files[0];
     if (cover) {
       const formData = new FormData();
@@ -995,31 +1162,47 @@ async function submitQuickCompose(event) {
       } finally { bar.hidden = true; }
     }
     await api(`/api/admin/news/${created.id}/publish`, { method: 'POST', body: {} });
-    form.reset();
-    beginQuickCompose();
+    setQuickBubbleState('sent');
     showToast('خبر با موفقیت منتشر شد.');
-    await loadMobileNews('mine');
-  } catch (failure) { error.textContent = failure.message; }
+    loadMobileNews('mine', 1);
+    // keep the delivered "message" on screen for a moment, then get ready for the next one
+    setTimeout(() => { if (document.getElementById('quick-bubble').classList.contains('is-sent')) beginQuickCompose(); }, 1600);
+  } catch (failure) {
+    setQuickBubbleState('draft');
+    error.textContent = failure.message;
+  } finally {
+    state.quickBusy = false;
+    send.disabled = false;
+  }
 }
 
-async function loadMobileNews(scope) {
+async function loadMobileNews(scope, page = state.mobilePages[scope] ?? 1) {
   const mine = scope === 'mine';
+  state.mobilePages[scope] = page;
   const container = document.getElementById(mine ? 'mobile-recent' : 'mobile-feed');
-  container.innerHTML = '<p class="empty-panel">در حال دریافت…</p>';
+  const pager = document.getElementById(mine ? 'mobile-recent-pager' : 'mobile-feed-pager');
+  if (!container.querySelector('.compact-item')) container.innerHTML = '<p class="empty-panel">در حال دریافت…</p>';
   try {
     // "mine" = what this user published; the feed = the automatic portal news only
-    const params = new URLSearchParams({ status: 'all', scope: mine ? 'mine' : 'all', limit: '30' });
+    const params = new URLSearchParams({ status: 'all', scope: mine ? 'mine' : 'all', limit: String(PAGE_SIZE), page: String(page) });
     if (!mine) params.set('source', 'portal');
     const data = await api(`/api/admin/news?${params}`);
+    state.mobilePages[scope] = data.page;
+    renderPager(pager, data);
     container.innerHTML = data.items.length ? data.items.map((item) => compactNews(item, 'edit-news')).join('') : `<p class="empty-panel">${mine ? 'خبری برای نمایش وجود ندارد.' : 'هنوز خبری از پورتال دریافت نشده است.'}</p>`;
   } catch (error) { container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
-async function loadUsers() {
+async function loadUsers(page = state.usersPage) {
+  state.usersPage = page;
   const panel = document.getElementById('users-tree');
-  panel.innerHTML = '<p class="empty-panel">در حال دریافت کاربران…</p>';
+  const pager = document.getElementById('users-pager');
+  if (!panel.querySelector('.tree-province')) panel.innerHTML = '<p class="empty-panel">در حال دریافت کاربران…</p>';
   try {
-    const { users } = await api('/api/admin/users');
+    const data = await api(`/api/admin/users?${new URLSearchParams({ page: String(page), limit: String(USERS_PAGE_SIZE) })}`);
+    const { users } = data;
+    state.usersPage = data.page;
+    renderPager(pager, data);
     if (!users.length) { panel.innerHTML = '<p class="empty-panel">کاربری برای نمایش وجود ندارد.</p>'; return; }
     const grouped = new Map();
     for (const user of users) {
@@ -1027,7 +1210,7 @@ async function loadUsers() {
       if (!grouped.has(parentId)) grouped.set(parentId, []);
       grouped.get(parentId).push(user);
     }
-    const subordinateCount = (user) => user.role === 'province_admin' ? users.filter((item) => item.role === 'city_admin' && Number(item.parent_region_id) === Number(user.region_id)).length : 0;
+    const subordinateCount = (user) => Number(user.subordinate_count) || 0;
     panel.innerHTML = [...grouped.entries()].map(([parentId, entries]) => {
       const parent = state.regions.find((region) => Number(region.id) === parentId);
       return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? 'deactivate' : 'activate'}" data-user-id="${Number(user.id)}">${user.is_active ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button>${user.role !== 'super_admin' && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ''}</div></div>`).join('')}</section>`;
@@ -1395,9 +1578,20 @@ function describePortalRun(run) {
   return `آخرین اجرا: ${when} · ${faDigits.format(run.created)} خبر تازه از ${faDigits.format(run.total)} خبر صفحهٔ پورتال`;
 }
 
+// The sentence under the portal switch is built from what the server really does, so it cannot drift from the code.
+function describePortalSource(status) {
+  let place = 'پراکسی رادیو';
+  try { const url = new URL(status.source); place = `پراکسی رادیو (${url.host}${url.pathname})`; } catch {}
+  const schedule = status.mode === 'external'
+    ? 'زمان‌بندی را سیستم‌عامل یا Docker انجام می‌دهد (cron/systemd)'
+    : 'هر ۱۰ دقیقه خودکار';
+  return `خبرهای «اخبار اصلی» pnu.ac.ir از ${place} خوانده می‌شود (${schedule})؛ در هر بار حداکثر ${faDigits.format(status.limit || 20)} خبر بررسی و خبرهای تازه به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. شمار خبرِ بررسی‌شده همان است که پراکسی برمی‌گرداند و در سطر «آخرین اجرا» می‌بینید. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست. دکمهٔ «همین حالا بگیر» با همان پراکسی و همان کد زمان‌بند کار می‌کند.`;
+}
+
 async function loadPortalStatus() {
   try {
     const status = await api('/api/admin/portal-news');
+    document.getElementById('portal-description').textContent = describePortalSource(status);
     document.getElementById('portal-enabled').checked = status.enabled;
     document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
   } catch (error) { document.getElementById('portal-status').textContent = error.message; }
@@ -1417,9 +1611,30 @@ async function runPortal(event) {
   try {
     const status = await api('/api/admin/portal-news', { method: 'POST', body: { run: true } });
     document.getElementById('portal-status').textContent = describePortalRun(status.last_run);
+    document.getElementById('portal-description').textContent = describePortalSource(status);
     showToast(status.result?.error ? 'دریافت ناموفق بود.' : `${faDigits.format(status.result?.created ?? 0)} خبر تازه دریافت شد.`);
   } catch (error) { showToast(error.message); }
   finally { button.disabled = false; button.textContent = 'همین حالا بگیر'; }
+}
+
+async function testNowPlaying(event) {
+  const button = event.currentTarget;
+  const result = document.getElementById('radio-nowplaying-result');
+  const form = document.getElementById('settings-form');
+  button.disabled = true;
+  button.textContent = 'در حال آزمایش…';
+  result.hidden = false;
+  result.textContent = 'در حال خواندن از سرور برنامه…';
+  try {
+    const answer = await api('/api/admin/radio/nowplaying-test', {
+      method: 'POST',
+      body: { url: form.elements.radio_nowplaying_url.value.trim(), stream_url: form.elements.radio_stream_url.value.trim() },
+    });
+    if (!answer.ok) result.textContent = `ناموفق: ${answer.error}`;
+    else if (!answer.now_playing) result.textContent = 'پاسخ دریافت شد ولی آهنگی در آن پیدا نشد؛ قالب پاسخ یا نشانی ایستگاه را بررسی کنید.';
+    else result.textContent = `موفق: ${answer.now_playing.title || '—'}${answer.now_playing.artist ? ` — ${answer.now_playing.artist}` : ''}`;
+  } catch (error) { result.textContent = error.message; }
+  finally { button.disabled = false; button.textContent = 'آزمایش اکنون‌پخش'; }
 }
 
 async function loadSettings() {
@@ -1476,18 +1691,17 @@ async function testRadio() {
   try { await audio.play(); } catch { showToast('پخش آغاز نشد؛ نشانی و دسترسی شبکه را بررسی کنید.'); }
 }
 
-async function loadAudit(reset = false) {
-  if (reset) state.auditCursor = null;
+async function loadAudit(page = state.auditPage) {
+  state.auditPage = page;
   const panel = document.getElementById('audit-list');
-  const params = new URLSearchParams({ limit: '50' });
-  if (state.auditCursor) params.set('before', state.auditCursor);
+  const params = new URLSearchParams({ limit: '20', page: String(page) });
   try {
-    const { items, next_cursor: cursor } = await api(`/api/admin/audit?${params}`);
+    const data = await api(`/api/admin/audit?${params}`);
+    const { items } = data;
+    state.auditPage = data.page;
     const markup = items.length ? `<table class="table"><thead><tr><th>زمان</th><th>عامل</th><th>رویداد</th><th>موجودیت</th><th>شناسه</th><th>IP</th></tr></thead><tbody>${items.map((item) => `<tr><td>${formatDate(item.created_at)}</td><td>${escapeHtml(item.actor_username || 'سامانه')}</td><td>${escapeHtml(auditAction(item.action))}</td><td>${escapeHtml(entityLabel(item.entity))}</td><td>${item.entity_id ? faDigits.format(item.entity_id) : '—'}</td><td dir="ltr">${escapeHtml(item.ip || '—')}</td></tr>`).join('')}</tbody></table>` : '<p class="empty-panel">رویدادی ثبت نشده است.</p>';
-    if (reset) panel.innerHTML = markup;
-    else if (items.length) panel.querySelector('tbody')?.insertAdjacentHTML('beforeend', markup.replace(/^.*?<tbody>|<\/tbody>.*$/gs, ''));
-    state.auditCursor = cursor;
-    document.getElementById('audit-more').hidden = !cursor;
+    panel.innerHTML = markup;
+    renderPager(document.getElementById('audit-pager'), data);
   } catch (error) { panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`; }
 }
 
@@ -1557,7 +1771,7 @@ async function deleteEditorNews() {
   try {
     await api(`/api/admin/news/${id}`, { method: 'DELETE', body: {} });
     showToast('خبر حذف شد.');
-    goToView(state.editorFromFeed ? 'mobile-feed' : matchMedia('(max-width: 767px)').matches ? 'mobile-recent' : 'news');
+    goToView(editorReturnView());
   } catch (error) { showToast(error.message); }
 }
 
@@ -1569,21 +1783,6 @@ async function unpublishEditorNews() {
     showToast('انتشار خبر لغو شد.');
     await openEditor(id);
   } catch (error) { showToast(error.message); }
-}
-
-async function editorCommand(button) {
-  const command = button.dataset.command;
-  const editor = document.getElementById('editor-body');
-  editor.focus();
-  if (command === 'createLink') {
-    const selection = getSelection();
-    const saved = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-    const url = await promptDialog({ title: 'افزودن پیوند', text: 'نشانی پیوند را وارد کنید.', input: { type: 'url', dir: 'ltr', placeholder: 'https://' } });
-    if (!url) return;
-    editor.focus();
-    if (saved) { selection.removeAllRanges(); selection.addRange(saved); }
-    document.execCommand(command, false, url);
-  } else document.execCommand(command, false, button.dataset.value || null);
 }
 
 function showBackupCodes(codes) {
@@ -1723,7 +1922,21 @@ function bindEvents() {
     showAuth('login-card');
   });
   document.getElementById('news-editor').addEventListener('submit', handleEditorSubmit);
+  // The quick-news screen exists only on phones: when the window grows to desktop size (or a phone is rotated wide),
+  // move to a screen that exists there instead of leaving a blank page. Going back to phone size maps desktop screens
+  // to the quick-news screen through goToView().
+  matchMedia('(max-width: 767px)').addEventListener('change', (event) => {
+    if (!state.user) return;
+    const current = state.activeView;
+    if (event.matches) goToView(current || 'dashboard');
+    else if (current === 'mobile-compose') goToView('dashboard');
+    else if (current === 'mobile-recent') goToView('news');
+  });
   document.getElementById('quick-form').addEventListener('submit', submitQuickCompose);
+  const quickForm = document.getElementById('quick-form');
+  quickForm.addEventListener('input', renderQuickPreview);
+  quickForm.elements.cover.addEventListener('change', (event) => setQuickCover(event.target.files[0] ?? null));
+  document.getElementById('quick-attachment-remove').addEventListener('click', () => { quickForm.elements.cover.value = ''; setQuickCover(null); });
   document.getElementById('user-form').addEventListener('submit', submitUser);
   document.getElementById('region-form').addEventListener('submit', submitRegion);
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
@@ -1732,9 +1945,24 @@ function bindEvents() {
   document.getElementById('portal-enabled').addEventListener('change', togglePortal);
   document.getElementById('portal-run').addEventListener('click', runPortal);
   document.getElementById('radio-test').addEventListener('click', testRadio);
-  document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(true));
-  document.getElementById('news-more').addEventListener('click', () => loadNewsList(false));
-  document.getElementById('audit-more').addEventListener('click', () => loadAudit(false));
+  document.getElementById('radio-nowplaying-test').addEventListener('click', testNowPlaying);
+  document.getElementById('news-filter-button').addEventListener('click', () => loadNewsList(1));
+  const pagerHandlers = {
+    'news-pager': (page) => loadNewsList(page),
+    'users-pager': (page) => loadUsers(page),
+    'audit-pager': (page) => loadAudit(page),
+    'mobile-recent-pager': (page) => loadMobileNews('mine', page),
+    'mobile-feed-pager': (page) => loadMobileNews('all', page),
+  };
+  for (const [id, load] of Object.entries(pagerHandlers)) {
+    const element = document.getElementById(id);
+    element.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-page]');
+      if (!button || button.disabled) return;
+      await load(Number(button.dataset.page));
+      scrollToList(element);
+    });
+  }
   document.getElementById('editor-publish').addEventListener('click', () => publishEditor());
   document.querySelectorAll('#news-editor input[name="schedule_mode"]').forEach((radio) => radio.addEventListener('change', () => {
     if (radio.checked && radio.value === 'now') { state.newsDates.published_at = null; updateDateLabel('published_at'); }
@@ -1749,7 +1977,11 @@ function bindEvents() {
   document.querySelector('#user-form [name="province_id"]').addEventListener('change', fillUserRegions);
   document.getElementById('new-region-button').addEventListener('click', () => { document.getElementById('region-form').hidden = false; populateRegionParents(); });
   document.querySelector('#region-form [name="type"]').addEventListener('change', populateRegionParents);
-  document.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => editorCommand(button)));
+  initRichEditor({
+    editor: document.getElementById('editor-body'),
+    toolbar: document.querySelector('.rich-toolbar'),
+    askLink: () => promptDialog({ title: 'افزودن پیوند', text: 'نشانی پیوند را وارد کنید.', input: { type: 'url', dir: 'ltr', placeholder: 'https://' } }),
+  });
   document.getElementById('jalali-prev').addEventListener('click', () => {
     state.calendar.month -= 1;
     if (state.calendar.month < 1) { state.calendar.month = 12; state.calendar.year -= 1; }
@@ -1796,11 +2028,17 @@ function bindEvents() {
   document.getElementById('auth-theme').addEventListener('click', toggleTheme);
   document.getElementById('desktop-nav').addEventListener('click', (event) => {
     const button = event.target.closest('[data-view]');
-    if (button) goToView(button.dataset.view);
+    if (button) goToViewGuarded(button.dataset.view);
   });
   document.getElementById('mobile-nav').addEventListener('click', (event) => {
     const button = event.target.closest('[data-view]');
-    if (button) goToView(button.dataset.view);
+    if (button) goToViewGuarded(button.dataset.view);
+  });
+  // Closing or reloading the tab with an unsaved news asks the browser to confirm as well.
+  window.addEventListener('beforeunload', (event) => {
+    if (!editorIsDirty()) return;
+    event.preventDefault();
+    event.returnValue = '';
   });
   document.querySelector('.admin-content').addEventListener('click', (event) => {
     const viewButton = event.target.closest('[data-view-link]');
@@ -1808,7 +2046,7 @@ function bindEvents() {
     const newButton = event.target.closest('[data-action="new-news"]');
     if (newButton) return resetEditor();
     const backButton = event.target.closest('[data-action="back-news"]');
-    if (backButton) return goToView(state.editorFromFeed ? 'mobile-feed' : 'news');
+    if (backButton) return goToViewGuarded(editorReturnView());
     const editButton = event.target.closest('[data-action="edit-news"]');
     if (editButton) return openEditor(Number(editButton.dataset.id));
     const removeButton = event.target.closest('[data-remove-attachment]');

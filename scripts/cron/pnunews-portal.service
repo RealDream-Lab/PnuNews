@@ -1,0 +1,9 @@
+# /etc/systemd/system/pnunews-portal.service
+[Unit]
+Description=PnuNews: fetch portal news once
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec nodejs bash /workspace/PnuNews/scripts/fetch-portal-news.sh
