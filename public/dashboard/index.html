@@ -1,427 +1,1526 @@
 <!doctype html>
 <html lang="fa" dir="rtl" data-theme="auto">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f4f7fb">
-  <link rel="icon" href="/icons/favicon.v3.ico" sizes="any">
-  <link rel="icon" href="/icons/favicon-32.v3.png" sizes="32x32" type="image/png">
-  <link rel="icon" href="/icons/favicon-48.v3.png" sizes="48x48" type="image/png">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png">
-  <link rel="manifest" href="/dashboard/manifest.webmanifest" id="app-manifest" data-manifest-base="/dashboard/manifest">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="مدیریت پیام‌نور">
-  <meta name="application-name" content="مدیریت پیام‌نور">
-  <link rel="stylesheet" href="/dashboard/styles.v0.1.46.css">
-  <script src="/shared/theme.v0.1.46.js"></script>
-  <title>مدیریت خبرها — اخبار پیام‌نور</title>
-</head>
-<body>
-  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <symbol id="admin-icon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z"/></symbol>
-    <symbol id="admin-icon-news" viewBox="0 0 24 24"><path d="M5 4h14a2 2 0 0 1 2 2v14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 4h10M8 12h10M8 16h6"/></symbol>
-    <symbol id="admin-icon-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2Zm14-13a4 4 0 1 1 0 8m2 1a5 5 0 0 1 4 5"/></symbol>
-    <symbol id="admin-icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.6.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.6-.9l-1.7.6-1.4-2.4 1.4-1.1a8 8 0 0 1 0-1.9l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.6-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.6.9l1.7-.6 1.4 2.4-1.4 1.1a8 8 0 0 1 0 1.8Z"/></symbol>
-    <symbol id="admin-icon-audit" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="18" cy="18" r="3"/></symbol>
-    <symbol id="admin-icon-chart" viewBox="0 0 24 24"><path d="M4 20V4m0 16h17M8 15l4-5 3 2 5-7"/></symbol>
-    <symbol id="admin-icon-map" viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.3"/></symbol>
-    <symbol id="admin-icon-back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
-    <symbol id="admin-icon-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9Z"/><circle cx="8" cy="8" r="1.4"/></symbol>
-    <symbol id="admin-icon-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
-    <symbol id="admin-icon-file" viewBox="0 0 24 24"><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm8 0v5h5"/></symbol>
-    <symbol id="admin-icon-feed" viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.5"/><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/></symbol>
-    <symbol id="admin-icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></symbol>
-    <symbol id="admin-icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
-    <symbol id="admin-icon-telegram" viewBox="0 0 24 24"><path d="M21 3 3 10.4l6 2.4 2.4 6.6 3.2-4.3L21 3Z"/><path d="m9 12.8 12-9.8"/></symbol>
-    <symbol id="admin-icon-clip" viewBox="0 0 24 24"><path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></symbol>
-    <symbol id="admin-icon-send" viewBox="0 0 24 24"><path d="M21.5 3 3 10.6l6.4 2.5L12 20l2.6-5.4L21.5 3Z"/><path d="m9.4 13.1 12-10.1"/></symbol>
-    <symbol id="admin-icon-tick" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
-    <symbol id="admin-icon-ticks" viewBox="0 0 24 24"><path d="m2.5 12.5 4.5 4.5L16 7.5M10 16.5l1 .9L21 7.5"/></symbol>
-    <symbol id="admin-icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
-    <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
-    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.7 8.7 0 1 0 20.5 14.2Z"/></symbol>
-    <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7V5Z"/></symbol>
-    <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5h3v14H8zm6 0h3v14h-3z"/></symbol>
-    <symbol id="icon-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></symbol>
-    <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6l-5 4H4Zm12-1a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"/></symbol>
-  </svg>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f4f7fb" />
+    <link rel="icon" href="/icons/favicon.v3.ico" sizes="any" />
+    <link
+      rel="icon"
+      href="/icons/favicon-32.v3.png"
+      sizes="32x32"
+      type="image/png"
+    />
+    <link
+      rel="icon"
+      href="/icons/favicon-48.v3.png"
+      sizes="48x48"
+      type="image/png"
+    />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.v3.png" />
+    <link
+      rel="manifest"
+      href="/dashboard/manifest.webmanifest"
+      id="app-manifest"
+      data-manifest-base="/dashboard/manifest"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="مدیریت خبرهای پیام‌نور" />
+    <meta name="application-name" content="مدیریت خبرهای پیام‌نور" />
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.47.css" />
+    <script src="/shared/theme.v0.1.47.js"></script>
+    <title>مدیریت خبرها — اخبار پیام‌نور</title>
+  </head>
+  <body>
+    <svg
+      class="icon-sprite"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <symbol id="admin-icon-home" viewBox="0 0 24 24">
+        <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-6v-7h-4v7H4a1 1 0 0 1-1-1Z" />
+      </symbol>
+      <symbol id="admin-icon-news" viewBox="0 0 24 24">
+        <path
+          d="M5 4h14a2 2 0 0 1 2 2v14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 4h10M8 12h10M8 16h6"
+        />
+      </symbol>
+      <symbol id="admin-icon-users" viewBox="0 0 24 24">
+        <circle cx="9" cy="8" r="4" />
+        <path
+          d="M2 21v-2a7 7 0 0 1 14 0v2Zm14-13a4 4 0 1 1 0 8m2 1a5 5 0 0 1 4 5"
+        />
+      </symbol>
+      <symbol id="admin-icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.6a8 8 0 0 1-1.6.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.6-.9l-1.7.6-1.4-2.4 1.4-1.1a8 8 0 0 1 0-1.9l-1.4-1.1 1.4-2.4 1.7.6a8 8 0 0 1 1.6-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.6.9l1.7-.6 1.4 2.4-1.4 1.1a8 8 0 0 1 0 1.8Z"
+        />
+      </symbol>
+      <symbol id="admin-icon-audit" viewBox="0 0 24 24">
+        <path d="M4 5h16M4 12h16M4 19h10" />
+        <circle cx="18" cy="18" r="3" />
+      </symbol>
+      <symbol id="admin-icon-chart" viewBox="0 0 24 24">
+        <path d="M4 20V4m0 16h17M8 15l4-5 3 2 5-7" />
+      </symbol>
+      <symbol id="admin-icon-map" viewBox="0 0 24 24">
+        <path d="M12 21s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12Z" />
+        <circle cx="12" cy="9" r="2.3" />
+      </symbol>
+      <symbol id="admin-icon-back" viewBox="0 0 24 24">
+        <path d="m15 5-7 7 7 7" />
+      </symbol>
+      <symbol id="admin-icon-tag" viewBox="0 0 24 24">
+        <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9Z" />
+        <circle cx="8" cy="8" r="1.4" />
+      </symbol>
+      <symbol id="admin-icon-upload" viewBox="0 0 24 24">
+        <path
+          d="M12 16V4m0 0-4 4m4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"
+        />
+      </symbol>
+      <symbol id="admin-icon-file" viewBox="0 0 24 24">
+        <path
+          d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm8 0v5h5"
+        />
+      </symbol>
+      <symbol id="admin-icon-feed" viewBox="0 0 24 24">
+        <circle cx="6" cy="18" r="1.5" />
+        <path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" />
+      </symbol>
+      <symbol id="admin-icon-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21v-1a8 8 0 0 1 16 0v1" />
+      </symbol>
+      <symbol id="admin-icon-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5.5M12 7.8h.01" />
+      </symbol>
+      <symbol id="admin-icon-telegram" viewBox="0 0 24 24">
+        <path d="M21 3 3 10.4l6 2.4 2.4 6.6 3.2-4.3L21 3Z" />
+        <path d="m9 12.8 12-9.8" />
+      </symbol>
+      <symbol id="admin-icon-clip" viewBox="0 0 24 24">
+        <path
+          d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"
+        />
+      </symbol>
+      <symbol id="admin-icon-send" viewBox="0 0 24 24">
+        <path d="M21.5 3 3 10.6l6.4 2.5L12 20l2.6-5.4L21.5 3Z" />
+        <path d="m9.4 13.1 12-10.1" />
+      </symbol>
+      <symbol id="admin-icon-tick" viewBox="0 0 24 24">
+        <path d="m5 12.5 4.5 4.5L19 7.5" />
+      </symbol>
+      <symbol id="admin-icon-ticks" viewBox="0 0 24 24">
+        <path d="m2.5 12.5 4.5 4.5L16 7.5M10 16.5l1 .9L21 7.5" />
+      </symbol>
+      <symbol id="admin-icon-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M18 6 6 18" />
+      </symbol>
+      <symbol id="icon-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path
+          d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+        />
+      </symbol>
+      <symbol id="icon-moon" viewBox="0 0 24 24">
+        <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.7 8.7 0 1 0 20.5 14.2Z" />
+      </symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24">
+        <path d="m8 5 12 7-12 7V5Z" />
+      </symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24">
+        <path d="M8 5h3v14H8zm6 0h3v14h-3z" />
+      </symbol>
+      <symbol id="icon-stop" viewBox="0 0 24 24">
+        <path d="M7 7h10v10H7z" />
+      </symbol>
+      <symbol id="icon-volume" viewBox="0 0 24 24">
+        <path
+          d="M4 10v4h4l5 4V6l-5 4H4Zm12-1a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12"
+        />
+      </symbol>
+    </svg>
 
-  <main id="auth-root" class="auth-wrap">
-    <button id="auth-theme" class="icon-button theme-toggle auth-theme-toggle" type="button" aria-label="تغییر حالت روشنایی"><svg class="icon"><use href="#icon-sun"/></svg></button>
-    <section id="login-card" class="auth-card" aria-labelledby="auth-title">
-      <a class="admin-brand" href="/" aria-label="بازگشت به اخبار پیام‌نور"><span class="brand-mark"><img src="/icons/pnu-logo.v3.png" alt="" width="38" height="38"></span><span>مدیریت اخبار پیام‌نور</span></a>
-      <p class="eyebrow">ورود مدیران</p>
-      <h1 id="auth-title">به پنل مدیریت خوش آمدید</h1>
-      <p class="auth-intro">برای ادامه، نام کاربری و گذرواژهٔ سازمانی خود را وارد کنید.</p>
-      <form id="login-form" class="form-stack">
-        <label>نام کاربری<input name="username" autocomplete="username" required></label>
-        <label>گذرواژه<input name="password" type="password" autocomplete="current-password" required></label>
-        <button class="button primary" type="submit">ادامه</button>
-      </form>
-      <p id="login-error" class="form-error" role="alert"></p>
-    </section>
-    <section id="totp-card" class="auth-card" aria-labelledby="totp-title" hidden>
-      <p class="eyebrow">تأیید دومرحله‌ای</p>
-      <h1 id="totp-title">کد برنامهٔ رمزساز</h1>
-      <p id="totp-description" class="auth-intro">کد شش‌رقمی برنامهٔ رمزساز را وارد کنید.</p>
-      <div id="totp-setup" hidden>
-        <img id="totp-qr" class="qr-code" alt="کد QR برای ثبت برنامهٔ رمزساز">
-        <p class="muted">اگر امکان اسکن ندارید، این کلید را دستی وارد کنید:</p>
-        <code id="totp-secret" class="secret-key"></code>
-      </div>
-      <form id="totp-form" class="form-stack">
-        <label>کد تأیید<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></label>
-        <label id="remember-label" class="check-row"><input type="checkbox" name="remember" checked>این دستگاه را یک ماه به خاطر بسپار</label>
-        <button class="button primary" type="submit">تأیید و ورود</button>
-      </form>
-      <p id="totp-error" class="form-error" role="alert"></p>
-    </section>
-    <section id="backup-card" class="auth-card" aria-labelledby="backup-title" hidden>
-      <p class="eyebrow">کدهای بازیابی</p>
-      <h1 id="backup-title">این کدها را در جای امن نگه دارید</h1>
-      <p class="auth-intro">هر کد فقط یک‌بار قابل استفاده است و پس از بستن این صفحه دوباره نمایش داده نمی‌شود.</p>
-      <ol id="backup-codes" class="backup-codes"></ol>
-      <button id="backup-continue" class="button primary" type="button">کدها را ذخیره کردم</button>
-    </section>
-    <section id="password-card" class="auth-card" aria-labelledby="password-title" hidden>
-      <p class="eyebrow">امنیت حساب</p>
-      <h1 id="password-title">گذرواژهٔ تازه تعیین کنید</h1>
-      <p class="auth-intro">برای ادامه، گذرواژهٔ موقت را به یک گذرواژهٔ امن تغییر دهید.</p>
-      <form id="password-form" class="form-stack">
-        <label>گذرواژهٔ فعلی<input name="old_password" type="password" autocomplete="current-password" required></label>
-        <label>گذرواژهٔ تازه<input name="new_password" type="password" autocomplete="new-password" minlength="10" required></label>
-        <button class="button primary" type="submit">تغییر گذرواژه</button>
-      </form>
-      <p id="password-error" class="form-error" role="alert"></p>
-    </section>
-  </main>
+    <main id="auth-root" class="auth-wrap">
+      <button
+        id="auth-theme"
+        class="icon-button theme-toggle auth-theme-toggle"
+        type="button"
+        aria-label="تغییر حالت روشنایی"
+      >
+        <svg class="icon"><use href="#icon-sun" /></svg>
+      </button>
+      <section id="login-card" class="auth-card" aria-labelledby="auth-title">
+        <a class="admin-brand" href="/" aria-label="بازگشت به اخبار پیام‌نور"
+          ><span class="brand-mark"
+            ><img
+              src="/icons/pnu-logo.v3.png"
+              alt=""
+              width="38"
+              height="38" /></span
+          ><span>مدیریت اخبار پیام‌نور</span></a
+        >
+        <p class="eyebrow">ورود مدیران</p>
+        <h1 id="auth-title">به پنل مدیریت خوش آمدید</h1>
+        <p class="auth-intro">
+          برای ادامه، نام کاربری و گذرواژهٔ سازمانی خود را وارد کنید.
+        </p>
+        <form id="login-form" class="form-stack">
+          <label
+            >نام کاربری<input name="username" autocomplete="username" required
+          /></label>
+          <label
+            >گذرواژه<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+          /></label>
+          <button class="button primary" type="submit">ادامه</button>
+        </form>
+        <p id="login-error" class="form-error" role="alert"></p>
+      </section>
+      <section
+        id="totp-card"
+        class="auth-card"
+        aria-labelledby="totp-title"
+        hidden
+      >
+        <p class="eyebrow">تأیید دومرحله‌ای</p>
+        <h1 id="totp-title">کد برنامهٔ رمزساز</h1>
+        <p id="totp-description" class="auth-intro">
+          کد شش‌رقمی برنامهٔ رمزساز را وارد کنید.
+        </p>
+        <div id="totp-setup" hidden>
+          <img
+            id="totp-qr"
+            class="qr-code"
+            alt="کد QR برای ثبت برنامهٔ رمزساز"
+          />
+          <p class="muted">
+            اگر امکان اسکن ندارید، این کلید را دستی وارد کنید:
+          </p>
+          <code id="totp-secret" class="secret-key"></code>
+        </div>
+        <form id="totp-form" class="form-stack">
+          <label
+            >کد تأیید<input
+              name="code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="10"
+              required
+          /></label>
+          <label id="remember-label" class="check-row"
+            ><input type="checkbox" name="remember" checked />این دستگاه را یک
+            ماه به خاطر بسپار</label
+          >
+          <button class="button primary" type="submit">تأیید و ورود</button>
+        </form>
+        <p id="totp-error" class="form-error" role="alert"></p>
+      </section>
+      <section
+        id="backup-card"
+        class="auth-card"
+        aria-labelledby="backup-title"
+        hidden
+      >
+        <p class="eyebrow">کدهای بازیابی</p>
+        <h1 id="backup-title">این کدها را در جای امن نگه دارید</h1>
+        <p class="auth-intro">
+          هر کد فقط یک‌بار قابل استفاده است و پس از بستن این صفحه دوباره نمایش
+          داده نمی‌شود.
+        </p>
+        <ol id="backup-codes" class="backup-codes"></ol>
+        <button id="backup-continue" class="button primary" type="button">
+          کدها را ذخیره کردم
+        </button>
+      </section>
+      <section
+        id="password-card"
+        class="auth-card"
+        aria-labelledby="password-title"
+        hidden
+      >
+        <p class="eyebrow">امنیت حساب</p>
+        <h1 id="password-title">گذرواژهٔ تازه تعیین کنید</h1>
+        <p class="auth-intro">
+          برای ادامه، گذرواژهٔ موقت را به یک گذرواژهٔ امن تغییر دهید.
+        </p>
+        <form id="password-form" class="form-stack">
+          <label
+            >گذرواژهٔ فعلی<input
+              name="old_password"
+              type="password"
+              autocomplete="current-password"
+              required
+          /></label>
+          <label
+            >گذرواژهٔ تازه<input
+              name="new_password"
+              type="password"
+              autocomplete="new-password"
+              minlength="10"
+              required
+          /></label>
+          <button class="button primary" type="submit">تغییر گذرواژه</button>
+        </form>
+        <p id="password-error" class="form-error" role="alert"></p>
+      </section>
+    </main>
 
-  <div id="admin-shell" class="admin-shell" hidden>
-    <header class="admin-header">
-      <a class="admin-brand" href="/dashboard/"><span class="brand-mark"><img src="/icons/pnu-logo.v3.png" alt="" width="38" height="38"></span><span>مدیریت اخبار پیام‌نور</span></a>
-      <div class="admin-header-actions">
-        <button id="admin-theme" class="icon-button theme-toggle" type="button" aria-label="تغییر حالت روشنایی"><svg class="icon"><use href="#icon-sun"/></svg></button>
-        <button id="install-button" class="button subtle" type="button" hidden>نصب برنامه</button>
-        <button id="about-button" class="icon-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#admin-icon-info"/></svg></button>
-        <span id="user-chip" class="user-chip"></span>
-        <button id="logout-button" class="button subtle" type="button">خروج</button>
-      </div>
-    </header>
-    <div class="admin-layout">
-      <aside class="desktop-sidebar">
-        <p class="sidebar-caption">فضای کاری</p>
-        <nav id="desktop-nav" class="admin-nav">
-          <button type="button" data-view="dashboard"><svg class="icon"><use href="#admin-icon-home"/></svg>داشبورد</button>
-          <button type="button" data-view="news"><svg class="icon"><use href="#admin-icon-news"/></svg>مدیریت خبرها</button>
-          <button type="button" data-view="mobile-feed" data-show-roles="super_admin,country_admin"><svg class="icon"><use href="#admin-icon-feed"/></svg>خوراک خبر</button>
-          <button type="button" data-view="users" data-hide-city><svg class="icon"><use href="#admin-icon-users"/></svg>مدیریت کاربران</button>
-          <button type="button" data-view="regions" data-super-only><svg class="icon"><use href="#admin-icon-map"/></svg>مراکز و واحدها</button>
-          <button type="button" data-view="categories" data-super-only><svg class="icon"><use href="#admin-icon-tag"/></svg>دسته‌بندی‌ها</button>
-          <button type="button" data-view="settings" data-super-only><svg class="icon"><use href="#admin-icon-settings"/></svg>تنظیمات</button>
-          <button type="button" data-view="audit"><svg class="icon"><use href="#admin-icon-audit"/></svg>گزارش رویدادها</button>
-          <button type="button" data-view="stats"><svg class="icon"><use href="#admin-icon-chart"/></svg>آمار بازدید</button>
-          <button type="button" data-view="profile"><svg class="icon"><use href="#admin-icon-user"/></svg>حساب کاربری</button>
-        </nav>
-        <div class="sidebar-scope"><span class="scope-dot"></span><span id="desktop-scope"></span></div>
-      </aside>
-      <div class="admin-content">
-        <div id="scope-banner" class="scope-banner"></div>
-        <section id="dashboard-view" class="admin-view" data-panel="dashboard">
-          <div class="view-heading"><div><p class="eyebrow">نمای کلی</p><h1>داشبورد</h1></div><button class="button primary" data-action="new-news">＋ خبر تازه</button></div>
-          <div id="dashboard-counts" class="stat-grid"></div>
-          <div class="panel"><div class="panel-heading"><h2>آخرین خبرها</h2><button class="text-button" data-view-link="news">مشاهدهٔ همه</button></div><div id="dashboard-latest" class="compact-list"></div></div>
-        </section>
-        <section id="news-view" class="admin-view" data-panel="news" hidden>
-          <div class="view-heading"><div><p class="eyebrow">انتشار و نگهداری</p><h1>مدیریت خبرها</h1></div><button class="button primary" data-action="new-news">＋ خبر تازه</button></div>
-          <div class="filter-bar">
-            <label>جست‌وجو<input id="news-search" type="search" placeholder="عنوان یا متن خبر"></label>
-            <label>وضعیت<select id="news-status"><option value="all">همهٔ وضعیت‌ها</option><option value="published">منتشرشده</option><option value="scheduled">زمان‌بندی‌شده</option><option value="draft">پیش‌نویس</option></select></label>
-            <label>محدوده<select id="news-scope"><option value="all">همهٔ خبرهای قابل مشاهده</option><option value="mine">خبرهای من</option></select></label>
-            <button id="news-filter-button" class="button outline" type="button">اعمال فیلتر</button>
+    <div id="admin-shell" class="admin-shell" hidden>
+      <header class="admin-header">
+        <a class="admin-brand" href="/dashboard/"
+          ><span class="brand-mark"
+            ><img
+              src="/icons/pnu-logo.v3.png"
+              alt=""
+              width="38"
+              height="38" /></span
+          ><span>مدیریت اخبار پیام‌نور</span></a
+        >
+        <div class="admin-header-actions">
+          <button
+            id="admin-theme"
+            class="icon-button theme-toggle"
+            type="button"
+            aria-label="تغییر حالت روشنایی"
+          >
+            <svg class="icon"><use href="#icon-sun" /></svg>
+          </button>
+          <button
+            id="install-button"
+            class="button subtle"
+            type="button"
+            hidden
+          >
+            نصب برنامه
+          </button>
+          <button
+            id="about-button"
+            class="icon-button"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="about-dialog"
+            aria-label="درباره"
+            title="درباره"
+          >
+            <svg class="icon"><use href="#admin-icon-info" /></svg>
+          </button>
+          <span id="user-chip" class="user-chip"></span>
+          <button id="logout-button" class="button subtle" type="button">
+            خروج
+          </button>
+        </div>
+      </header>
+      <div class="admin-layout">
+        <aside class="desktop-sidebar">
+          <p class="sidebar-caption">فضای کاری</p>
+          <nav id="desktop-nav" class="admin-nav">
+            <button type="button" data-view="dashboard">
+              <svg class="icon"><use href="#admin-icon-home" /></svg>داشبورد
+            </button>
+            <button type="button" data-view="news">
+              <svg class="icon"><use href="#admin-icon-news" /></svg>مدیریت
+              خبرها
+            </button>
+            <button
+              type="button"
+              data-view="mobile-feed"
+              data-show-roles="super_admin,country_admin"
+            >
+              <svg class="icon"><use href="#admin-icon-feed" /></svg>خوراک خبر
+            </button>
+            <button type="button" data-view="users" data-hide-city>
+              <svg class="icon"><use href="#admin-icon-users" /></svg>مدیریت
+              کاربران
+            </button>
+            <button type="button" data-view="regions" data-super-only>
+              <svg class="icon"><use href="#admin-icon-map" /></svg>مراکز و
+              واحدها
+            </button>
+            <button type="button" data-view="categories" data-super-only>
+              <svg class="icon"><use href="#admin-icon-tag" /></svg>دسته‌بندی‌ها
+            </button>
+            <button type="button" data-view="settings" data-super-only>
+              <svg class="icon"><use href="#admin-icon-settings" /></svg>تنظیمات
+            </button>
+            <button type="button" data-view="audit">
+              <svg class="icon"><use href="#admin-icon-audit" /></svg>گزارش
+              رویدادها
+            </button>
+            <button type="button" data-view="stats">
+              <svg class="icon"><use href="#admin-icon-chart" /></svg>آمار
+              بازدید
+            </button>
+            <button type="button" data-view="profile">
+              <svg class="icon"><use href="#admin-icon-user" /></svg>حساب کاربری
+            </button>
+          </nav>
+          <div class="sidebar-scope">
+            <span class="scope-dot"></span><span id="desktop-scope"></span>
           </div>
-          <div id="news-table" class="news-table panel"></div>
-          <div id="news-pager" class="pager-wrap"></div>
-        </section>
-        <section id="editor-view" class="admin-view" data-panel="editor" hidden>
-          <div class="view-heading"><div><p class="eyebrow">ویرایشگر خبر</p><h1 id="editor-heading">خبر تازه</h1></div><button class="button outline" data-action="back-news">بازگشت به خبرها</button></div>
-          <form id="news-editor" class="editor-form editor-layout">
-            <input type="hidden" name="news_id">
-            <div class="editor-main panel">
-              <label>عنوان خبر<input name="title" maxlength="240" required></label>
-              <label>خلاصه<textarea name="summary" rows="2" maxlength="600"></textarea></label>
-              <div class="editor-label"><span>متن خبر</span><div class="rich-toolbar" role="toolbar" aria-label="قالب‌بندی متن"><button type="button" data-command="bold" title="درشت" aria-label="درشت" aria-pressed="false"><b>B</b></button><button type="button" data-command="underline" title="زیرخط" aria-label="زیرخط" aria-pressed="false"><u>U</u></button><button type="button" data-command="italic" title="کج" aria-label="کج" aria-pressed="false"><i>I</i></button><button type="button" data-command="link" title="پیوند" aria-label="پیوند" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></button><button type="button" data-command="unlink" title="حذف پیوند" aria-label="حذف پیوند" disabled><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1M4 4l16 16"/></svg></button><span class="tool-sep" aria-hidden="true"></span><button type="button" data-command="alignRight" title="راست‌چین" aria-label="راست‌چین" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 10h12M3 14h18M9 18h12"/></svg></button><button type="button" data-command="alignCenter" title="وسط‌چین" aria-label="وسط‌چین" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 10h10M3 14h18M7 18h10"/></svg></button><button type="button" data-command="alignLeft" title="چپ‌چین" aria-label="چپ‌چین" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 10h12M3 14h18M3 18h12"/></svg></button><button type="button" data-command="alignJustify" title="جاستیفای (تراز دو طرف)" aria-label="جاستیفای (تراز دو طرف)" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 10h18M3 14h18M3 18h18"/></svg></button><span class="tool-sep" aria-hidden="true"></span><button type="button" data-command="bullets" title="فهرست نقطه‌ای" aria-label="فهرست نقطه‌ای" aria-pressed="false"><svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h.01M4 12h.01M4 18h.01M9 6h12M9 12h12M9 18h12"/></svg></button><button type="button" data-command="numbers" title="فهرست شماره‌دار (1 2 3)" aria-label="فهرست شماره‌دار (1 2 3)" aria-pressed="false"><span class="tool-text">1 2 3</span></button><button type="button" data-command="persian" title="فهرست شماره‌دار با ارقام فارسی (۱ ۲ ۳)" aria-label="فهرست شماره‌دار با ارقام فارسی (۱ ۲ ۳)" aria-pressed="false"><span class="tool-text">۱ ۲ ۳</span></button></div></div>
-              <div id="editor-body" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="متن کامل خبر"></div>
-              <details class="more-block" id="editor-media">
-                <summary>تصویر و پیوست‌ها</summary>
-                <div class="media-zones">
-                  <div class="zone" data-zone="cover">
-                    <label class="dropzone">
-                      <input class="dropzone-input" name="cover" type="file" accept="image/*">
-                      <svg class="icon dropzone-icon" aria-hidden="true"><use href="#admin-icon-upload"/></svg>
-                      <strong>تصویر جلد</strong>
-                      <span>تصویر را بکشید و اینجا رها کنید، یا برای انتخاب کلیک کنید</span>
-                      <small>یک تصویر · حداکثر ۱۲ مگابایت</small>
-                    </label>
-                    <ul class="upload-queue" data-queue="cover"></ul>
-                  </div>
-                  <div class="zone" data-zone="images">
-                    <label class="dropzone">
-                      <input class="dropzone-input" name="images" type="file" accept="image/*" multiple>
-                      <svg class="icon dropzone-icon" aria-hidden="true"><use href="#admin-icon-upload"/></svg>
-                      <strong>تصاویر دیگر</strong>
-                      <span>تصویرها را بکشید و اینجا رها کنید، یا برای انتخاب کلیک کنید</span>
-                      <small>تا ۱۰ تصویر · هر کدام تا ۱۲ مگابایت</small>
-                    </label>
-                    <ul class="upload-queue" data-queue="images"></ul>
-                  </div>
-                  <div class="zone" data-zone="files">
-                    <label class="dropzone">
-                      <input class="dropzone-input" name="files" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv" multiple>
-                      <svg class="icon dropzone-icon" aria-hidden="true"><use href="#admin-icon-upload"/></svg>
-                      <strong>فایل‌های پیوست</strong>
-                      <span>فایل‌ها را بکشید و اینجا رها کنید، یا برای انتخاب کلیک کنید</span>
-                      <small>PDF، Word، Excel، ZIP و … · تا ۸ فایل · هر کدام تا ۱۵ مگابایت</small>
-                    </label>
-                    <ul class="upload-queue" data-queue="files"></ul>
-                  </div>
-                  <div id="upload-total" class="upload-total" hidden>
-                    <div class="upload-total-text"><span id="upload-total-label">در حال ارسال پیوست‌ها…</span><span id="upload-total-percent"></span></div>
-                    <progress id="upload-total-bar" max="100" value="0"></progress>
-                  </div>
-                </div>
-              </details>
-              <div id="editor-attachments" class="attachment-list" hidden></div>
+        </aside>
+        <div class="admin-content">
+          <div id="scope-banner" class="scope-banner"></div>
+          <section
+            id="dashboard-view"
+            class="admin-view"
+            data-panel="dashboard"
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">نمای کلی</p>
+                <h1>داشبورد</h1>
+              </div>
+              <button class="button primary" data-action="new-news">
+                ＋ خبر تازه
+              </button>
             </div>
-            <aside class="side-card panel" aria-label="تنظیمات انتشار">
-              <div class="side-status"><span>وضعیت</span><span id="editor-status" class="status-badge draft">پیش‌نویس</span></div>
-              <fieldset id="editor-target-fieldset" class="target-picker"></fieldset>
-              <div class="type-group">
-                <span class="field-label">نوع مطلب</span>
-                <div class="seg" role="radiogroup" aria-label="نوع مطلب">
-                  <label class="seg-item"><input type="radio" name="news_type" value="news" checked><span>خبر</span></label>
-                  <label class="seg-item"><input type="radio" name="news_type" value="announcement"><span>اطلاعیه</span></label>
-                </div>
+            <div id="dashboard-counts" class="stat-grid"></div>
+            <div class="panel">
+              <div class="panel-heading">
+                <h2>آخرین خبرها</h2>
+                <button class="text-button" data-view-link="news">
+                  مشاهدهٔ همه
+                </button>
               </div>
-              <label>دسته‌بندی<select name="category_id" required></select></label>
-              <div id="editor-when-group" class="when-group">
-                <span class="field-label">زمان انتشار (وقت ایران)</span>
-                <div class="seg" role="radiogroup" aria-label="زمان انتشار">
-                  <label class="seg-item"><input type="radio" name="schedule_mode" value="now" checked><span>اکنون</span></label>
-                  <label class="seg-item"><input type="radio" name="schedule_mode" value="later"><span>زمان‌بندی</span></label>
-                </div>
-                <div id="editor-when" class="date-field" hidden><input name="published_at_display" readonly placeholder="انتخاب تاریخ و ساعت" data-jalali-for="published_at"></div>
-              </div>
-              <div class="editor-actions">
-                <button id="editor-publish" class="button success wide" type="button">انتشار اکنون</button>
-                <button id="editor-save" class="button outline wide" type="submit">ذخیرهٔ پیش‌نویس</button>
-              </div>
-              <details class="more-block" id="editor-more">
-                <summary>گزینه‌های بیشتر</summary>
-                <div class="more-body">
-                  <label class="check-row"><input name="is_pinned" type="checkbox">خبر مهم (بالای فهرست)</label>
-                  <label class="check-row"><input name="is_urgent" type="checkbox">خبر فوری</label>
-                  <div class="field-label">زمان انقضا (اختیاری)</div>
-                  <div class="date-field has-clear"><input name="expires_at_display" readonly placeholder="بدون انقضا" data-jalali-for="expires_at"><button type="button" data-clear-date="expires_at" aria-label="پاک کردن زمان انقضا">×</button></div>
-                  <div class="danger-links"><button id="editor-unpublish" class="link-button" type="button" hidden>لغو انتشار</button><button id="editor-delete" class="link-button danger-text" type="button" hidden>حذف خبر</button></div>
-                </div>
-              </details>
-              <p id="editor-error" class="form-error" role="alert"></p>
-            </aside>
-          </form>
-        </section>
-        <section id="users-view" class="admin-view" data-panel="users" hidden>
-          <div class="view-heading"><div><p class="eyebrow">سلسله‌مراتب سازمانی</p><h1>مدیریت کاربران</h1></div><button id="new-user-button" class="button primary" type="button">＋ کاربر تازه</button></div>
-          <div id="users-tree" class="panel tree-panel"></div>
-          <div id="users-pager" class="pager-wrap"></div>
-          <form id="user-form" class="panel inline-form" hidden>
-            <h2>ساخت کاربر</h2>
-            <label>نام کامل<input name="full_name" required maxlength="160"></label>
-            <label>نام کاربری<input name="username" required maxlength="80"></label>
-            <label>نقش<select name="role"></select></label>
-            <label id="user-province-label" hidden>استان (دارای مدیر استان)<select name="province_id"></select></label>
-            <label id="user-region-label">مرکز یا واحد<select name="region_id"></select></label>
-            <button class="button primary" type="submit">ساخت و دریافت گذرواژهٔ موقت</button>
-            <button class="button outline" data-action="cancel-user" type="button">انصراف</button>
-            <p id="user-error" class="form-error"></p>
-          </form>
-        </section>
-        <section id="regions-view" class="admin-view" data-panel="regions" hidden>
-          <div class="view-heading"><div><p class="eyebrow">استان‌ها و مراکز دانشگاهی</p><h1>مراکز و واحدها</h1></div><button id="new-region-button" class="button primary" type="button">＋ افزودن</button></div>
-          <form id="region-form" class="panel inline-form" hidden>
-            <h2>افزودن مرکز یا واحد</h2>
-            <label>نوع<select name="type"><option value="province">استان</option><option value="city" selected>مرکز دانشگاهی</option></select></label>
-            <label id="region-parent-label">استان مربوطه<select name="parent_id"></select></label>
-            <label class="span-2">نام<input name="name" maxlength="160" required placeholder="مثلاً نجف‌آباد"></label>
-            <div class="form-actions"><button class="button primary" type="submit">افزودن</button><button class="button outline" data-action="cancel-region" type="button">انصراف</button></div>
-            <p id="region-error" class="form-error" role="alert"></p>
-          </form>
-          <div id="regions-summary" class="units-summary"></div>
-          <div class="units-toolbar">
-            <label class="units-search"><input id="regions-search" type="search" placeholder="جست‌وجوی استان یا مرکز دانشگاهی" autocomplete="off" aria-label="جست‌وجوی استان یا مرکز دانشگاهی"></label>
-            <div id="regions-filter" class="seg" role="radiogroup" aria-label="فیلتر وضعیت">
-              <label class="seg-item"><input type="radio" name="regions_filter" value="all" checked><span>همه</span></label>
-              <label class="seg-item"><input type="radio" name="regions_filter" value="active"><span>فعال</span></label>
-              <label class="seg-item"><input type="radio" name="regions_filter" value="inactive"><span>فعال‌نشده</span></label>
+              <div id="dashboard-latest" class="compact-list"></div>
             </div>
-          </div>
-          <div id="regions-tree" class="units-list"></div>
-        </section>
-        <section id="categories-view" class="admin-view" data-panel="categories" hidden>
-          <div class="view-heading"><div><p class="eyebrow">موضوع خبرها</p><h1>دسته‌بندی‌ها</h1></div><button id="new-category-button" class="button primary" type="button">＋ دسته‌بندی تازه</button></div>
-          <form id="category-form" class="panel inline-form category-form" hidden>
-            <h2>افزودن دسته‌بندی</h2>
-            <label class="span-2">نام دسته‌بندی<input name="name" maxlength="120" required placeholder="مثلاً اطلاعیه‌های آموزشی" autocomplete="off"></label>
-            <div class="form-actions"><button class="button primary" type="submit">افزودن</button><button class="button outline" data-action="cancel-category" type="button">انصراف</button></div>
-            <p id="category-error" class="form-error" role="alert"></p>
-          </form>
-          <p class="muted category-hint">ترتیب این فهرست همان ترتیب نمایش در فهرست انتخاب هنگام نوشتن خبر است. دسته‌بندی غیرفعال برای خبرهای تازه انتخاب نمی‌شود ولی روی خبرهای قبلی می‌ماند.</p>
-          <div id="categories-list" class="panel category-list"></div>
-        </section>
-        <section id="settings-view" class="admin-view" data-panel="settings" hidden>
-          <div class="view-heading"><div><p class="eyebrow">شخصی‌سازی و رادیو</p><h1>تنظیمات سامانه</h1></div></div>
-          <div class="settings-layout">
-            <form id="settings-form" class="settings-form">
-              <section class="panel settings-card">
-                <h2>عنوان سامانه</h2>
-                <p class="card-hint">در سربرگ و برگهٔ مرورگر سایت خوانندگان نمایش داده می‌شود.</p>
-                <label>عنوان سایت<input name="site_title" maxlength="160" required></label>
-              </section>
-              <section class="panel settings-card">
-                <h2>رادیوی اینترنتی</h2>
-                <label class="switch-row"><input type="checkbox" name="radio_enabled"><span class="switch-text"><strong>رادیو فعال باشد</strong><small>نوار پخش در پایین صفحهٔ خوانندگان نمایش داده می‌شود.</small></span></label>
-                <div class="field-grid">
-                  <label>نام ایستگاه<input name="radio_title" maxlength="160"></label>
-                  <label>نشانی پخش<input name="radio_stream_url" type="url" inputmode="url" dir="ltr" placeholder="https://…"></label>
-                  <label class="span-2">نشانی اختیاری اکنون‌پخش<input name="radio_nowplaying_url" type="url" inputmode="url" dir="ltr" placeholder="https://…"></label>
-                </div>
-                <div class="settings-inline"><button id="radio-test" class="button outline" type="button">آزمایش پخش</button><button id="radio-nowplaying-test" class="button outline" type="button">آزمایش اکنون‌پخش</button><audio id="radio-test-audio" preload="none" controls hidden></audio></div>
-                <p id="radio-nowplaying-result" class="portal-status" role="status" hidden></p>
-              </section>
-              <section class="panel settings-card">
-                <h2>نمایش و دسترسی</h2>
-                <label class="switch-row"><input type="checkbox" name="byline_show_person"><span class="switch-text"><strong>نمایش نام شخص منتشرکننده</strong><small>زیر هر خبر نام فرد و واحد او نوشته می‌شود؛ در حالت خاموش فقط واحد.</small></span></label>
-                <label class="switch-row"><input type="checkbox" name="peer_edit_enabled"><span class="switch-text"><strong>اجازهٔ ویرایش خبر همکاران هم‌سطح</strong><small>مدیران یک واحد می‌توانند خبرهای هم را ببینند و ویرایش کنند.</small></span></label>
-                <label class="narrow-field">حداکثر مدیر فعال برای هر مرکز دانشگاهی<input name="max_city_admins" type="number" min="1" max="10000" required></label>
-              </section>
-              <div class="settings-actions">
-                <button class="button primary" type="submit">ذخیرهٔ تنظیمات</button>
-                <p id="settings-error" class="form-error" role="alert"></p>
+          </section>
+          <section id="news-view" class="admin-view" data-panel="news" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">انتشار و نگهداری</p>
+                <h1>مدیریت خبرها</h1>
               </div>
+              <button class="button primary" data-action="new-news">
+                ＋ خبر تازه
+              </button>
+            </div>
+            <div class="filter-bar">
+              <label
+                >جست‌وجو<input
+                  id="news-search"
+                  type="search"
+                  placeholder="عنوان یا متن خبر"
+              /></label>
+              <label
+                >وضعیت<select id="news-status">
+                  <option value="all">همهٔ وضعیت‌ها</option>
+                  <option value="published">منتشرشده</option>
+                  <option value="scheduled">زمان‌بندی‌شده</option>
+                  <option value="draft">پیش‌نویس</option>
+                </select></label
+              >
+              <label
+                >محدوده<select id="news-scope">
+                  <option value="all">همهٔ خبرهای قابل مشاهده</option>
+                  <option value="mine">خبرهای من</option>
+                </select></label
+              >
+              <button
+                id="news-filter-button"
+                class="button outline"
+                type="button"
+              >
+                اعمال فیلتر
+              </button>
+            </div>
+            <div id="news-table" class="news-table panel"></div>
+            <div id="news-pager" class="pager-wrap"></div>
+          </section>
+          <section
+            id="editor-view"
+            class="admin-view"
+            data-panel="editor"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">ویرایشگر خبر</p>
+                <h1 id="editor-heading">خبر تازه</h1>
+              </div>
+              <button class="button outline" data-action="back-news">
+                بازگشت به خبرها
+              </button>
+            </div>
+            <form id="news-editor" class="editor-form editor-layout">
+              <input type="hidden" name="news_id" />
+              <div class="editor-main panel">
+                <label
+                  >عنوان خبر<input name="title" maxlength="240" required
+                /></label>
+                <label
+                  >خلاصه<textarea
+                    name="summary"
+                    rows="2"
+                    maxlength="600"
+                  ></textarea>
+                </label>
+                <div class="editor-label">
+                  <span>متن خبر</span>
+                  <div
+                    class="rich-toolbar"
+                    role="toolbar"
+                    aria-label="قالب‌بندی متن"
+                  >
+                    <button
+                      type="button"
+                      data-command="bold"
+                      title="درشت"
+                      aria-label="درشت"
+                      aria-pressed="false"
+                    >
+                      <b>B</b></button
+                    ><button
+                      type="button"
+                      data-command="underline"
+                      title="زیرخط"
+                      aria-label="زیرخط"
+                      aria-pressed="false"
+                    >
+                      <u>U</u></button
+                    ><button
+                      type="button"
+                      data-command="italic"
+                      title="کج"
+                      aria-label="کج"
+                      aria-pressed="false"
+                    >
+                      <i>I</i></button
+                    ><button
+                      type="button"
+                      data-command="link"
+                      title="پیوند"
+                      aria-label="پیوند"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"
+                        />
+                      </svg></button
+                    ><button
+                      type="button"
+                      data-command="unlink"
+                      title="حذف پیوند"
+                      aria-label="حذف پیوند"
+                      disabled
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1M4 4l16 16"
+                        />
+                      </svg></button
+                    ><span class="tool-sep" aria-hidden="true"></span
+                    ><button
+                      type="button"
+                      data-command="alignRight"
+                      title="راست‌چین"
+                      aria-label="راست‌چین"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18M9 10h12M3 14h18M9 18h12" />
+                      </svg></button
+                    ><button
+                      type="button"
+                      data-command="alignCenter"
+                      title="وسط‌چین"
+                      aria-label="وسط‌چین"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18M7 10h10M3 14h18M7 18h10" />
+                      </svg></button
+                    ><button
+                      type="button"
+                      data-command="alignLeft"
+                      title="چپ‌چین"
+                      aria-label="چپ‌چین"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18M3 10h12M3 14h18M3 18h12" />
+                      </svg></button
+                    ><button
+                      type="button"
+                      data-command="alignJustify"
+                      title="جاستیفای (تراز دو طرف)"
+                      aria-label="جاستیفای (تراز دو طرف)"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 6h18M3 10h18M3 14h18M3 18h18" />
+                      </svg></button
+                    ><span class="tool-sep" aria-hidden="true"></span
+                    ><button
+                      type="button"
+                      data-command="bullets"
+                      title="فهرست نقطه‌ای"
+                      aria-label="فهرست نقطه‌ای"
+                      aria-pressed="false"
+                    >
+                      <svg
+                        class="tool-icon"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 6h.01M4 12h.01M4 18h.01M9 6h12M9 12h12M9 18h12"
+                        />
+                      </svg></button
+                    ><button
+                      type="button"
+                      data-command="numbers"
+                      title="فهرست شماره‌دار (1 2 3)"
+                      aria-label="فهرست شماره‌دار (1 2 3)"
+                      aria-pressed="false"
+                    >
+                      <span class="tool-text">1 2 3</span></button
+                    ><button
+                      type="button"
+                      data-command="persian"
+                      title="فهرست شماره‌دار با ارقام فارسی (۱ ۲ ۳)"
+                      aria-label="فهرست شماره‌دار با ارقام فارسی (۱ ۲ ۳)"
+                      aria-pressed="false"
+                    >
+                      <span class="tool-text">۱ ۲ ۳</span>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="editor-body"
+                  class="rich-editor"
+                  contenteditable="true"
+                  role="textbox"
+                  aria-multiline="true"
+                  aria-label="متن کامل خبر"
+                ></div>
+                <details class="more-block" id="editor-media">
+                  <summary>تصویر و پیوست‌ها</summary>
+                  <div class="media-zones">
+                    <div class="zone" data-zone="cover">
+                      <label class="dropzone">
+                        <input
+                          class="dropzone-input"
+                          name="cover"
+                          type="file"
+                          accept="image/*"
+                        />
+                        <svg class="icon dropzone-icon" aria-hidden="true">
+                          <use href="#admin-icon-upload" />
+                        </svg>
+                        <strong>تصویر جلد</strong>
+                        <span
+                          >تصویر را بکشید و اینجا رها کنید، یا برای انتخاب کلیک
+                          کنید</span
+                        >
+                        <small>یک تصویر · حداکثر ۱۲ مگابایت</small>
+                      </label>
+                      <ul class="upload-queue" data-queue="cover"></ul>
+                    </div>
+                    <div class="zone" data-zone="images">
+                      <label class="dropzone">
+                        <input
+                          class="dropzone-input"
+                          name="images"
+                          type="file"
+                          accept="image/*"
+                          multiple
+                        />
+                        <svg class="icon dropzone-icon" aria-hidden="true">
+                          <use href="#admin-icon-upload" />
+                        </svg>
+                        <strong>تصاویر دیگر</strong>
+                        <span
+                          >تصویرها را بکشید و اینجا رها کنید، یا برای انتخاب
+                          کلیک کنید</span
+                        >
+                        <small>تا ۱۰ تصویر · هر کدام تا ۱۲ مگابایت</small>
+                      </label>
+                      <ul class="upload-queue" data-queue="images"></ul>
+                    </div>
+                    <div class="zone" data-zone="files">
+                      <label class="dropzone">
+                        <input
+                          class="dropzone-input"
+                          name="files"
+                          type="file"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv"
+                          multiple
+                        />
+                        <svg class="icon dropzone-icon" aria-hidden="true">
+                          <use href="#admin-icon-upload" />
+                        </svg>
+                        <strong>فایل‌های پیوست</strong>
+                        <span
+                          >فایل‌ها را بکشید و اینجا رها کنید، یا برای انتخاب
+                          کلیک کنید</span
+                        >
+                        <small
+                          >PDF، Word، Excel، ZIP و … · تا ۸ فایل · هر کدام تا ۱۵
+                          مگابایت</small
+                        >
+                      </label>
+                      <ul class="upload-queue" data-queue="files"></ul>
+                    </div>
+                    <div id="upload-total" class="upload-total" hidden>
+                      <div class="upload-total-text">
+                        <span id="upload-total-label"
+                          >در حال ارسال پیوست‌ها…</span
+                        ><span id="upload-total-percent"></span>
+                      </div>
+                      <progress
+                        id="upload-total-bar"
+                        max="100"
+                        value="0"
+                      ></progress>
+                    </div>
+                  </div>
+                </details>
+                <div
+                  id="editor-attachments"
+                  class="attachment-list"
+                  hidden
+                ></div>
+              </div>
+              <aside class="side-card panel" aria-label="تنظیمات انتشار">
+                <div class="side-status">
+                  <span>وضعیت</span
+                  ><span id="editor-status" class="status-badge draft"
+                    >پیش‌نویس</span
+                  >
+                </div>
+                <fieldset
+                  id="editor-target-fieldset"
+                  class="target-picker"
+                ></fieldset>
+                <div class="type-group">
+                  <span class="field-label">نوع مطلب</span>
+                  <div class="seg" role="radiogroup" aria-label="نوع مطلب">
+                    <label class="seg-item"
+                      ><input
+                        type="radio"
+                        name="news_type"
+                        value="news"
+                        checked
+                      /><span>خبر</span></label
+                    >
+                    <label class="seg-item"
+                      ><input
+                        type="radio"
+                        name="news_type"
+                        value="announcement"
+                      /><span>اطلاعیه</span></label
+                    >
+                  </div>
+                </div>
+                <label
+                  >دسته‌بندی<select name="category_id" required></select
+                ></label>
+                <div id="editor-when-group" class="when-group">
+                  <span class="field-label">زمان انتشار (وقت ایران)</span>
+                  <div class="seg" role="radiogroup" aria-label="زمان انتشار">
+                    <label class="seg-item"
+                      ><input
+                        type="radio"
+                        name="schedule_mode"
+                        value="now"
+                        checked
+                      /><span>اکنون</span></label
+                    >
+                    <label class="seg-item"
+                      ><input
+                        type="radio"
+                        name="schedule_mode"
+                        value="later"
+                      /><span>زمان‌بندی</span></label
+                    >
+                  </div>
+                  <div id="editor-when" class="date-field" hidden>
+                    <input
+                      name="published_at_display"
+                      readonly
+                      placeholder="انتخاب تاریخ و ساعت"
+                      data-jalali-for="published_at"
+                    />
+                  </div>
+                </div>
+                <div class="editor-actions">
+                  <button
+                    id="editor-publish"
+                    class="button success wide"
+                    type="button"
+                  >
+                    انتشار اکنون
+                  </button>
+                  <button
+                    id="editor-save"
+                    class="button outline wide"
+                    type="submit"
+                  >
+                    ذخیرهٔ پیش‌نویس
+                  </button>
+                </div>
+                <details class="more-block" id="editor-more">
+                  <summary>گزینه‌های بیشتر</summary>
+                  <div class="more-body">
+                    <label class="check-row"
+                      ><input name="is_pinned" type="checkbox" />خبر مهم (بالای
+                      فهرست)</label
+                    >
+                    <label class="check-row"
+                      ><input name="is_urgent" type="checkbox" />خبر فوری</label
+                    >
+                    <div class="field-label">زمان انقضا (اختیاری)</div>
+                    <div class="date-field has-clear">
+                      <input
+                        name="expires_at_display"
+                        readonly
+                        placeholder="بدون انقضا"
+                        data-jalali-for="expires_at"
+                      /><button
+                        type="button"
+                        data-clear-date="expires_at"
+                        aria-label="پاک کردن زمان انقضا"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div class="danger-links">
+                      <button
+                        id="editor-unpublish"
+                        class="link-button"
+                        type="button"
+                        hidden
+                      >
+                        لغو انتشار</button
+                      ><button
+                        id="editor-delete"
+                        class="link-button danger-text"
+                        type="button"
+                        hidden
+                      >
+                        حذف خبر
+                      </button>
+                    </div>
+                  </div>
+                </details>
+                <p id="editor-error" class="form-error" role="alert"></p>
+              </aside>
             </form>
-            <aside class="panel portal-panel settings-side">
-              <h2>خبرخوان خودکار پورتال</h2>
-              <p id="portal-description" class="muted">خبرهای «اخبار اصلی» pnu.ac.ir از پراکسی رادیو دریافت و به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست.</p>
-              <label class="switch-row"><input type="checkbox" id="portal-enabled"><span class="switch-text"><strong>دریافت خودکار فعال باشد</strong></span></label>
-              <p id="portal-status" class="muted portal-status"></p>
-              <div class="settings-inline"><button id="portal-run" class="button outline" type="button">همین حالا بگیر</button></div>
-            </aside>
-          </div>
-        </section>
-        <section id="audit-view" class="admin-view" data-panel="audit" hidden>
-          <div class="view-heading"><div><p class="eyebrow">ردپای تغییرها</p><h1>گزارش رویدادها</h1></div></div>
-          <div id="audit-list" class="panel table-panel"></div>
-          <div id="audit-pager" class="pager-wrap"></div>
-        </section>
-        <section id="stats-view" class="admin-view" data-panel="stats" hidden>
-          <div class="view-heading"><div><p class="eyebrow">اثرگذاری خبرها</p><h1>آمار بازدید</h1></div></div>
-          <div id="stats-counts" class="stat-grid"></div>
-          <div class="panel"><h2>پربازدیدترین خبرها</h2><div id="most-viewed" class="compact-list"></div></div>
-        </section>
-        <section id="mobile-compose-view" class="admin-view mobile-panel chat-compose" data-panel="mobile-compose" hidden>
-          <div class="chat-top">
-            <span class="chat-avatar"><img src="/icons/pnu-logo.v3.png" alt="" width="36" height="36"></span>
-            <div class="chat-top-text"><strong>انتشار خبر</strong><small id="quick-scope-label"></small></div>
-          </div>
-          <div class="chat-stage" aria-live="polite">
-            <article id="quick-bubble" class="bubble is-empty" aria-label="پیش‌نمایش خبر">
-              <figure class="bubble-cover" hidden><img alt=""></figure>
-              <h3 class="bubble-title">عنوان خبر</h3>
-              <p class="bubble-text">متن خبر شما اینجا مثل یک پیام دیده می‌شود.</p>
-              <div class="bubble-meta"><span class="bubble-type">خبر</span><span class="bubble-state">پیش‌نویس</span><svg class="icon bubble-ticks" aria-hidden="true"><use href="#admin-icon-tick"/></svg></div>
-            </article>
-          </div>
-          <form id="quick-form" class="chat-composer" novalidate>
-            <div id="quick-attachment" class="attach-chip" hidden>
-              <img alt="" width="44" height="44"><span class="attach-info"><strong class="attach-name"></strong><small class="attach-size"></small></span>
-              <button id="quick-attachment-remove" class="attach-remove" type="button" aria-label="حذف عکس"><svg class="icon"><use href="#admin-icon-close"/></svg></button>
-            </div>
-            <progress id="quick-progress" class="upload-progress" max="100" value="0" hidden></progress>
-            <div class="composer-bar">
-              <label class="composer-icon" aria-label="افزودن عکس از گالری یا دوربین" title="افزودن عکس"><svg class="icon"><use href="#admin-icon-clip"/></svg><input name="cover" type="file" accept="image/*" hidden></label>
-              <div class="composer-fields">
-                <input name="title" class="composer-title" maxlength="240" placeholder="عنوان خبر" autocomplete="off" enterkeyhint="next" aria-label="عنوان خبر">
-                <textarea name="text" class="composer-text" rows="1" maxlength="5000" placeholder="متن خبر…" aria-label="متن خبر"></textarea>
+          </section>
+          <section id="users-view" class="admin-view" data-panel="users" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">سلسله‌مراتب سازمانی</p>
+                <h1>مدیریت کاربران</h1>
               </div>
-              <button id="quick-send" class="composer-send" type="submit">ارسال</button>
+              <button id="new-user-button" class="button primary" type="button">
+                ＋ کاربر تازه
+              </button>
             </div>
-            <p id="quick-error" class="form-error" role="alert"></p>
-          </form>
-        </section>
-        <section id="mobile-recent-view" class="admin-view" data-panel="mobile-recent" hidden>
-          <div class="view-heading"><div><p class="eyebrow">خبرهای من</p><h1>انتشارهای اخیر</h1></div><button class="button primary" data-action="new-news">＋ خبر تازه</button></div>
-          <div id="mobile-recent" class="compact-list"></div>
-          <div id="mobile-recent-pager" class="pager-wrap"></div>
-        </section>
-        <section id="mobile-feed-view" class="admin-view" data-panel="mobile-feed" hidden>
-          <div class="view-heading"><div><p class="eyebrow">خبرخوان خودکار پورتال</p><h1>خوراک خبر</h1></div></div>
-          <div id="mobile-feed" class="compact-list"></div>
-          <div id="mobile-feed-pager" class="pager-wrap"></div>
-        </section>
-        <section id="profile-view" class="admin-view" data-panel="profile" hidden>
-          <div class="view-heading"><div><p class="eyebrow">امنیت حساب</p><h1>حساب کاربری</h1></div></div>
-          <div class="profile-layout">
-            <div class="panel profile-panel">
-              <h2>اطلاعات حساب</h2>
-              <dl id="profile-details"></dl>
-              <h2>دستگاه‌های مورد اعتماد</h2>
-              <div id="device-list" class="compact-list"></div>
-              <button id="logout-everywhere" class="button danger" type="button">خروج از همهٔ دستگاه‌ها</button>
+            <div id="users-tree" class="panel tree-panel"></div>
+            <div id="users-pager" class="pager-wrap"></div>
+            <form id="user-form" class="panel inline-form" hidden>
+              <h2>ساخت کاربر</h2>
+              <label
+                >نام کامل<input name="full_name" required maxlength="160"
+              /></label>
+              <label
+                >نام کاربری<input name="username" required maxlength="80"
+              /></label>
+              <label>نقش<select name="role"></select></label>
+              <label id="user-province-label" hidden
+                >استان (دارای مدیر استان)<select name="province_id"></select
+              ></label>
+              <label id="user-region-label"
+                >مرکز یا واحد<select name="region_id"></select
+              ></label>
+              <button class="button primary" type="submit">
+                ساخت و دریافت گذرواژهٔ موقت
+              </button>
+              <button
+                class="button outline"
+                data-action="cancel-user"
+                type="button"
+              >
+                انصراف
+              </button>
+              <p id="user-error" class="form-error"></p>
+            </form>
+          </section>
+          <section
+            id="regions-view"
+            class="admin-view"
+            data-panel="regions"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">استان‌ها و مراکز دانشگاهی</p>
+                <h1>مراکز و واحدها</h1>
+              </div>
+              <button
+                id="new-region-button"
+                class="button primary"
+                type="button"
+              >
+                ＋ افزودن
+              </button>
             </div>
-            <div class="panel profile-panel password-panel">
-              <h2>تغییر گذرواژه</h2>
-              <form id="profile-password-form" class="form-stack">
-                <label>گذرواژهٔ فعلی<input name="old_password" type="password" autocomplete="current-password" required></label>
-                <label>گذرواژهٔ تازه<input name="new_password" type="password" autocomplete="new-password" minlength="10" required></label>
-                <label>تکرار گذرواژهٔ تازه<input name="confirm_password" type="password" autocomplete="new-password" minlength="10" required></label>
-                <p class="muted">دست‌کم ۱۰ نویسه و متفاوت از نام کاربری. پس از تغییر، از همهٔ دستگاه‌ها خارج می‌شوید و باید دوباره وارد شوید.</p>
-                <button class="button primary" type="submit">تغییر گذرواژه</button>
-                <p id="profile-password-error" class="form-error" role="alert"></p>
+            <form id="region-form" class="panel inline-form" hidden>
+              <h2>افزودن مرکز یا واحد</h2>
+              <label
+                >نوع<select name="type">
+                  <option value="province">استان</option>
+                  <option value="city" selected>مرکز دانشگاهی</option>
+                </select></label
+              >
+              <label id="region-parent-label"
+                >استان مربوطه<select name="parent_id"></select
+              ></label>
+              <label class="span-2"
+                >نام<input
+                  name="name"
+                  maxlength="160"
+                  required
+                  placeholder="مثلاً نجف‌آباد"
+              /></label>
+              <div class="form-actions">
+                <button class="button primary" type="submit">افزودن</button
+                ><button
+                  class="button outline"
+                  data-action="cancel-region"
+                  type="button"
+                >
+                  انصراف
+                </button>
+              </div>
+              <p id="region-error" class="form-error" role="alert"></p>
+            </form>
+            <div id="regions-summary" class="units-summary"></div>
+            <div class="units-toolbar">
+              <label class="units-search"
+                ><input
+                  id="regions-search"
+                  type="search"
+                  placeholder="جست‌وجوی استان یا مرکز دانشگاهی"
+                  autocomplete="off"
+                  aria-label="جست‌وجوی استان یا مرکز دانشگاهی"
+              /></label>
+              <div
+                id="regions-filter"
+                class="seg"
+                role="radiogroup"
+                aria-label="فیلتر وضعیت"
+              >
+                <label class="seg-item"
+                  ><input
+                    type="radio"
+                    name="regions_filter"
+                    value="all"
+                    checked
+                  /><span>همه</span></label
+                >
+                <label class="seg-item"
+                  ><input
+                    type="radio"
+                    name="regions_filter"
+                    value="active"
+                  /><span>فعال</span></label
+                >
+                <label class="seg-item"
+                  ><input
+                    type="radio"
+                    name="regions_filter"
+                    value="inactive"
+                  /><span>فعال‌نشده</span></label
+                >
+              </div>
+            </div>
+            <div id="regions-tree" class="units-list"></div>
+          </section>
+          <section
+            id="categories-view"
+            class="admin-view"
+            data-panel="categories"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">موضوع خبرها</p>
+                <h1>دسته‌بندی‌ها</h1>
+              </div>
+              <button
+                id="new-category-button"
+                class="button primary"
+                type="button"
+              >
+                ＋ دسته‌بندی تازه
+              </button>
+            </div>
+            <form
+              id="category-form"
+              class="panel inline-form category-form"
+              hidden
+            >
+              <h2>افزودن دسته‌بندی</h2>
+              <label class="span-2"
+                >نام دسته‌بندی<input
+                  name="name"
+                  maxlength="120"
+                  required
+                  placeholder="مثلاً اطلاعیه‌های آموزشی"
+                  autocomplete="off"
+              /></label>
+              <div class="form-actions">
+                <button class="button primary" type="submit">افزودن</button
+                ><button
+                  class="button outline"
+                  data-action="cancel-category"
+                  type="button"
+                >
+                  انصراف
+                </button>
+              </div>
+              <p id="category-error" class="form-error" role="alert"></p>
+            </form>
+            <p class="muted category-hint">
+              ترتیب این فهرست همان ترتیب نمایش در فهرست انتخاب هنگام نوشتن خبر
+              است. دسته‌بندی غیرفعال برای خبرهای تازه انتخاب نمی‌شود ولی روی
+              خبرهای قبلی می‌ماند.
+            </p>
+            <div id="categories-list" class="panel category-list"></div>
+          </section>
+          <section
+            id="settings-view"
+            class="admin-view"
+            data-panel="settings"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">شخصی‌سازی و رادیو</p>
+                <h1>تنظیمات سامانه</h1>
+              </div>
+            </div>
+            <div class="settings-layout">
+              <form id="settings-form" class="settings-form">
+                <section class="panel settings-card">
+                  <h2>عنوان سامانه</h2>
+                  <p class="card-hint">
+                    در سربرگ و برگهٔ مرورگر سایت خوانندگان نمایش داده می‌شود.
+                  </p>
+                  <label
+                    >عنوان سایت<input
+                      name="site_title"
+                      maxlength="160"
+                      required
+                  /></label>
+                </section>
+                <section class="panel settings-card">
+                  <h2>رادیوی اینترنتی</h2>
+                  <label class="switch-row"
+                    ><input type="checkbox" name="radio_enabled" /><span
+                      class="switch-text"
+                      ><strong>رادیو فعال باشد</strong
+                      ><small
+                        >نوار پخش در پایین صفحهٔ خوانندگان نمایش داده
+                        می‌شود.</small
+                      ></span
+                    ></label
+                  >
+                  <div class="field-grid">
+                    <label
+                      >نام ایستگاه<input name="radio_title" maxlength="160"
+                    /></label>
+                    <label
+                      >نشانی پخش<input
+                        name="radio_stream_url"
+                        type="url"
+                        inputmode="url"
+                        dir="ltr"
+                        placeholder="https://…"
+                    /></label>
+                    <label class="span-2"
+                      >نشانی اختیاری اکنون‌پخش<input
+                        name="radio_nowplaying_url"
+                        type="url"
+                        inputmode="url"
+                        dir="ltr"
+                        placeholder="https://…"
+                    /></label>
+                  </div>
+                  <div class="settings-inline">
+                    <button
+                      id="radio-test"
+                      class="button outline"
+                      type="button"
+                    >
+                      آزمایش پخش</button
+                    ><button
+                      id="radio-nowplaying-test"
+                      class="button outline"
+                      type="button"
+                    >
+                      آزمایش اکنون‌پخش</button
+                    ><audio
+                      id="radio-test-audio"
+                      preload="none"
+                      controls
+                      hidden
+                    ></audio>
+                  </div>
+                  <p
+                    id="radio-nowplaying-result"
+                    class="portal-status"
+                    role="status"
+                    hidden
+                  ></p>
+                </section>
+                <section class="panel settings-card">
+                  <h2>نمایش و دسترسی</h2>
+                  <label class="switch-row"
+                    ><input type="checkbox" name="byline_show_person" /><span
+                      class="switch-text"
+                      ><strong>نمایش نام شخص منتشرکننده</strong
+                      ><small
+                        >زیر هر خبر نام فرد و واحد او نوشته می‌شود؛ در حالت
+                        خاموش فقط واحد.</small
+                      ></span
+                    ></label
+                  >
+                  <label class="switch-row"
+                    ><input type="checkbox" name="peer_edit_enabled" /><span
+                      class="switch-text"
+                      ><strong>اجازهٔ ویرایش خبر همکاران هم‌سطح</strong
+                      ><small
+                        >مدیران یک واحد می‌توانند خبرهای هم را ببینند و ویرایش
+                        کنند.</small
+                      ></span
+                    ></label
+                  >
+                  <label class="narrow-field"
+                    >حداکثر مدیر فعال برای هر مرکز دانشگاهی<input
+                      name="max_city_admins"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      required
+                  /></label>
+                </section>
+                <div class="settings-actions">
+                  <button class="button primary" type="submit">
+                    ذخیرهٔ تنظیمات
+                  </button>
+                  <p id="settings-error" class="form-error" role="alert"></p>
+                </div>
               </form>
+              <aside class="panel portal-panel settings-side">
+                <h2>خبرخوان خودکار پورتال</h2>
+                <p id="portal-description" class="muted">
+                  خبرهای «اخبار اصلی» pnu.ac.ir از پراکسی رادیو دریافت و
+                  به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. کارت
+                  این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست.
+                </p>
+                <label class="switch-row"
+                  ><input type="checkbox" id="portal-enabled" /><span
+                    class="switch-text"
+                    ><strong>دریافت خودکار فعال باشد</strong></span
+                  ></label
+                >
+                <p id="portal-status" class="muted portal-status"></p>
+                <div class="settings-inline">
+                  <button id="portal-run" class="button outline" type="button">
+                    همین حالا بگیر
+                  </button>
+                </div>
+              </aside>
             </div>
-          </div>
-        </section>
+          </section>
+          <section id="audit-view" class="admin-view" data-panel="audit" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">ردپای تغییرها</p>
+                <h1>گزارش رویدادها</h1>
+              </div>
+            </div>
+            <div id="audit-list" class="panel table-panel"></div>
+            <div id="audit-pager" class="pager-wrap"></div>
+          </section>
+          <section id="stats-view" class="admin-view" data-panel="stats" hidden>
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">اثرگذاری خبرها</p>
+                <h1>آمار بازدید</h1>
+              </div>
+            </div>
+            <div id="stats-counts" class="stat-grid"></div>
+            <div class="panel">
+              <h2>پربازدیدترین خبرها</h2>
+              <div id="most-viewed" class="compact-list"></div>
+            </div>
+          </section>
+          <section
+            id="mobile-compose-view"
+            class="admin-view mobile-panel chat-compose"
+            data-panel="mobile-compose"
+            hidden
+          >
+            <div class="chat-top">
+              <span class="chat-avatar"
+                ><img
+                  src="/icons/pnu-logo.v3.png"
+                  alt=""
+                  width="36"
+                  height="36"
+              /></span>
+              <div class="chat-top-text">
+                <strong>انتشار خبر</strong
+                ><small id="quick-scope-label"></small>
+              </div>
+            </div>
+            <div class="chat-stage" aria-live="polite">
+              <article
+                id="quick-bubble"
+                class="bubble is-empty"
+                aria-label="پیش‌نمایش خبر"
+              >
+                <figure class="bubble-cover" hidden><img alt="" /></figure>
+                <h3 class="bubble-title">عنوان خبر</h3>
+                <p class="bubble-text">
+                  متن خبر شما اینجا مثل یک پیام دیده می‌شود.
+                </p>
+                <div class="bubble-meta">
+                  <span class="bubble-type">خبر</span
+                  ><span class="bubble-state">پیش‌نویس</span
+                  ><svg class="icon bubble-ticks" aria-hidden="true">
+                    <use href="#admin-icon-tick" />
+                  </svg>
+                </div>
+              </article>
+            </div>
+            <form id="quick-form" class="chat-composer" novalidate>
+              <div id="quick-attachment" class="attach-chip" hidden>
+                <img alt="" width="44" height="44" /><span class="attach-info"
+                  ><strong class="attach-name"></strong
+                  ><small class="attach-size"></small
+                ></span>
+                <button
+                  id="quick-attachment-remove"
+                  class="attach-remove"
+                  type="button"
+                  aria-label="حذف عکس"
+                >
+                  <svg class="icon"><use href="#admin-icon-close" /></svg>
+                </button>
+              </div>
+              <progress
+                id="quick-progress"
+                class="upload-progress"
+                max="100"
+                value="0"
+                hidden
+              ></progress>
+              <div class="composer-bar">
+                <label
+                  class="composer-icon"
+                  aria-label="افزودن عکس از گالری یا دوربین"
+                  title="افزودن عکس"
+                  ><svg class="icon"><use href="#admin-icon-clip" /></svg
+                  ><input name="cover" type="file" accept="image/*" hidden
+                /></label>
+                <div class="composer-fields">
+                  <input
+                    name="title"
+                    class="composer-title"
+                    maxlength="240"
+                    placeholder="عنوان خبر"
+                    autocomplete="off"
+                    enterkeyhint="next"
+                    aria-label="عنوان خبر"
+                  />
+                  <textarea
+                    name="text"
+                    class="composer-text"
+                    rows="1"
+                    maxlength="5000"
+                    placeholder="متن خبر…"
+                    aria-label="متن خبر"
+                  ></textarea>
+                </div>
+                <button id="quick-send" class="composer-send" type="submit">
+                  ارسال
+                </button>
+              </div>
+              <p id="quick-error" class="form-error" role="alert"></p>
+            </form>
+          </section>
+          <section
+            id="mobile-recent-view"
+            class="admin-view"
+            data-panel="mobile-recent"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">خبرهای من</p>
+                <h1>انتشارهای اخیر</h1>
+              </div>
+              <button class="button primary" data-action="new-news">
+                ＋ خبر تازه
+              </button>
+            </div>
+            <div id="mobile-recent" class="compact-list"></div>
+            <div id="mobile-recent-pager" class="pager-wrap"></div>
+          </section>
+          <section
+            id="mobile-feed-view"
+            class="admin-view"
+            data-panel="mobile-feed"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">خبرخوان خودکار پورتال</p>
+                <h1>خوراک خبر</h1>
+              </div>
+            </div>
+            <div id="mobile-feed" class="compact-list"></div>
+            <div id="mobile-feed-pager" class="pager-wrap"></div>
+          </section>
+          <section
+            id="profile-view"
+            class="admin-view"
+            data-panel="profile"
+            hidden
+          >
+            <div class="view-heading">
+              <div>
+                <p class="eyebrow">امنیت حساب</p>
+                <h1>حساب کاربری</h1>
+              </div>
+            </div>
+            <div class="profile-layout">
+              <div class="panel profile-panel">
+                <h2>اطلاعات حساب</h2>
+                <dl id="profile-details"></dl>
+                <h2>دستگاه‌های مورد اعتماد</h2>
+                <div id="device-list" class="compact-list"></div>
+                <button
+                  id="logout-everywhere"
+                  class="button danger"
+                  type="button"
+                >
+                  خروج از همهٔ دستگاه‌ها
+                </button>
+              </div>
+              <div class="panel profile-panel password-panel">
+                <h2>تغییر گذرواژه</h2>
+                <form id="profile-password-form" class="form-stack">
+                  <label
+                    >گذرواژهٔ فعلی<input
+                      name="old_password"
+                      type="password"
+                      autocomplete="current-password"
+                      required
+                  /></label>
+                  <label
+                    >گذرواژهٔ تازه<input
+                      name="new_password"
+                      type="password"
+                      autocomplete="new-password"
+                      minlength="10"
+                      required
+                  /></label>
+                  <label
+                    >تکرار گذرواژهٔ تازه<input
+                      name="confirm_password"
+                      type="password"
+                      autocomplete="new-password"
+                      minlength="10"
+                      required
+                  /></label>
+                  <p class="muted">
+                    دست‌کم ۱۰ نویسه و متفاوت از نام کاربری. پس از تغییر، از همهٔ
+                    دستگاه‌ها خارج می‌شوید و باید دوباره وارد شوید.
+                  </p>
+                  <button class="button primary" type="submit">
+                    تغییر گذرواژه
+                  </button>
+                  <p
+                    id="profile-password-error"
+                    class="form-error"
+                    role="alert"
+                  ></p>
+                </form>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
+      <nav id="mobile-nav" class="mobile-nav" aria-label="بخش‌های پنل">
+        <button data-view="mobile-compose"><span>＋</span>خبر سریع</button>
+        <button data-view="mobile-recent"><span>▤</span>خبرهای من</button>
+        <button
+          data-view="mobile-feed"
+          data-show-roles="super_admin,country_admin"
+        >
+          <span>⌂</span>خوراک خبر
+        </button>
+        <button data-view="profile"><span>◉</span>حساب</button>
+      </nav>
     </div>
-    <nav id="mobile-nav" class="mobile-nav" aria-label="بخش‌های پنل">
-      <button data-view="mobile-compose"><span>＋</span>خبر سریع</button>
-      <button data-view="mobile-recent"><span>▤</span>خبرهای من</button>
-      <button data-view="mobile-feed" data-show-roles="super_admin,country_admin"><span>⌂</span>خوراک خبر</button>
-      <button data-view="profile"><span>◉</span>حساب</button>
-    </nav>
-  </div>
 
-  <dialog id="jalali-dialog" class="jalali-dialog">
-    <div class="jalali-panel">
-      <div class="jalali-heading"><div><p class="eyebrow">انتخاب زمان ایران</p><h2 id="jalali-title">تاریخ انتشار</h2></div><button type="button" class="icon-button" data-close-jalali aria-label="بستن">×</button></div>
-      <div class="calendar-toolbar"><button type="button" id="jalali-prev" aria-label="ماه قبل">‹</button><strong id="jalali-month-label"></strong><button type="button" id="jalali-next" aria-label="ماه بعد">›</button></div>
-      <div class="calendar-grid" id="jalali-weekdays"></div>
-      <div class="calendar-grid" id="jalali-days"></div>
-      <div class="time-grid"><label>ساعت<input id="jalali-hour" inputmode="numeric" maxlength="2" value="۱۲"></label><span>:</span><label>دقیقه<input id="jalali-minute" inputmode="numeric" maxlength="2" value="۰۰"></label></div>
-      <div class="modal-actions"><button type="button" class="button outline" data-close-jalali>انصراف</button><button type="button" id="jalali-apply" class="button primary">ثبت زمان</button></div>
+    <dialog id="jalali-dialog" class="jalali-dialog">
+      <div class="jalali-panel">
+        <div class="jalali-heading">
+          <div>
+            <p class="eyebrow">انتخاب زمان ایران</p>
+            <h2 id="jalali-title">تاریخ انتشار</h2>
+          </div>
+          <button
+            type="button"
+            class="icon-button"
+            data-close-jalali
+            aria-label="بستن"
+          >
+            ×
+          </button>
+        </div>
+        <div class="calendar-toolbar">
+          <button type="button" id="jalali-prev" aria-label="ماه قبل">‹</button
+          ><strong id="jalali-month-label"></strong
+          ><button type="button" id="jalali-next" aria-label="ماه بعد">
+            ›
+          </button>
+        </div>
+        <div class="calendar-grid" id="jalali-weekdays"></div>
+        <div class="calendar-grid" id="jalali-days"></div>
+        <div class="time-grid">
+          <label
+            >ساعت<input
+              id="jalali-hour"
+              inputmode="numeric"
+              maxlength="2"
+              value="۱۲" /></label
+          ><span>:</span
+          ><label
+            >دقیقه<input
+              id="jalali-minute"
+              inputmode="numeric"
+              maxlength="2"
+              value="۰۰"
+          /></label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="button outline" data-close-jalali>
+            انصراف</button
+          ><button type="button" id="jalali-apply" class="button primary">
+            ثبت زمان
+          </button>
+        </div>
+      </div>
+    </dialog>
+    <dialog id="about-dialog" class="info-dialog" aria-labelledby="about-title">
+      <div class="info-panel">
+        <div class="info-header">
+          <div>
+            <h2 id="about-title" class="info-title">دربارهٔ اخبار پیام‌نور</h2>
+            <p class="info-meta">
+              <span
+                ><svg class="icon"><use href="#admin-icon-tag" /></svg>نسخه:
+                <b id="about-version"></b
+              ></span>
+            </p>
+          </div>
+          <button
+            class="icon-button info-close"
+            type="button"
+            aria-label="بستن"
+            data-dialog-close
+          >
+            <svg class="icon"><use href="#admin-icon-close" /></svg>
+          </button>
+        </div>
+        <p class="about-text">
+          اخبار پیام‌نور، پایگاه خبری دانشگاه پیام‌نور است که خبرها و
+          اطلاعیه‌های سازمان مرکزی، استان‌ها و مراکز دانشگاهی را در یک‌جا گرد
+          می‌آورد. مرکز دانشگاهی خود را انتخاب کنید تا خبرهای مرتبط با شما
+          به‌صورت زنده نمایش داده شود؛ می‌توانید نوع خبرهای نمایش‌داده‌شده را
+          تنظیم کنید، رادیوی دانشگاه را بشنوید، از حالت تیره و اندازهٔ دلخواه
+          نوشته استفاده کنید و برنامه را مانند یک اپلیکیشن روی گوشی نصب کنید.
+        </p>
+        <p class="about-label">توسعه‌دهنده:</p>
+        <a
+          class="about-link"
+          id="about-telegram"
+          href="https://t.me/RealDream"
+          target="_blank"
+          rel="noopener noreferrer"
+          ><svg class="icon"><use href="#admin-icon-telegram" /></svg>مهدی
+          حسنی</a
+        >
+      </div>
+    </dialog>
+    <dialog id="message-dialog" class="message-dialog">
+      <div class="message-panel">
+        <button
+          type="button"
+          class="icon-button dialog-close"
+          data-close-message
+          aria-label="بستن"
+        >
+          ×
+        </button>
+        <div id="message-content"></div>
+      </div>
+    </dialog>
+    <div
+      id="admin-toast"
+      class="admin-toast"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <div class="floating-banners" aria-live="polite">
+      <div id="update-root"></div>
+      <div id="install-root"></div>
     </div>
-  </dialog>
-  <dialog id="about-dialog" class="info-dialog" aria-labelledby="about-title">
-    <div class="info-panel">
-      <div class="info-header"><div><h2 id="about-title" class="info-title">دربارهٔ اخبار پیام‌نور</h2><p class="info-meta"><span><svg class="icon"><use href="#admin-icon-tag"/></svg>نسخه: <b id="about-version"></b></span></p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#admin-icon-close"/></svg></button></div>
-      <p class="about-text">اخبار پیام‌نور، پایگاه خبری دانشگاه پیام‌نور است که خبرها و اطلاعیه‌های سازمان مرکزی، استان‌ها و مراکز دانشگاهی را در یک‌جا گرد می‌آورد. مرکز دانشگاهی خود را انتخاب کنید تا خبرهای مرتبط با شما به‌صورت زنده نمایش داده شود؛ می‌توانید نوع خبرهای نمایش‌داده‌شده را تنظیم کنید، رادیوی دانشگاه را بشنوید، از حالت تیره و اندازهٔ دلخواه نوشته استفاده کنید و برنامه را مانند یک اپلیکیشن روی گوشی نصب کنید.</p>
-      <p class="about-label">توسعه‌دهنده:</p>
-      <a class="about-link" id="about-telegram" href="https://t.me/RealDream" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#admin-icon-telegram"/></svg>مهدی حسنی</a>
-    </div>
-  </dialog>
-  <dialog id="message-dialog" class="message-dialog"><div class="message-panel"><button type="button" class="icon-button dialog-close" data-close-message aria-label="بستن">×</button><div id="message-content"></div></div></dialog>
-  <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
-  <div class="floating-banners" aria-live="polite"><div id="update-root"></div><div id="install-root"></div></div>
-  <script type="module" src="/dashboard/dashboard.v0.1.46.js"></script>
-</body>
+    <script type="module" src="/dashboard/dashboard.v0.1.47.js"></script>
+  </body>
 </html>
