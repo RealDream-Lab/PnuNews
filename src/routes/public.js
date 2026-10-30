@@ -162,7 +162,9 @@ async function feedRegionIds(pool, city, { country, province, siblings }) {
   return ids;
 }
 
-async function feedRows(pool, city, { scope, cursor, limit, regionIds, categoryId = null, pinned = false }) {
+// News the reader's center can see: published, already due, not deleted/expired, aimed at one of regionIds
+// (and, when a scope is chosen, also aimed at a region of that type). Shared by the feed and the category counts.
+function visibleNewsFilters(regionIds, scope) {
   const marks = regionIds.map(() => '?').join(', ');
   const filters = [
     "n.status = 'published'",
@@ -179,6 +181,25 @@ async function feedRows(pool, city, { scope, cursor, limit, regionIds, categoryI
     )`);
     values.push(scope);
   }
+  return { filters, values };
+}
+
+// Active categories that have at least one visible news item for this reader, with that count.
+async function visibleCategoryCounts(pool, regionIds, scope) {
+  const { filters, values } = visibleNewsFilters(regionIds, scope);
+  const [rows] = await pool.execute(
+    `SELECT c.id, c.name, COUNT(*) AS news_count
+     FROM news n JOIN categories c ON c.id = n.category_id AND c.is_active = 1
+     WHERE ${filters.join(' AND ')}
+     GROUP BY c.id, c.name`,
+    values,
+  );
+  return sortCategoriesByNewsCount(rows).map((row) => ({ id: Number(row.id), name: row.name, news_count: Number(row.news_count) || 0 }));
+}
+
+async function feedRows(pool, city, { scope, cursor, limit, regionIds, categoryId = null, pinned = false }) {
+  const marks = regionIds.map(() => '?').join(', ');
+  const { filters, values } = visibleNewsFilters(regionIds, scope);
   if (categoryId) {
     filters.push('n.category_id = ?');
     values.push(categoryId);
@@ -254,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.48.css">
-<script src="/shared/theme.v0.1.48.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.50.css">
+<script src="/shared/theme.v0.1.50.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.48.js"></script>
+<script type="module" src="/reader/app.v0.1.50.js"></script>
 </body>
 </html>`;
 }
@@ -336,18 +357,9 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   router.get('/api/public/config', async (request, response, next) => {
     try {
       const result = await cache.get('config', async () => {
-        const [settings, provinces, [categoryRows]] = await Promise.all([
+        const [settings, provinces] = await Promise.all([
           settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
           visibleRegions(pool),
-          pool.query(
-            `SELECT c.id, c.name, COUNT(n.id) AS news_count
-             FROM categories c
-             LEFT JOIN news n ON n.category_id = c.id
-               AND n.status = 'published' AND n.published_at <= UTC_TIMESTAMP() AND n.deleted_at IS NULL
-               AND (n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())
-             WHERE c.is_active = 1
-             GROUP BY c.id, c.name`,
-          ),
         ]);
         let radio = { enabled: false };
         if (settings.radio_enabled === '1') {
@@ -364,8 +376,35 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             }
           } catch {}
         }
-        const categories = sortCategoriesByNewsCount(categoryRows).map((row) => ({ id: Number(row.id), name: row.name }));
-        return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces, categories };
+        return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces };
+      });
+      response.setHeader('Cache-Control', 'public, max-age=15');
+      return response.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // Category chips of the reader: only categories that have news for this reader's center (and the extra regions
+  // the reader chose to include), each with its news count; most news first, then alphabetical.
+  router.get('/api/public/categories', async (request, response, next) => {
+    const cityId = idValue(request.query.city);
+    const scope = String(request.query.scope ?? 'all');
+    if (!cityId) return response.status(400).json({ error: 'برای دریافت دسته‌بندی‌ها باید یک مرکز دانشگاهی انتخاب کنید.' });
+    if (!FEED_SCOPES.has(scope)) return response.status(400).json({ error: 'دامنهٔ نمایش معتبر نیست.' });
+    const flags = {};
+    for (const [name, fallback] of [['country', '1'], ['province', '1'], ['siblings', '0']]) {
+      const value = String(request.query[name] ?? fallback);
+      if (value !== '0' && value !== '1') return response.status(400).json({ error: 'گزینهٔ نمایش خبر معتبر نیست.' });
+      flags[name] = value === '1';
+    }
+    try {
+      const city = await loadVisibleCity(pool, cityId);
+      if (!city) return response.status(400).json({ error: 'مرکز دانشگاهی انتخاب‌شده در دسترس نیست.' });
+      const key = `categories:${cityId}:${scope}:${Number(flags.country)}${Number(flags.province)}${Number(flags.siblings)}`;
+      const result = await cache.get(key, async () => {
+        const regionIds = await feedRegionIds(pool, city, flags);
+        return { categories: await visibleCategoryCounts(pool, regionIds, scope) };
       });
       response.setHeader('Cache-Control', 'public, max-age=15');
       return response.json(result);

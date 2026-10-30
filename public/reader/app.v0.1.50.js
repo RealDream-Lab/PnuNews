@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.48.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.48.js';
+import { initDock } from '/shared/dock.v0.1.50.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.50.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -26,6 +26,7 @@ const state = {
   pickerProvince: null,
   scope: 'all', // always "all" for now; will become a setting later
   category: null, // null = all categories; otherwise the chosen category id
+  categories: [], // chips for this reader's center: only categories with news, each with its count
   cursor: null,
   loading: false,
   ended: false,
@@ -429,6 +430,7 @@ function clearFeed() {
 
 function resetFeed({ scroll = false } = {}) {
   clearFeed();
+  refreshCategories();
   if (!state.city) {
     feedMessage.textContent = '';
     feed.innerHTML = '<div class="empty-state"><p>برای دیدن خبرها، ابتدا مرکز دانشگاهی خود را انتخاب کنید.</p><button type="button" class="button-primary" data-open-picker>انتخاب مرکز دانشگاهی</button></div>';
@@ -656,6 +658,7 @@ async function applyLiveData(data) {
 }
 
 async function syncFeed() {
+  refreshCategories();
   if (!state.city || state.newsId || state.loading || liveSyncing || document.hidden) { liveDirty = true; return; }
   const cityId = String(state.city.id);
   const categoryId = state.category;
@@ -763,10 +766,8 @@ async function refreshConfig() {
       state.province = selected.province;
       updateSelectedCity();
     }
-    const categoryDropped = syncCategories();
     dock.renderRadio(nextConfig.radio);
-    if (categoryDropped && state.city && !state.newsId) resetFeed();
-    else if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
+    if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
     if (regionsChanged) {
       if (state.pickerProvince) state.pickerProvince = nextConfig.provinces.find((item) => Number(item.id) === Number(state.pickerProvince.id)) ?? null;
       if (picker.open) renderPickerList();
@@ -786,7 +787,6 @@ async function initializeReader({ newsOnly = false } = {}) {
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
-    syncCategories();
     document.title = config.site_title || 'اخبار پیام‌نور';
     document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام‌نور';
     if (newsOnly) {
@@ -966,10 +966,33 @@ settingsDialog.addEventListener('change', (event) => {
 // ---------- Category dialog ----------
 let categorySignature = '';
 
+// Loads the chips for the selected center (counts follow the reader's own region choices) and redraws them.
+// A saved category that has no news here any more is dropped and the feed goes back to "all".
+let categoriesRequest = 0;
+async function refreshCategories() {
+  const city = state.city;
+  if (!city) {
+    state.categories = [];
+    categoryButton.hidden = true;
+    return;
+  }
+  const ticket = ++categoriesRequest;
+  try {
+    const params = new URLSearchParams({ city: city.id, scope: state.scope, ...feedPreferenceParams() });
+    const data = await getJson(`/api/public/categories?${params}`);
+    if (ticket !== categoriesRequest || !state.city || state.city.id !== city.id) return;
+    state.categories = Array.isArray(data.categories) ? data.categories : [];
+    const dropped = syncCategories();
+    if (dropped && !state.newsId) resetFeed();
+  } catch {
+    // Offline or a transient error: keep the chips we have; the next refresh tries again.
+  }
+}
+
 // Draws the button state and the chips; drops a saved choice whose category no longer exists.
 // Returns true when the saved choice had to be dropped (the caller then reloads the feed).
 function syncCategories({ force = false } = {}) {
-  const categories = state.config?.categories ?? [];
+  const categories = state.categories;
   let dropped = false;
   if (state.category && !categories.some((item) => Number(item.id) === state.category)) {
     state.category = null;
@@ -986,7 +1009,7 @@ function syncCategories({ force = false } = {}) {
   if (force || signature !== categorySignature) {
     categorySignature = signature;
     const chips = [{ id: null, name: 'همه' }, ...categories];
-    categoryList.innerHTML = chips.map((item) => `<button type="button" class="category-chip" role="radio" aria-checked="${(item.id ?? null) === (state.category ?? null)}" data-category-id="${item.id ?? ''}">${escapeHtml(item.name)}</button>`).join('');
+    categoryList.innerHTML = chips.map((item) => `<button type="button" class="category-chip" role="radio" aria-checked="${(item.id ?? null) === (state.category ?? null)}" data-category-id="${item.id ?? ''}"><span class="category-name">${escapeHtml(item.name)}</span>${item.news_count ? `<span class="category-count">${digits.format(item.news_count)}</span>` : ''}</button>`).join('');
   }
   return dropped;
 }
