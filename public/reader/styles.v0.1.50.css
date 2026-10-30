@@ -295,6 +295,11 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .category-chip[aria-checked="true"]{background:var(--primary);border-color:var(--primary);color:#fff}
 :root[data-theme="dark"] .category-chip[aria-checked="true"]{color:#07111f}
 @media(prefers-color-scheme:dark){:root[data-theme="auto"] .category-chip[aria-checked="true"]{color:#07111f}}
+.category-chip{display:inline-flex;align-items:center;gap:.5rem}
+.category-count{min-width:1.6rem;padding:.05rem .45rem;border-radius:999px;background:var(--teal-soft);color:var(--teal);font-size:.78rem;font-weight:700;line-height:1.5;text-align:center}
+.category-chip[aria-checked="true"] .category-count{background:rgba(255,255,255,.24);color:inherit}
+:root[data-theme="dark"] .category-chip[aria-checked="true"] .category-count{background:rgba(7,17,31,.16)}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"] .category-chip[aria-checked="true"] .category-count{background:rgba(7,17,31,.16)}}
 .switch{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:46px;height:26px;margin:0;border-radius:999px;background:var(--border);cursor:pointer;transition:background-color .15s ease}
 .switch::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .15s ease}
 .switch:checked{background:var(--primary)}
@@ -303,10 +308,11 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .radio-hidden #radio-root{display:none}
 /* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
 .site-dock:not(:has(.radio-bar)){display:none}
-@media(max-width:479px){
-  /* Two rows on phones. Row 1: site name + the small icon buttons. Row 2: city picker + font size.
-     The ::after is a zero-height full-width item that forces the line break. Without it everything fits
-     on one line, the site name shrinks to nothing and ends up hidden under the icon buttons. */
+/* Whenever the cards are a single column (under 640px) the top bar always has two rows, whatever the width.
+   Row 1: site name + the small icon buttons (category, day/night, settings, about). Row 2: city picker + font size.
+   The ::after is a zero-height full-width item that forces the line break. Without it everything could fit
+   on one line and the site name would shrink to nothing under the icon buttons. */
+@media(max-width:639px){
   .header-inner{flex-wrap:wrap;row-gap:0;padding-block:.4rem}
   .header-inner::after{content:"";order:9;flex:0 0 100%;height:0}
   .header-actions{display:contents}
@@ -314,9 +320,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .brand-name{overflow:visible;text-overflow:clip}
   .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0;margin-top:.4rem}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .category-button{order:10;margin-top:.4rem}
   .font-controls{order:11;flex:none;margin-top:.4rem}
-}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */
