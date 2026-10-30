@@ -229,8 +229,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .news-gallery{grid-template-columns:1fr}
   .news-body{font-size:1rem}
 }
-@media(max-width:479px){.brand-name{display:none}}
-@media(max-width:340px){.font-controls .font-down{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .news-card[data-external=true] h2::after,.pinned-card[data-external=true] h2::after{content:" ↗";color:var(--muted);font-size:.8em;font-weight:400}
@@ -303,7 +301,11 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .header-actions{display:contents}
   .brand{flex:1 1 0;min-width:0}
   .brand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .city-button{order:10;flex:1 0 100%;margin-inline-end:0}
+  /* the site name always stays visible: the font buttons move down next to the city picker to make room for it */
+  .brand-name{overflow:visible;text-overflow:clip}
+  .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0}
+  .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .font-controls{order:11;flex:none}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */
