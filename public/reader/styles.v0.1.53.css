@@ -82,15 +82,15 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .news-card.no-cover[data-scope="city"]::before{background:var(--amber)}
 .news-card.is-urgent::before{background:var(--urgent)}
 /* Icon-only share button on the news cards: top-left corner of the cover (physical left, also in RTL) */
-.card-share{position:absolute;top:.6rem;left:.6rem;z-index:4;width:38px;height:38px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:background-color .12s ease,transform .12s ease}
-.card-share::before{content:"";position:absolute;inset:-4px}
-.card-share .icon{width:20px;height:20px}
+.card-share{position:absolute;top:.5rem;left:.5rem;z-index:4;width:28px;height:28px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:background-color .12s ease,transform .12s ease}
+.card-share::before{content:"";position:absolute;inset:-8px}
+.card-share .icon{width:15px;height:15px}
 @media(hover:hover){.card-share:hover{background:rgba(0,0,0,.72)}}
 .card-share:active{transform:scale(.94)}
 .card-share:focus-visible{outline:2px solid #fff;outline-offset:2px}
 /* Without a cover the button sits on the card itself; keep the first line of text clear of it */
-.news-card.no-cover>.card-share{top:.75rem;left:.75rem;background:var(--surface-soft);color:var(--primary);border:1px solid var(--border);-webkit-backdrop-filter:none;backdrop-filter:none}
-.news-card.no-cover .card-content>:first-child{padding-inline-end:3rem}
+.news-card.no-cover>.card-share{top:.65rem;left:.65rem;background:var(--surface-soft);color:var(--primary);border:1px solid var(--border);-webkit-backdrop-filter:none;backdrop-filter:none}
+.news-card.no-cover .card-content>:first-child{padding-inline-end:2.4rem}
 .card-cover-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--surface-soft)}
 .card-cover-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .card-meta-overlay{position:absolute;inset:auto 0 0 0;z-index:3;display:flex;flex-direction:column;gap:0;padding:.35rem .75rem;background:rgba(0,0,0,.55);color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6;pointer-events:none}
