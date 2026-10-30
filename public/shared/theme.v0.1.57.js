@@ -13,9 +13,14 @@
   const chrome = () => {
     const dark = root.dataset.theme === 'dark';
     const color = dark ? '#0b1220' : '#f4f7fb';
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.append(meta); }
-    meta.setAttribute('content', color);
+    // A fresh tag every time: Android Chrome keeps showing the previous bar colour after the app comes back
+    // (from another tab, an article opened outside the app, bfcache) unless the tag is replaced, not just edited.
+    const previous = [...document.querySelectorAll('meta[name="theme-color"]')];
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = color;
+    document.head.append(meta);
+    for (const old of previous) old.remove();
     const link = document.getElementById('app-manifest');
     if (link) {
       const touch = matchMedia('(pointer: coarse) and (hover: none)').matches;
@@ -29,4 +34,10 @@
   chrome();
   // Any change of the theme (toggle buttons, system) refreshes the browser chrome too.
   new MutationObserver(chrome).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  // Coming back to the app (tab switch, returning from an article, history navigation) re-applies the bar colour.
+  const reapply = () => { if (!document.hidden) { chrome(); setTimeout(chrome, 350); } };
+  document.addEventListener('visibilitychange', reapply);
+  addEventListener('pageshow', reapply);
+  addEventListener('focus', reapply);
+  addEventListener('popstate', reapply);
 })();
