@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.51.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.51.js';
+import { initDock } from '/shared/dock.v0.1.52.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.52.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -874,7 +874,7 @@ function renderNewsPage(item, initial) {
     ${signature}
     ${gallery ? `<section class="news-gallery" aria-label="تصاویر خبر">${gallery}</section>` : ''}
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
-    <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="#icon-share"/></svg>اشتراک‌گذاری خبر</button></div>
+    <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="${SHARE_ICON}"/></svg>اشتراک‌گذاری خبر</button></div>
     </article>`;
 }
 
