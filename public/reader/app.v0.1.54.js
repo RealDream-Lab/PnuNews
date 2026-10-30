@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.53.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.53.js';
+import { initDock } from '/shared/dock.v0.1.54.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.54.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1113,7 +1113,9 @@ function navigateToNews(id) {
   history.replaceState({ ...(history.state ?? {}), readerScrollY: window.scrollY }, '', location.href);
   history.pushState({ readerEntry: true, readerScrollY: window.scrollY }, '', `/n/${id}`);
   loadNewsPage(id);
-  window.scrollTo(0, 0);
+  // Instant, not the page's smooth scrolling: an animated jump while the feed is swapped for the article makes the
+  // sticky header and the status-bar cover flicker on phones.
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
 function returnToFeed() {
@@ -1129,7 +1131,7 @@ function returnToFeed() {
     return;
   }
   requestAnimationFrame(() => {
-    window.scrollTo(0, scrollY);
+    window.scrollTo({ top: scrollY, left: 0, behavior: 'instant' });
     if (liveDirty) syncFeed();
   });
 }

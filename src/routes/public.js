@@ -263,7 +263,7 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f4f7fb">
+<meta name="theme-color" content="#0b1220">
 <title>${escapeHtml(title)} — ${escapeHtml(siteTitle)}</title>
 <meta name="description" content="${escapeHtml(summary)}">
 <link rel="canonical" href="${escapeHtml(canonical)}">
@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.53.css">
-<script src="/shared/theme.v0.1.53.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.54.css">
+<script src="/shared/theme.v0.1.54.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.53.js"></script>
+<script type="module" src="/reader/app.v0.1.54.js"></script>
 </body>
 </html>`;
 }
