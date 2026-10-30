@@ -9,7 +9,7 @@
   "scope": "/dashboard/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0B1220",
+  "background_color": "#F4F7FB",
   "theme_color": "#0B1220",
   "categories": [
     "news",
