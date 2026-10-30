@@ -1,6 +1,5 @@
 (() => {
   const root = document.documentElement;
-  const media = matchMedia('(prefers-color-scheme: dark)');
   const stored = () => {
     try {
       const value = localStorage.getItem('pnu.theme');
@@ -25,12 +24,9 @@
       if (link.getAttribute('href') !== href) link.setAttribute('href', href);
     }
   };
-  root.dataset.theme = stored() ?? (media.matches ? 'dark' : 'light');
+  // Night mode is the default; only an explicit choice of the visitor (stored) switches it to light.
+  root.dataset.theme = stored() ?? 'dark';
   chrome();
-  // Until the visitor picks a theme explicitly, keep following the system setting.
-  media.addEventListener?.('change', (event) => {
-    if (!stored()) root.dataset.theme = event.matches ? 'dark' : 'light';
-  });
   // Any change of the theme (toggle buttons, system) refreshes the browser chrome too.
   new MutationObserver(chrome).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
 })();

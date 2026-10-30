@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.50.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.50.js';
+import { initDock } from '/shared/dock.v0.1.51.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.51.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -263,9 +263,18 @@ function placeholderMarkup(color, className = 'cover-placeholder') {
 const CARD_IMAGE_SIZES = '(max-width: 639px) 100vw, (max-width: 959px) 50vw, 33vw';
 const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
 
+// Same share icon as Google's own apps: three linked dots on Android and everywhere else, the box-with-arrow on iOS/iPadOS.
+const IS_APPLE_TOUCH = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const SHARE_ICON = IS_APPLE_TOUCH ? '#icon-share-ios' : '#icon-share-android';
+
+// Icon-only version of the news page's share button, laid over the cover's top-left corner (or the card's, without a cover).
+function cardShareMarkup() {
+  return `<button type="button" class="card-share" data-share-card aria-label="اشتراک‌گذاری خبر" title="اشتراک‌گذاری خبر"><svg class="icon" aria-hidden="true"><use href="${SHARE_ICON}"/></svg></button>`;
+}
+
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}${cardShareMarkup()}</div>`;
 }
 
 // Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
@@ -305,7 +314,7 @@ function cardMarkup(item, { featured = false } = {}) {
       ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
       : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}</div></div>`;
     return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div></div>`) : ''}
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div></div>`) : cardShareMarkup()}
     ${portalBody}
   </article>`;
   }
@@ -325,7 +334,7 @@ function cardMarkup(item, { featured = false } = {}) {
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
     : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}</div></div>`;
   return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, overlay) : ''}
+    ${hasCover ? coverMarkup(item, featured, overlay) : cardShareMarkup()}
     ${body}
   </article>`;
 }
@@ -1070,9 +1079,7 @@ function formatBytes(bytes) {
   return `${digits.format((size / (1024 * 1024)).toFixed(1))} مگابایت`;
 }
 
-async function shareCurrentNews() {
-  const url = location.href;
-  const title = document.querySelector('#news-view h1, #app h1')?.textContent || document.title;
+async function shareNews({ url, title }) {
   try {
     if (navigator.share) await navigator.share({ title, url });
     else if (navigator.clipboard?.writeText) {
@@ -1092,6 +1099,14 @@ async function shareCurrentNews() {
   } catch (error) {
     if (error.name !== 'AbortError') showToast('اشتراک‌گذاری انجام نشد.');
   }
+}
+
+function shareCurrentNews() {
+  return shareNews({ url: location.href, title: document.querySelector('#news-view h1, #app h1')?.textContent || document.title });
+}
+
+function shareCard(card) {
+  return shareNews({ url: `${location.origin}/n/${card.dataset.newsId}`, title: card.getAttribute('aria-label') || document.title });
 }
 
 function navigateToNews(id) {
@@ -1293,6 +1308,13 @@ pickerSearch.addEventListener('input', renderPickerList);
 feed.addEventListener('click', (event) => {
   if (event.target.closest('[data-open-picker]')) {
     openPicker();
+    return;
+  }
+  const shareButton = event.target.closest('[data-share-card]');
+  if (shareButton) {
+    event.stopPropagation();
+    const sharedCard = shareButton.closest('[data-news-id]');
+    if (sharedCard) shareCard(sharedCard);
     return;
   }
   const card = event.target.closest('[data-news-id]');
