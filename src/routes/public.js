@@ -7,6 +7,7 @@ import { createRateLimiter } from '../lib/ratelimit.js';
 import { normalizeBrandName } from '../lib/fa.js';
 import { fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { sanitizeBodyHtml } from '../news/content.js';
+import { sortCategoriesByNewsCount } from '../news/category-order.js';
 
 const FEED_SCOPES = new Set(['all', 'country', 'province', 'city']);
 const VIEW_DEDUPE_MS = 30 * 60_000;
@@ -253,12 +254,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.46.css">
-<script src="/shared/theme.v0.1.46.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.47.css">
+<script src="/shared/theme.v0.1.47.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.46.js"></script>
+<script type="module" src="/reader/app.v0.1.47.js"></script>
 </body>
 </html>`;
 }
@@ -338,7 +339,15 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
         const [settings, provinces, [categoryRows]] = await Promise.all([
           settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
           visibleRegions(pool),
-          pool.query('SELECT id, name FROM categories WHERE is_active = 1 ORDER BY sort_order, id'),
+          pool.query(
+            `SELECT c.id, c.name, COUNT(n.id) AS news_count
+             FROM categories c
+             LEFT JOIN news n ON n.category_id = c.id
+               AND n.status = 'published' AND n.published_at <= UTC_TIMESTAMP() AND n.deleted_at IS NULL
+               AND (n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())
+             WHERE c.is_active = 1
+             GROUP BY c.id, c.name`,
+          ),
         ]);
         let radio = { enabled: false };
         if (settings.radio_enabled === '1') {
@@ -355,7 +364,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             }
           } catch {}
         }
-        const categories = categoryRows.map((row) => ({ id: Number(row.id), name: row.name }));
+        const categories = sortCategoriesByNewsCount(categoryRows).map((row) => ({ id: Number(row.id), name: row.name }));
         return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces, categories };
       });
       response.setHeader('Cache-Control', 'public, max-age=15');
