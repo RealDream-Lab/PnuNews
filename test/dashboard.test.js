@@ -25,7 +25,7 @@ test('dashboard lives at /dashboard, /admin is gone, and it is an installable we
   try {
     const page = await get(server, '/dashboard');
     assert.equal(page.status, 200);
-    assert.match(page.body, /<link rel="manifest" href="\/dashboard\/manifest\.webmanifest"/);
+    assert.match(page.body, /<link\s+rel="manifest"\s+href="\/dashboard\/manifest\.webmanifest"/);
     assert.ok(!page.body.includes('/admin/'), 'the page must not reference /admin/ any more');
     assert.ok(!/site-dock|radio-root/.test(page.body), 'the dashboard has no radio player or bottom dock');
 

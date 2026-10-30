@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.54.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.55.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -148,7 +148,7 @@ function showInstallBanner(mode) {
     mode === "ios"
       ? ""
       : '<button type="button" class="button primary" data-install-accept>نصب</button>';
-  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب مدیریت خبرهای پیام‌نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#admin-icon-close"/></svg></button></div>`;
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب مدیریت خبرها</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#admin-icon-close"/></svg></button></div>`;
 }
 
 function showUpdateBanner(worker) {
@@ -753,7 +753,10 @@ function setupUserChip(chip) {
       "wheel",
       (event) => {
         if (chip.scrollWidth - chip.clientWidth <= 1) return;
-        const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        const delta =
+          Math.abs(event.deltaX) > Math.abs(event.deltaY)
+            ? event.deltaX
+            : event.deltaY;
         chip.scrollLeft += delta;
         event.preventDefault();
       },

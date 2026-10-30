@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.54.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.54.js';
+import { initDock } from '/shared/dock.v0.1.55.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.55.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -233,8 +233,15 @@ function openPicker() {
 function scopeName(item) {
   if (item.scope.type === 'country') return 'سازمان مرکزی';
   if (item.scope.type === 'province') return `دانشگاه پیام‌نور استان ${item.scope.name}`;
-  // News of another center of the same province (shown only when the reader asked for them).
-  if (item.scope.type === 'city' && state.city && Number(item.scope.id) !== Number(state.city.id)) return `دانشگاه پیام‌نور ${item.scope.name}`;
+  if (item.scope.type === 'city') return `دانشگاه پیام‌نور ${item.scope.name}`;
+  return '';
+}
+
+// Card label: "خبرهای دانشگاه پیام‌نور <شهر منتشرکننده>" instead of the category.
+function publisherLabel(item) {
+  if (item.scope.type === 'country') return 'خبرهای سازمان مرکزی پیام‌نور';
+  if (item.scope.type === 'province') return `خبرهای دانشگاه پیام‌نور استان ${item.scope.name}`;
+  if (item.scope.type === 'city') return `خبرهای دانشگاه پیام‌نور ${item.scope.name}`;
   return '';
 }
 
@@ -318,9 +325,9 @@ function cardMarkup(item, { featured = false } = {}) {
     ${portalBody}
   </article>`;
   }
-  const label = scopeName(item);
-  const badge = label ? `<span class="scope-badge" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(label)}</span>` : '';
-  const category = item.category?.name ? `<span class="card-kicker">${escapeHtml(item.category.name)}</span>` : '';
+  const label = publisherLabel(item);
+  const badge = '';
+  const category = label ? `<span class="card-kicker publisher-kicker" data-scope="${escapeHtml(item.scope.type)}">${escapeHtml(label)}</span>` : '';
   const urgent = item.is_urgent ? '<span class="urgent-label">فوری</span>' : '';
   const source = item.publisher_unit ? `<span class="card-source">${escapeHtml(item.publisher_unit)}</span><i aria-hidden="true"></i>` : '';
   const time = `<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time>`;
