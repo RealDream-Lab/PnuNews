@@ -8,10 +8,6 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
   "orientation": "any",
   "background_color": "#F4F7FB",
   "theme_color": "#F4F7FB",
