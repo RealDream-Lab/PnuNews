@@ -596,7 +596,7 @@ function renderPinnedStrip(pinned) {
   if (pinned.length && !reducedMotion.matches) pinnedStrip.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' });
 }
 
-async function applyLiveData(data) {
+async function applyLiveData(data, { compensate = false } = {}) {
   const plan = planLiveUpdate(state.entries, data);
   const nextPinnedSig = pinnedSignature(plan.pinned);
   const pinnedChanged = nextPinnedSig !== state.pinnedSig;
@@ -620,6 +620,9 @@ async function applyLiveData(data) {
   if (!state.city || state.newsId || state.loading) { liveDirty = true; return; }
 
   // 2) Change the DOM in one go, then let the grid glide to its new layout.
+  // compensate: the reader is further down the page and about to be scrolled up; keep what they see exactly where it is.
+  const anchorEntry = compensate ? state.entries.find((entry) => entry.node.getBoundingClientRect().bottom > 0) : null;
+  const anchorTop = anchorEntry ? anchorEntry.node.getBoundingClientRect().top : 0;
   const before = captureRects();
   const fresh = new Set();
   const skip = new Set();
@@ -674,6 +677,20 @@ async function applyLiveData(data) {
     feed.innerHTML = emptyFeedMarkup();
   }
   layoutMasonry();
+  if (compensate) {
+    if (anchorEntry?.node.isConnected) {
+      const shift = anchorEntry.node.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(shift) >= 1) {
+        const root = document.documentElement;
+        const previous = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        window.scrollBy(0, shift);
+        root.style.scrollBehavior = previous;
+      }
+    }
+    for (const node of fresh) { node.classList.add('is-fresh'); setTimeout(() => node.classList.remove('is-fresh'), 2600); }
+    return;
+  }
   playFlip(before, skip);
   for (const node of fresh) animateIn(node);
 }
@@ -1390,53 +1407,29 @@ newItemsBanner.addEventListener('click', async () => {
   if (bannerScrolling) return;
   bannerScrolling = true;
   newItemsBanner.hidden = true;
-  try { await glideToTop(); } finally { bannerScrolling = false; }
-  resetFeed();
+  let handled = false;
+  try {
+    // 1) Add the new cards right now, above the reader's current position, without moving what they see.
+    if (state.city && !state.newsId && !state.loading) {
+      try {
+        const cityId = String(state.city.id);
+        const categoryId = state.category;
+        const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), ...categoryParams(), live: String(Date.now()) });
+        const data = await getJson(`/api/public/feed?${params}`);
+        const plan = planLiveUpdate(state.entries, data);
+        const simple = state.city && String(state.city.id) === cityId && state.category === categoryId
+          && !plan.resync && !(state.spacer && (plan.inserts.length || plan.removed.length));
+        if (simple) {
+          await applyLiveData(data, { compensate: true });
+          handled = true;
+        }
+      } catch {
+        // Offline or a transient error: fall back to reloading after the scroll.
+      }
+    }
+    // 2) Then glide to the top (slow start, fast middle, slow arrival).
+    await glideToTop();
+  } finally { bannerScrolling = false; }
+  if (!handled) resetFeed();
+  else liveDirty = false;
 });
-app.addEventListener('click', (event) => {
-  if (event.target.closest('[data-share]')) shareCurrentNews();
-});
-newsView.addEventListener('click', (event) => {
-  if (event.target.closest('[data-share]')) shareCurrentNews();
-  if (event.target.closest('[data-reader-back]')) {
-    event.preventDefault();
-    if (history.state?.readerEntry) history.back();
-    else location.assign('/');
-  }
-});
-window.addEventListener('popstate', () => {
-  const match = /^\/n\/(\d+)$/.exec(location.pathname);
-  if (match) loadNewsPage(match[1]);
-  else if (state.newsId) returnToFeed();
-});
-
-// Page title bar: big and centred at the top, small and pinned to the start once the page scrolls.
-function initTitleBar() {
-  const bar = document.getElementById('feed-title-bar');
-  const header = document.querySelector('.site-header');
-  if (!bar) return;
-  if (header) {
-    const syncHeaderHeight = () => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
-    syncHeaderHeight();
-    if ('ResizeObserver' in window) new ResizeObserver(syncHeaderHeight).observe(header);
-    else window.addEventListener('resize', syncHeaderHeight);
-  }
-  let frame = 0;
-  const update = () => {
-    frame = 0;
-    const y = window.scrollY;
-    // small hysteresis so the title does not flicker around the threshold
-    if (y > 48) bar.classList.add('is-compact');
-    else if (y < 16) bar.classList.remove('is-compact');
-  };
-  window.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, { passive: true });
-  update();
-}
-initTitleBar();
-
-const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
-if (initialNewsMatch) {
-  initializeReader({ newsOnly: true }).then(() => loadNewsPage(initialNewsMatch[1]));
-} else {
-  initializeReader();
-}
