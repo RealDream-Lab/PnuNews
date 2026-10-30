@@ -36,8 +36,28 @@
   new MutationObserver(chrome).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
   // Coming back to the app (tab switch, returning from an article, history navigation) re-applies the bar colour.
   const reapply = () => { if (!document.hidden) { chrome(); setTimeout(chrome, 350); } };
-  document.addEventListener('visibilitychange', reapply);
-  addEventListener('pageshow', reapply);
-  addEventListener('focus', reapply);
+  // After an article opened outside the app (portal news), Android re-creates the window and can report a status-bar
+  // inset of 0 for a moment, so the cover under the system bar disappears. Re-declaring the viewport makes the
+  // browser measure the safe areas again; repeated a few times because the system settles late.
+  const remeasureViewport = () => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+    const fresh = document.createElement('meta');
+    fresh.name = 'viewport';
+    fresh.content = meta.content;
+    meta.replaceWith(fresh);
+  };
+  let wasAway = false;
+  const comeBack = () => {
+    if (!wasAway || document.hidden) return;
+    wasAway = false;
+    reapply();
+    for (const delay of [0, 150, 500, 1200]) setTimeout(remeasureViewport, delay);
+  };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) wasAway = true; else comeBack(); reapply(); });
+  addEventListener('pagehide', () => { wasAway = true; });
+  addEventListener('blur', () => { wasAway = true; });
+  addEventListener('pageshow', () => { comeBack(); reapply(); });
+  addEventListener('focus', () => { comeBack(); reapply(); });
   addEventListener('popstate', reapply);
 })();
