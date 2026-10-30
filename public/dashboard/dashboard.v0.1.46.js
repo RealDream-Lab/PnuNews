@@ -1,4 +1,4 @@
-import { initRichEditor } from '/shared/rich-editor.v0.1.45.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.46.js';
 import {
   JALALI_MONTHS,
 
@@ -443,13 +443,53 @@ async function loadAdmin() {
   }
 }
 
+// The username chip scrolls sideways on phones when the name is long. Touch scrolls natively; the mouse can drag
+// (narrow desktop windows), and the edge fade tells the user there is more text on that side.
+function setupUserChip(chip) {
+  const refresh = () => {
+    const max = chip.scrollWidth - chip.clientWidth;
+    const rtl = getComputedStyle(chip).direction === 'rtl';
+    const pos = Math.abs(chip.scrollLeft);
+    const hiddenLeft = max > 1 && (rtl ? pos < max - 1 : pos > 1);
+    const hiddenRight = max > 1 && (rtl ? pos > 1 : pos < max - 1);
+    chip.classList.toggle('fade-left', hiddenLeft);
+    chip.classList.toggle('fade-right', hiddenRight);
+  };
+  if (!chip.dataset.ready) {
+    chip.dataset.ready = '1';
+    chip.addEventListener('scroll', refresh, { passive: true });
+    window.addEventListener('resize', refresh);
+    chip.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      const startX = event.clientX;
+      const startLeft = chip.scrollLeft;
+      chip.classList.add('dragging');
+      const move = (moveEvent) => { chip.scrollLeft = startLeft - (moveEvent.clientX - startX); };
+      const stop = () => {
+        chip.classList.remove('dragging');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    });
+  }
+  chip.scrollLeft = 0;
+  refresh();
+  requestAnimationFrame(refresh);
+}
+
 async function prepareWorkspace() {
   const [regions, categories] = await Promise.all([api('/api/admin/regions'), api('/api/admin/categories')]);
   state.regions = regions.regions;
   state.categories = categories.categories;
   const regionNameValue = regionName(state.user.region_id);
   const placeLabel = ['super_admin', 'country_admin'].includes(state.user.role) ? roleLabel(state.user.role) : `${roleLabel(state.user.role)} ${regionNameValue}`;
-  document.getElementById('user-chip').textContent = `${state.user.full_name} · ${placeLabel}`;
+  const userChip = document.getElementById('user-chip');
+  userChip.textContent = `${state.user.full_name} · ${placeLabel}`;
+  setupUserChip(userChip);
   setScopeBanner();
   beginQuickCompose();
   document.querySelectorAll('[data-super-only]').forEach((element) => { element.hidden = state.user.role !== 'super_admin'; });
