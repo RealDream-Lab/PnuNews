@@ -1,14 +1,14 @@
 // Service worker of the management dashboard (scope /dashboard/). Separate from the reader's /sw.js and with its
 // own cache names (pndash-*), so the reader's cleanup never touches it. API calls and uploads are never cached.
-const CACHE_NAME = 'pndash-shell-v0.1.57';
+const CACHE_NAME = 'pndash-shell-v0.1.58';
 const SHELL_ASSETS = [
   '/dashboard/',
   '/offline.html',
   '/icons/pnu-logo.v3.png',
-  '/dashboard/styles.v0.1.57.css',
-  '/dashboard/dashboard.v0.1.57.js',
-  '/shared/theme.v0.1.57.js',
-  '/shared/rich-editor.v0.1.57.js',
+  '/dashboard/styles.v0.1.58.css',
+  '/dashboard/dashboard.v0.1.58.js',
+  '/shared/theme.v0.1.58.js',
+  '/shared/rich-editor.v0.1.58.js',
   '/shared/jalali.v1.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
   '/fonts/Vazirmatn-Medium.v1.woff2',
@@ -30,7 +30,7 @@ self.addEventListener('activate', (event) => {
     .then(() => self.clients.claim()));
 });
 
-// Versioned files (name.v0.1.57.js, icons .v3.png, fonts .v1.woff2) never change under the same URL.
+// Versioned files (name.v0.1.58.js, icons .v3.png, fonts .v1.woff2) never change under the same URL.
 const VERSIONED = /\.v[\d.]+\.(?:js|css|png|ico|woff2)$/;
 
 self.addEventListener('fetch', (event) => {
