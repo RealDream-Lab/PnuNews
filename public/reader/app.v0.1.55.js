@@ -47,6 +47,7 @@ const state = {
   fontScale: 1,
 };
 let intersectionObserver = null;
+let loadRetryTimer = 0;
 
 const digits = new Intl.NumberFormat('fa-IR');
 
@@ -483,6 +484,15 @@ function recycleFeed() {
   layoutMasonry();
 }
 
+// An IntersectionObserver only reports *changes*. If the sentinel was already inside the preload zone while a page was
+// loading (the callback was ignored then) or stays inside it after the page arrived, no new event ever comes and the
+// feed would stop loading. Un/re-observing makes the browser deliver a fresh "is it visible now?" callback.
+function rearmSentinel() {
+  if (!intersectionObserver || state.ended || state.newsId) return;
+  intersectionObserver.unobserve(sentinel);
+  intersectionObserver.observe(sentinel);
+}
+
 async function loadMore() {
   if (!state.city || state.loading || state.ended) return;
   state.loading = true;
@@ -523,12 +533,15 @@ async function loadMore() {
     layoutMasonry();
     recycleFeed();
     if (state.ended) intersectionObserver?.unobserve(sentinel);
-    else intersectionObserver?.observe(sentinel);
+    else rearmSentinel();
   } catch (error) {
     feed.querySelectorAll('.news-skeleton').forEach((node) => node.remove());
     state.loading = false;
     feed.setAttribute('aria-busy', 'false');
     feedMessage.textContent = error.message || 'بارگذاری خبرها ناموفق بود.';
+    // Transient failure (weak connection): try again by itself instead of leaving the feed stuck.
+    clearTimeout(loadRetryTimer);
+    loadRetryTimer = setTimeout(() => { if (!state.loading && !state.ended && state.city && !state.newsId) rearmSentinel(); }, 4000);
   }
 }
 
@@ -1431,5 +1444,53 @@ newItemsBanner.addEventListener('click', async () => {
     await glideToTop();
   } finally { bannerScrolling = false; }
   if (!handled) resetFeed();
-  else liveDirty = false;
+  else { liveDirty = false; rearmSentinel(); }
 });
+
+app.addEventListener('click', (event) => {
+  if (event.target.closest('[data-share]')) shareCurrentNews();
+});
+newsView.addEventListener('click', (event) => {
+  if (event.target.closest('[data-share]')) shareCurrentNews();
+  if (event.target.closest('[data-reader-back]')) {
+    event.preventDefault();
+    if (history.state?.readerEntry) history.back();
+    else location.assign('/');
+  }
+});
+window.addEventListener('popstate', () => {
+  const match = /^\/n\/(\d+)$/.exec(location.pathname);
+  if (match) loadNewsPage(match[1]);
+  else if (state.newsId) returnToFeed();
+});
+
+// Page title bar: big and centred at the top, small and pinned to the start once the page scrolls.
+function initTitleBar() {
+  const bar = document.getElementById('feed-title-bar');
+  const header = document.querySelector('.site-header');
+  if (!bar) return;
+  if (header) {
+    const syncHeaderHeight = () => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`);
+    syncHeaderHeight();
+    if ('ResizeObserver' in window) new ResizeObserver(syncHeaderHeight).observe(header);
+    else window.addEventListener('resize', syncHeaderHeight);
+  }
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    const y = window.scrollY;
+    // small hysteresis so the title does not flicker around the threshold
+    if (y > 48) bar.classList.add('is-compact');
+    else if (y < 16) bar.classList.remove('is-compact');
+  };
+  window.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, { passive: true });
+  update();
+}
+initTitleBar();
+
+const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
+if (initialNewsMatch) {
+  initializeReader({ newsOnly: true }).then(() => loadNewsPage(initialNewsMatch[1]));
+} else {
+  initializeReader();
+}
