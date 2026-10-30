@@ -13,6 +13,11 @@ const searchField = document.querySelector('.search-field');
 const sentinel = document.getElementById('feed-sentinel');
 const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
+// The "new news" banner floats right under the sticky header, whatever height the header has (one or two rows).
+const siteHeader = document.querySelector('.site-header');
+if (siteHeader && 'ResizeObserver' in window) {
+  new ResizeObserver(() => document.documentElement.style.setProperty('--header-height', `${siteHeader.getBoundingClientRect().height}px`)).observe(siteHeader);
+}
 const installRoot = document.getElementById('install-root');
 const updateRoot = document.getElementById('update-root');
 const categoryDialog = document.getElementById('category-dialog');
