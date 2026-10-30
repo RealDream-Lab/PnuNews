@@ -1,4 +1,4 @@
-import { initRichEditor } from '/shared/rich-editor.v0.1.43.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.44.js';
 import {
   JALALI_MONTHS,
 
@@ -65,29 +65,131 @@ function showMessage(title, message, secret = '') {
 
 // ---------- Installable web app ----------
 // The dashboard has its own manifest (scope /dashboard/) and service worker, so it installs as a separate app.
+// Like the reader it suggests the installation with a floating card, and a newly published version waits behind an
+// "update" card until the user accepts it (the service worker never activates by itself).
+const INSTALL_SNOOZE_KEY = 'pnu.dashboard.installDismissedAt';
+const INSTALL_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+const installRoot = document.getElementById('install-root');
+const updateRoot = document.getElementById('update-root');
+const installButton = document.getElementById('install-button');
+let installPrompt = null;
+let waitingWorker = null;
+let swRegistration = null;
+let controlled = Boolean(navigator.serviceWorker?.controller);
+
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function installSnoozed() {
+  try {
+    const at = Number(localStorage.getItem(INSTALL_SNOOZE_KEY));
+    return Boolean(at) && Date.now() - at < INSTALL_SNOOZE_MS;
+  } catch { return false; }
+}
+function snoozeInstall() {
+  try { localStorage.setItem(INSTALL_SNOOZE_KEY, String(Date.now())); } catch {}
+}
+// Adding ?install=1 to the address shows the suggestion again (ignores a previous dismissal), for testing.
+const forceInstallHint = new URLSearchParams(location.search).has('install');
+const hideInstallBanner = () => installRoot?.replaceChildren();
+
+function showInstallBanner(mode) {
+  if (!installRoot || installRoot.childElementCount || isStandalone() || (installSnoozed() && !forceInstallHint)) return;
+  const text = mode === 'ios'
+    ? 'روی دکمهٔ اشتراک‌گذاری (مربع با فلش) بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید.'
+    : 'برای دسترسی سریع‌تر، پنل مدیریت را روی دستگاه خود نصب کنید.';
+  const action = mode === 'ios' ? '' : '<button type="button" class="button primary" data-install-accept>نصب</button>';
+  installRoot.innerHTML = `<div class="install-banner" role="region" aria-label="نصب برنامه"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نصب مدیریت پیام‌نور</strong><span>${text}</span></div>${action}<button type="button" class="icon-button" data-install-dismiss aria-label="بستن"><svg class="icon"><use href="#admin-icon-close"/></svg></button></div>`;
+}
+
+function showUpdateBanner(worker) {
+  waitingWorker = worker; // always track the newest waiting worker, even while the card is already open
+  if (!updateRoot || updateRoot.childElementCount) return;
+  updateRoot.innerHTML = '<div class="install-banner" role="status"><img src="/icons/pnu-logo.v3.png" width="40" height="40" alt="" aria-hidden="true"><div class="install-text"><strong>نسخهٔ جدید آماده است</strong><span>برای دریافت آخرین تغییرات، برنامه را به‌روزرسانی کنید.</span></div><button type="button" class="button primary" data-update-accept>به‌روزرسانی</button><button type="button" class="icon-button" data-update-dismiss aria-label="بعداً"><svg class="icon"><use href="#admin-icon-close"/></svg></button></div>';
+}
+
+// Every open window of the app follows an update: the one that applies it tells the others, and they reload.
+const updateChannel = 'BroadcastChannel' in window ? new BroadcastChannel('pnu-dashboard-update') : null;
+let reloadingForUpdate = false;
+let reloadPending = false;
+function reloadForUpdate() {
+  if (reloadingForUpdate) return;
+  reloadingForUpdate = true;
+  location.reload();
+}
+updateChannel?.addEventListener('message', (event) => {
+  if (event.data?.type !== 'reload') return;
+  reloadPending = true;
+  reloadForUpdate();
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && reloadPending) { reloadingForUpdate = false; reloadForUpdate(); }
+});
+
 if ('serviceWorker' in navigator) {
-  const registerWorker = () => navigator.serviceWorker.register('/dashboard/sw.js', { scope: '/dashboard/' }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!controlled) { controlled = true; return; } // first install taking control: nothing to reload
+    reloadPending = true;
+    updateChannel?.postMessage({ type: 'reload' });
+    reloadForUpdate();
+  });
+  const registerWorker = async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/dashboard/sw.js', { scope: '/dashboard/' });
+      swRegistration = registration;
+      const announce = (worker) => worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdateBanner(worker);
+      });
+      if (registration.waiting && navigator.serviceWorker.controller) showUpdateBanner(registration.waiting);
+      if (registration.installing) announce(registration.installing);
+      registration.addEventListener('updatefound', () => registration.installing && announce(registration.installing));
+      // A published version is noticed when the app is opened again and every hour while it stays open.
+      const check = () => registration.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+      setInterval(check, 60 * 60 * 1000);
+    } catch {}
+  };
   if (document.readyState === 'complete') registerWorker();
   else window.addEventListener('load', registerWorker, { once: true });
 }
-const installButton = document.getElementById('install-button');
-let installPrompt = null;
+
+updateRoot?.addEventListener('click', (event) => {
+  if (event.target.closest('[data-update-dismiss]')) { updateRoot.replaceChildren(); return; }
+  const accept = event.target.closest('[data-update-accept]');
+  const worker = swRegistration?.waiting ?? waitingWorker; // a newer release may have replaced the one the card opened for
+  if (!accept || !worker) return;
+  accept.disabled = true;
+  accept.textContent = 'در حال به‌روزرسانی…';
+  worker.postMessage({ type: 'SKIP_WAITING' });
+  setTimeout(() => { updateChannel?.postMessage({ type: 'reload' }); reloadForUpdate(); }, 4000); // safety net
+});
+
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   installPrompt = event;
   installButton.hidden = false;
+  setTimeout(() => { if (installPrompt) showInstallBanner('prompt'); }, 3000);
 });
-installButton.addEventListener('click', async () => {
+window.addEventListener('appinstalled', () => { installPrompt = null; installButton.hidden = true; hideInstallBanner(); });
+if (isIos() && !isStandalone()) setTimeout(() => showInstallBanner('ios'), 4000);
+
+async function runInstall() {
   if (!installPrompt) return;
-  const prompt = installPrompt;
+  const promptEvent = installPrompt;
   installPrompt = null;
   installButton.hidden = true;
+  hideInstallBanner();
   try {
-    await prompt.prompt();
-    await prompt.userChoice;
+    await promptEvent.prompt();
+    const { outcome } = await promptEvent.userChoice;
+    if (outcome !== 'accepted') snoozeInstall();
   } catch {}
+}
+installButton.addEventListener('click', runInstall);
+installRoot?.addEventListener('click', (event) => {
+  if (event.target.closest('[data-install-dismiss]')) { snoozeInstall(); hideInstallBanner(); return; }
+  if (event.target.closest('[data-install-accept]')) runInstall();
 });
-window.addEventListener('appinstalled', () => { installPrompt = null; installButton.hidden = true; });
 
 // ---------- About dialog ----------
 const aboutDialog = document.getElementById('about-dialog');
