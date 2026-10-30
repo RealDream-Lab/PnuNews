@@ -680,7 +680,7 @@ async function applyLiveData(data) {
 
 async function syncFeed() {
   refreshCategories();
-  if (!state.city || state.newsId || state.loading || liveSyncing || document.hidden) { liveDirty = true; return; }
+  if (!state.city || state.newsId || state.loading || liveSyncing || bannerScrolling || document.hidden) { liveDirty = true; return; }
   const cityId = String(state.city.id);
   const categoryId = state.category;
   liveSyncing = true;
@@ -1350,7 +1350,49 @@ pinnedStrip.addEventListener('keydown', (event) => {
     openCard(event.target);
   }
 });
-newItemsBanner.addEventListener('click', () => resetFeed({ scroll: true }));
+// Banner tap: glide to the top (slow start, fast middle, slow arrival), then reload the feed from the top.
+let bannerScrolling = false;
+function glideToTop() {
+  const startY = window.scrollY;
+  if (startY < 2 || reducedMotion.matches) { window.scrollTo(0, 0); return Promise.resolve(); }
+  const duration = Math.min(1500, Math.max(650, 450 + startY * 0.12));
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
+  return new Promise((resolve) => {
+    const root = document.documentElement;
+    const previous = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    let startTime = 0;
+    let lastY = startY;
+    const stop = () => { cleanup(); resolve(); };
+    const cleanup = () => {
+      root.style.scrollBehavior = previous;
+      removeEventListener('wheel', stop);
+      removeEventListener('touchstart', stop);
+      removeEventListener('keydown', stop);
+    };
+    addEventListener('wheel', stop, { passive: true, once: true });
+    addEventListener('touchstart', stop, { passive: true, once: true });
+    addEventListener('keydown', stop, { once: true });
+    const step = (now) => {
+      if (!startTime) startTime = now;
+      const t = Math.min(1, (now - startTime) / duration);
+      // The reader grabbed the page (scrolled somewhere else themselves): stop animating.
+      if (Math.abs(window.scrollY - lastY) > 40) { stop(); return; }
+      lastY = Math.round(startY * (1 - ease(t)));
+      window.scrollTo(0, lastY);
+      if (t < 1) requestAnimationFrame(step);
+      else { cleanup(); resolve(); }
+    };
+    requestAnimationFrame(step);
+  });
+}
+newItemsBanner.addEventListener('click', async () => {
+  if (bannerScrolling) return;
+  bannerScrolling = true;
+  newItemsBanner.hidden = true;
+  try { await glideToTop(); } finally { bannerScrolling = false; }
+  resetFeed();
+});
 app.addEventListener('click', (event) => {
   if (event.target.closest('[data-share]')) shareCurrentNews();
 });
