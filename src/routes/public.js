@@ -161,7 +161,7 @@ async function feedRegionIds(pool, city, { country, province, siblings }) {
   return ids;
 }
 
-async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = false }) {
+async function feedRows(pool, city, { scope, cursor, limit, regionIds, categoryId = null, pinned = false }) {
   const marks = regionIds.map(() => '?').join(', ');
   const filters = [
     "n.status = 'published'",
@@ -177,6 +177,10 @@ async function feedRows(pool, city, { scope, cursor, limit, regionIds, pinned = 
       WHERE scope_target.news_id = n.id AND scope_region.type = ?
     )`);
     values.push(scope);
+  }
+  if (categoryId) {
+    filters.push('n.category_id = ?');
+    values.push(categoryId);
   }
   if (pinned) filters.push('(n.is_pinned = 1 OR n.is_urgent = 1)');
   if (cursor) {
@@ -331,9 +335,10 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   router.get('/api/public/config', async (request, response, next) => {
     try {
       const result = await cache.get('config', async () => {
-        const [settings, provinces] = await Promise.all([
+        const [settings, provinces, [categoryRows]] = await Promise.all([
           settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
           visibleRegions(pool),
+          pool.query('SELECT id, name FROM categories WHERE is_active = 1 ORDER BY sort_order, id'),
         ]);
         let radio = { enabled: false };
         if (settings.radio_enabled === '1') {
@@ -350,7 +355,8 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             }
           } catch {}
         }
-        return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces };
+        const categories = categoryRows.map((row) => ({ id: Number(row.id), name: row.name }));
+        return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces, categories };
       });
       response.setHeader('Cache-Control', 'public, max-age=15');
       return response.json(result);
@@ -363,7 +369,9 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     const cityId = idValue(request.query.city);
     const scope = String(request.query.scope ?? 'all');
     const requestedLimit = Number(request.query.limit ?? 12);
+    const categoryId = request.query.category == null || request.query.category === '' ? null : idValue(request.query.category);
     if (!cityId) return response.status(400).json({ error: 'برای دریافت خبر باید یک مرکز دانشگاهی انتخاب کنید.' });
+    if (request.query.category != null && request.query.category !== '' && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
     if (!FEED_SCOPES.has(scope)) return response.status(400).json({ error: 'دامنهٔ نمایش معتبر نیست.' });
     if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 12) {
       return response.status(400).json({ error: 'تعداد خبر در هر صفحه باید بین ۱ تا ۱۲ باشد.' });
@@ -379,12 +387,12 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     try {
       const city = await loadVisibleCity(pool, cityId);
       if (!city) return response.status(400).json({ error: 'مرکز دانشگاهی انتخاب‌شده در دسترس نیست.' });
-      const key = `feed:${cityId}:${scope}:${Number(flags.country)}${Number(flags.province)}${Number(flags.siblings)}:${requestedLimit}:${request.query.cursor ?? ''}`;
+      const key = `feed:${cityId}:${scope}:${categoryId ?? 0}:${Number(flags.country)}${Number(flags.province)}${Number(flags.siblings)}:${requestedLimit}:${request.query.cursor ?? ''}`;
       const result = await cache.get(key, async () => {
         const regionIds = await feedRegionIds(pool, city, flags);
         const [rows, pinnedRows] = await Promise.all([
-          feedRows(pool, city, { scope, cursor, limit: requestedLimit, regionIds }),
-          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, regionIds, pinned: true }),
+          feedRows(pool, city, { scope, cursor, limit: requestedLimit, regionIds, categoryId }),
+          cursor ? Promise.resolve([]) : feedRows(pool, city, { scope, cursor: null, limit: 6, regionIds, categoryId, pinned: true }),
         ]);
         const hasMore = rows.length > requestedLimit;
         const items = rows.slice(0, requestedLimit).map(publicItem);

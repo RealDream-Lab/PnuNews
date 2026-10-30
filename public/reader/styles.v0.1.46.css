@@ -51,6 +51,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(hover:hover){.font-controls button:hover{background:var(--primary-soft);color:var(--primary)}}
 .icon-button{width:40px;height:40px;display:inline-grid;place-items:center;color:var(--muted);flex:none}
 .theme-toggle .icon{width:1.2rem;height:1.2rem}
+.category-button.is-filtered{color:var(--primary);background:var(--primary-soft);border-color:var(--primary)}
+
 
 /* ---------- Page ---------- */
 .page-shell{max-width:1120px;margin-inline:auto;padding:0 max(var(--pad),env(safe-area-inset-right,0px)) 2rem max(var(--pad),env(safe-area-inset-left,0px));width:100%;flex:1 0 auto}
@@ -287,6 +289,12 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .setting-text strong{font-weight:500;line-height:1.7}
 .setting-text small{color:var(--muted);font-size:.78rem;line-height:1.6}
 .info-note{margin:.9rem .2rem 0;font-size:.8rem;color:var(--muted)}
+.category-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.category-chip{min-height:40px;padding:.3rem 1rem;border:1px solid var(--border);border-radius:999px;background:var(--surface-soft);color:var(--text);font:inherit;font-weight:500;cursor:pointer;transition:background-color .12s ease,border-color .12s ease}
+@media(hover:hover){.category-chip:hover{border-color:var(--primary);color:var(--primary)}}
+.category-chip[aria-checked="true"]{background:var(--primary);border-color:var(--primary);color:#fff}
+:root[data-theme="dark"] .category-chip[aria-checked="true"]{color:#07111f}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"] .category-chip[aria-checked="true"]{color:#07111f}}
 .switch{appearance:none;-webkit-appearance:none;flex:none;position:relative;width:46px;height:26px;margin:0;border-radius:999px;background:var(--border);cursor:pointer;transition:background-color .15s ease}
 .switch::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .15s ease}
 .switch:checked{background:var(--primary)}
@@ -306,6 +314,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .brand-name{overflow:visible;text-overflow:clip}
   .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0;margin-top:.4rem}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .category-button{order:10;margin-top:.4rem}
   .font-controls{order:11;flex:none;margin-top:.4rem}
 }
 }

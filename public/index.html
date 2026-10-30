@@ -35,6 +35,7 @@
     <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01"/></symbol>
     <symbol id="icon-telegram" viewBox="0 0 24 24"><path d="M21 3 3 10.4l6 2.4 2.4 6.6 3.2-4.3L21 3Z"/><path d="m9 12.8 12-9.8"/></symbol>
     <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.2"/></symbol>
+    <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M5 9h15M4 15h15M10 3 8 21m8-18-2 18"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
   </svg>
   <header class="site-header">
@@ -44,6 +45,7 @@
         <button class="city-button" id="city-button" type="button" aria-haspopup="dialog" aria-controls="city-picker">
           <svg class="icon"><use href="#icon-location"/></svg><span id="selected-city-label">انتخاب مرکز دانشگاهی</span><svg class="icon city-chevron"><use href="#icon-chevron"/></svg>
         </button>
+        <button class="icon-button category-button" id="category-button" type="button" aria-haspopup="dialog" aria-controls="category-dialog" aria-label="دسته‌بندی خبرها" title="دسته‌بندی خبرها" hidden><svg class="icon"><use href="#icon-hash"/></svg></button>
         <div class="font-controls" dir="ltr" role="group" aria-label="اندازهٔ نوشته">
           <button class="font-down" type="button" aria-label="کوچک کردن اندازهٔ نوشته">A−</button>
           <button class="font-up" type="button" aria-label="بزرگ کردن اندازهٔ نوشته">A+</button>
@@ -87,6 +89,12 @@
         <label class="setting-row"><span class="setting-text"><strong>خبرهای مراکز هم‌استانی</strong><small id="pref-siblings-hint">خبرهای دیگر مراکز دانشگاهی استان شما</small></span><input type="checkbox" role="switch" class="switch" data-pref="siblings"></label>
       </div>
       <p class="info-note">خبرهای مرکز دانشگاهی خودتان همیشه نمایش داده می‌شود.</p>
+    </div>
+  </dialog>
+  <dialog id="category-dialog" class="info-dialog" aria-labelledby="category-title">
+    <div class="info-panel">
+      <div class="info-header"><div><h2 id="category-title" class="info-title">دسته‌بندی خبرها</h2><p class="info-sub">دسته‌ای را انتخاب کنید تا فقط خبرهای همان دسته نمایش داده شود.</p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
+      <div class="category-list" id="category-list" role="radiogroup" aria-label="دسته‌بندی خبرها"></div>
     </div>
   </dialog>
   <dialog id="about-dialog" class="info-dialog" aria-labelledby="about-title">

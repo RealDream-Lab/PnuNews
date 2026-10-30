@@ -15,6 +15,9 @@ const pinnedStrip = document.getElementById('pinned-strip');
 const newItemsBanner = document.getElementById('new-items-banner');
 const installRoot = document.getElementById('install-root');
 const updateRoot = document.getElementById('update-root');
+const categoryDialog = document.getElementById('category-dialog');
+const categoryButton = document.getElementById('category-button');
+const categoryList = document.getElementById('category-list');
 
 const state = {
   config: null,
@@ -22,6 +25,7 @@ const state = {
   province: null,
   pickerProvince: null,
   scope: 'all', // always "all" for now; will become a setting later
+  category: null, // null = all categories; otherwise the chosen category id
   cursor: null,
   loading: false,
   ended: false,
@@ -94,6 +98,17 @@ function applyRadioPreference() {
   if (!prefs.radio) dock.stopRadio();
 }
 applyRadioPreference();
+
+// ---------- Category filter (stored on this device only; default is "all") ----------
+const CATEGORY_KEY = 'pnu.category';
+try {
+  const savedCategory = Number(localStorage.getItem(CATEGORY_KEY));
+  if (Number.isSafeInteger(savedCategory) && savedCategory > 0) state.category = savedCategory;
+} catch {}
+
+function categoryParams() {
+  return state.category ? { category: String(state.category) } : {};
+}
 
 // Query string part of the feed request that depends on the reader's choices.
 function feedPreferenceParams() {
@@ -390,6 +405,11 @@ function showSkeletons(count = 4) {
   layoutMasonry();
 }
 
+function emptyFeedMarkup() {
+  const text = state.category ? 'در این دسته هنوز خبری منتشر نشده است.' : 'در این محدوده هنوز خبری منتشر نشده است.';
+  return `<div class="empty-state">${text}</div>`;
+}
+
 function clearFeed() {
   intersectionObserver?.unobserve(sentinel);
   feed.replaceChildren();
@@ -445,7 +465,7 @@ async function loadMore() {
   state.loading = true;
   feed.setAttribute('aria-busy', 'true');
   showSkeletons(skeletonCount(!state.cursor));
-  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams() });
+  const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams(), ...categoryParams() });
   if (state.cursor) params.set('cursor', state.cursor);
   try {
     const data = await getJson(`/api/public/feed?${params}`);
@@ -474,7 +494,7 @@ async function loadMore() {
     if (state.entries.length || !pinnedStrip.hidden) {
       feedMessage.textContent = state.ended ? 'همین بود؛ خبر تازه‌ای برای نمایش نیست.' : '';
     } else {
-      feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
+      feed.innerHTML = emptyFeedMarkup();
       feedMessage.textContent = '';
     }
     layoutMasonry();
@@ -628,7 +648,7 @@ async function applyLiveData(data) {
   state.firstId = firstId ?? state.firstId;
   newItemsBanner.hidden = true;
   if (!state.entries.length && pinnedStrip.hidden) {
-    feed.innerHTML = '<div class="empty-state">در این محدوده هنوز خبری منتشر نشده است.</div>';
+    feed.innerHTML = emptyFeedMarkup();
   }
   layoutMasonry();
   playFlip(before, skip);
@@ -638,12 +658,13 @@ async function applyLiveData(data) {
 async function syncFeed() {
   if (!state.city || state.newsId || state.loading || liveSyncing || document.hidden) { liveDirty = true; return; }
   const cityId = String(state.city.id);
+  const categoryId = state.category;
   liveSyncing = true;
   liveDirty = false;
   try {
-    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), live: String(Date.now()) });
+    const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), ...categoryParams(), live: String(Date.now()) });
     const data = await getJson(`/api/public/feed?${params}`);
-    if (!state.city || String(state.city.id) !== cityId || state.newsId || state.loading) { liveDirty = true; return; }
+    if (!state.city || String(state.city.id) !== cityId || state.category !== categoryId || state.newsId || state.loading) { liveDirty = true; return; }
     if (window.scrollY > LIVE_NEAR_TOP) {
       // The reader is down the page: never move the content under their finger; just offer the banner.
       const plan = planLiveUpdate(state.entries, data);
@@ -742,8 +763,10 @@ async function refreshConfig() {
       state.province = selected.province;
       updateSelectedCity();
     }
+    const categoryDropped = syncCategories();
     dock.renderRadio(nextConfig.radio);
-    if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
+    if (categoryDropped && state.city && !state.newsId) resetFeed();
+    else if (state.city && feed.childElementCount === 0 && !state.loading) resetFeed();
     if (regionsChanged) {
       if (state.pickerProvince) state.pickerProvince = nextConfig.provinces.find((item) => Number(item.id) === Number(state.pickerProvince.id)) ?? null;
       if (picker.open) renderPickerList();
@@ -763,6 +786,7 @@ async function initializeReader({ newsOnly = false } = {}) {
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
+    syncCategories();
     document.title = config.site_title || 'اخبار پیام‌نور';
     document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام‌نور';
     if (newsOnly) {
@@ -939,13 +963,62 @@ settingsDialog.addEventListener('change', (event) => {
   else feedPrefsStale = true;
 });
 
+// ---------- Category dialog ----------
+let categorySignature = '';
+
+// Draws the button state and the chips; drops a saved choice whose category no longer exists.
+// Returns true when the saved choice had to be dropped (the caller then reloads the feed).
+function syncCategories({ force = false } = {}) {
+  const categories = state.config?.categories ?? [];
+  let dropped = false;
+  if (state.category && !categories.some((item) => Number(item.id) === state.category)) {
+    state.category = null;
+    dropped = true;
+    try { localStorage.removeItem(CATEGORY_KEY); } catch {}
+  }
+  const chosen = categories.find((item) => Number(item.id) === state.category);
+  categoryButton.hidden = !categories.length;
+  categoryButton.classList.toggle('is-filtered', Boolean(chosen));
+  const label = chosen ? `دسته‌بندی خبرها: ${chosen.name}` : 'دسته‌بندی خبرها';
+  categoryButton.title = label;
+  categoryButton.setAttribute('aria-label', label);
+  const signature = JSON.stringify([categories, state.category]);
+  if (force || signature !== categorySignature) {
+    categorySignature = signature;
+    const chips = [{ id: null, name: 'همه' }, ...categories];
+    categoryList.innerHTML = chips.map((item) => `<button type="button" class="category-chip" role="radio" aria-checked="${(item.id ?? null) === (state.category ?? null)}" data-category-id="${item.id ?? ''}">${escapeHtml(item.name)}</button>`).join('');
+  }
+  return dropped;
+}
+
+categoryButton.addEventListener('click', () => {
+  syncCategories({ force: true });
+  categoryDialog.showModal();
+});
+categoryList.addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-category-id]');
+  if (!chip) return;
+  const next = chip.dataset.categoryId ? Number(chip.dataset.categoryId) : null;
+  categoryDialog.close();
+  if (next === state.category) return;
+  state.category = next;
+  try {
+    if (next) localStorage.setItem(CATEGORY_KEY, String(next));
+    else localStorage.removeItem(CATEGORY_KEY);
+  } catch {}
+  syncCategories();
+  newItemsBanner.hidden = true;
+  if (state.city && !state.newsId) resetFeed({ scroll: true });
+  else feedPrefsStale = true;
+});
+
 document.getElementById('about-button').addEventListener('click', () => {
   const version = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1] ?? '';
   document.getElementById('about-version').textContent = version.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
   aboutDialog.showModal();
 });
 
-for (const dialog of [settingsDialog, aboutDialog]) {
+for (const dialog of [settingsDialog, categoryDialog, aboutDialog]) {
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog || event.target.closest('[data-dialog-close]')) dialog.close();
   });
