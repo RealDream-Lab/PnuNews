@@ -414,3 +414,14 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .install-banner .button{min-height:38px;padding:.2rem 1.1rem;flex:1 1 auto;white-space:nowrap}
 .install-banner .icon-button{width:34px;height:34px;border-radius:10px;flex:none}
 @media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button{flex:none}}
+
+/* ---------- Phones: the username chip is a proper horizontal swipe strip ---------- */
+@media(max-width:767px){
+  /* as tall as the header buttons: a swipe has to start inside the box, and 22px was too thin to hit */
+  .user-chip{height:36px;line-height:36px;touch-action:pan-x pan-y;cursor:grab;-webkit-user-select:none;user-select:none}
+  .user-chip.dragging{cursor:grabbing}
+  /* soft fade on the side where more text is hidden (set by JS) */
+  .user-chip.fade-left{-webkit-mask-image:linear-gradient(to right,transparent,#000 18px);mask-image:linear-gradient(to right,transparent,#000 18px)}
+  .user-chip.fade-right{-webkit-mask-image:linear-gradient(to left,transparent,#000 18px);mask-image:linear-gradient(to left,transparent,#000 18px)}
+  .user-chip.fade-left.fade-right{-webkit-mask-image:linear-gradient(to right,transparent,#000 18px,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(to right,transparent,#000 18px,#000 calc(100% - 18px),transparent)}
+}

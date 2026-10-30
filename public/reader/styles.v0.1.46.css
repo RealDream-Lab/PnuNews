@@ -296,16 +296,18 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
 .site-dock:not(:has(.radio-bar)){display:none}
 @media(max-width:479px){
-  /* two rows: brand + small buttons, then the city picker across the full width */
-  .header-inner{flex-wrap:wrap;row-gap:.35rem;padding-block:.4rem}
+  /* Two rows on phones. Row 1: site name + the small icon buttons. Row 2: city picker + font size.
+     The ::after is a zero-height full-width item that forces the line break. Without it everything fits
+     on one line, the site name shrinks to nothing and ends up hidden under the icon buttons. */
+  .header-inner{flex-wrap:wrap;row-gap:0;padding-block:.4rem}
+  .header-inner::after{content:"";order:9;flex:0 0 100%;height:0}
   .header-actions{display:contents}
   .brand{flex:1 1 0;min-width:0}
-  .brand-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  /* the site name always stays visible: the font buttons move down next to the city picker to make room for it */
   .brand-name{overflow:visible;text-overflow:clip}
-  .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0}
+  .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0;margin-top:.4rem}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .font-controls{order:11;flex:none}
+  .font-controls{order:11;flex:none;margin-top:.4rem}
+}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */
