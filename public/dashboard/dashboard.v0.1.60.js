@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.59.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.60.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -688,86 +688,6 @@ async function loadAdmin() {
   }
 }
 
-// The username chip scrolls sideways on phones when the name is long. Touch, pen and mouse all drag it (JS)
-// and the wheel scrolls it; the edge fade tells the user there is more text on that side.
-function setupUserChip(chip) {
-  const refresh = () => {
-    const max = chip.scrollWidth - chip.clientWidth;
-    const rtl = getComputedStyle(chip).direction === "rtl";
-    const pos = Math.abs(chip.scrollLeft);
-    const hiddenLeft = max > 1 && (rtl ? pos < max - 1 : pos > 1);
-    const hiddenRight = max > 1 && (rtl ? pos > 1 : pos < max - 1);
-    chip.classList.toggle("fade-left", hiddenLeft);
-    chip.classList.toggle("fade-right", hiddenRight);
-  };
-  if (!chip.dataset.ready) {
-    chip.dataset.ready = "1";
-    chip.addEventListener("scroll", refresh, { passive: true });
-    window.addEventListener("resize", refresh);
-    // Drag-to-scroll handled in JS for touch, pen and mouse alike, so it does not depend on how a given mobile
-    // browser treats native overflow scrolling inside a flex header (touch-action is "none" on the chip).
-    chip.addEventListener("pointerdown", (event) => {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      if (chip.scrollWidth - chip.clientWidth <= 1) return;
-      const startX = event.clientX;
-      const startLeft = chip.scrollLeft;
-      let lastX = startX;
-      let lastT = event.timeStamp;
-      let velocity = 0;
-      let moved = false;
-      chip.classList.add("dragging");
-      try {
-        chip.setPointerCapture(event.pointerId);
-      } catch {
-        /* capture is optional */
-      }
-      const move = (moveEvent) => {
-        const dx = moveEvent.clientX - startX;
-        if (!moved && Math.abs(dx) < 3) return;
-        moved = true;
-        chip.scrollLeft = startLeft - dx;
-        const dt = Math.max(1, moveEvent.timeStamp - lastT);
-        velocity = (moveEvent.clientX - lastX) / dt;
-        lastX = moveEvent.clientX;
-        lastT = moveEvent.timeStamp;
-        moveEvent.preventDefault();
-      };
-      const glide = () => {
-        if (Math.abs(velocity) < 0.02) return;
-        chip.scrollLeft -= velocity * 16;
-        velocity *= 0.92;
-        requestAnimationFrame(glide);
-      };
-      const stop = () => {
-        chip.classList.remove("dragging");
-        chip.removeEventListener("pointermove", move);
-        chip.removeEventListener("pointerup", stop);
-        chip.removeEventListener("pointercancel", stop);
-        if (moved) glide();
-      };
-      chip.addEventListener("pointermove", move);
-      chip.addEventListener("pointerup", stop);
-      chip.addEventListener("pointercancel", stop);
-    });
-    chip.addEventListener(
-      "wheel",
-      (event) => {
-        if (chip.scrollWidth - chip.clientWidth <= 1) return;
-        const delta =
-          Math.abs(event.deltaX) > Math.abs(event.deltaY)
-            ? event.deltaX
-            : event.deltaY;
-        chip.scrollLeft += delta;
-        event.preventDefault();
-      },
-      { passive: false },
-    );
-  }
-  chip.scrollLeft = 0;
-  refresh();
-  requestAnimationFrame(refresh);
-}
-
 async function prepareWorkspace() {
   const [regions, categories] = await Promise.all([
     api("/api/admin/regions"),
@@ -779,9 +699,9 @@ async function prepareWorkspace() {
   const placeLabel = ["super_admin", "country_admin"].includes(state.user.role)
     ? roleLabel(state.user.role)
     : `${roleLabel(state.user.role)} ${regionNameValue}`;
-  const userChip = document.getElementById("user-chip");
-  userChip.textContent = `${state.user.full_name} · ${placeLabel}`;
-  setupUserChip(userChip);
+  const userText = `${state.user.full_name} · ${placeLabel}`;
+  document.getElementById("desktop-user").textContent = userText;
+  document.getElementById("mobile-user").textContent = userText;
   setScopeBanner();
   beginQuickCompose();
   document.querySelectorAll("[data-super-only]").forEach((element) => {

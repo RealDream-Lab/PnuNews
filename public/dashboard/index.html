@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مدیریت خبرها" />
     <meta name="application-name" content="مدیریت خبرها" />
-    <link rel="stylesheet" href="/dashboard/styles.v0.1.59.css" />
-    <script src="/shared/theme.v0.1.59.js"></script>
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.60.css" />
+    <script src="/shared/theme.v0.1.60.js"></script>
     <title>مدیریت خبرها — اخبار پیام‌نور</title>
   </head>
   <body>
@@ -315,7 +315,6 @@
           >
             <svg class="icon"><use href="#admin-icon-info" /></svg>
           </button>
-          <span id="user-chip" class="user-chip"></span>
           <button id="logout-button" class="button subtle" type="button">
             خروج
           </button>
@@ -366,11 +365,18 @@
             </button>
           </nav>
           <div class="sidebar-scope">
-            <span class="scope-dot"></span><span id="desktop-scope"></span>
+            <span class="scope-dot"></span>
+            <div class="scope-text">
+              <span id="desktop-scope"></span>
+              <span id="desktop-user" class="user-chip"></span>
+            </div>
           </div>
         </aside>
         <div class="admin-content">
-          <div id="scope-banner" class="scope-banner"></div>
+          <div class="scope-banner">
+            <span id="scope-banner"></span>
+            <span id="mobile-user" class="user-chip"></span>
+          </div>
           <section
             id="dashboard-view"
             class="admin-view"
@@ -1521,6 +1527,6 @@
       <div id="update-root"></div>
       <div id="install-root"></div>
     </div>
-    <script type="module" src="/dashboard/dashboard.v0.1.59.js"></script>
+    <script type="module" src="/dashboard/dashboard.v0.1.60.js"></script>
   </body>
 </html>
