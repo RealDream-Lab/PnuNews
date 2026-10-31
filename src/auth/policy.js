@@ -35,9 +35,8 @@ export function canPublishTo(user, targetRegion, regions) {
     return ['country', 'province', 'city'].includes(target.type);
   }
   if (user.role === ROLE.COUNTRY_ADMIN) {
-    // Central-organization PR: the whole country and the provinces, never individual cities.
-    return target.type === 'province' ||
-      (target.type === 'country' && Number(target.id) === Number(user.region_id));
+    // Central-organization PR publishes exactly where the main admin does: the country, any province, any city.
+    return ['country', 'province', 'city'].includes(target.type);
   }
   if (user.role === ROLE.PROVINCE_ADMIN) {
     const ownProvince = regionById(regions, user.region_id);

@@ -48,10 +48,14 @@ test('portal-imported news is shared by the main admin and the central PR, hidde
   assert.equal(canEditNews(sup, imported, opts), true);
 });
 
-test('country admin publishes to country and provinces only', () => {
-  assert.equal(canPublishTo(country, regions[0], regions), true);
-  assert.equal(canPublishTo(country, regions[1], regions), true);
-  assert.equal(canPublishTo(country, regions[3], regions), false);
+test('central PR publishes wherever the main admin does: country, provinces and cities', () => {
+  for (const region of [regions[0], regions[1], regions[3]]) {
+    assert.equal(canPublishTo(country, region, regions), true);
+    assert.equal(canPublishTo(country, region, regions), canPublishTo(sup, region, regions));
+  }
+  // The narrower roles stay inside their own unit.
+  assert.equal(canPublishTo(provA, regions[0], regions), false);
+  assert.equal(canPublishTo(cityA1, regions[1], regions), false);
 });
 
 test('user management hierarchy', () => {
