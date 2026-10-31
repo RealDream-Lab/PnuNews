@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.63.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.63.js';
+import { initDock } from '/shared/dock.v0.1.64.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.64.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -993,10 +993,38 @@ const aboutDialog = document.getElementById('about-dialog');
 
 let feedPrefsStale = false;
 
-// Autoplay makes no sense while the radio itself is hidden.
-function syncAutoplaySwitch() {
+// Autoplay makes no sense while the radio itself is hidden. When the radio is switched off the row is first
+// disabled, then fades out and folds away under the radio item; switching it on reverses that. Opening the dialog
+// sets the state at once, without animation.
+let autoplayRowTimer = 0;
+function syncAutoplaySwitch({ animate = false } = {}) {
+  const row = document.getElementById('autoplay-row');
   const input = settingsDialog.querySelector('[data-pref="autoplay"]');
-  if (input) input.disabled = !prefs.radio;
+  if (!row || !input) return;
+  const off = !prefs.radio;
+  clearTimeout(autoplayRowTimer);
+  if (!animate) {
+    input.disabled = off;
+    row.classList.toggle('is-disabled', off);
+    row.classList.toggle('is-collapsed', off);
+    row.inert = off;
+    return;
+  }
+  if (off) {
+    input.disabled = true;
+    row.classList.add('is-disabled');
+    autoplayRowTimer = setTimeout(() => {
+      row.classList.add('is-collapsed');
+      row.inert = true;
+    }, 350);
+  } else {
+    row.inert = false;
+    row.classList.remove('is-collapsed');
+    autoplayRowTimer = setTimeout(() => {
+      row.classList.remove('is-disabled');
+      input.disabled = false;
+    }, 300);
+  }
 }
 
 function renderSettings() {
@@ -1019,7 +1047,7 @@ settingsDialog.addEventListener('change', (event) => {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
   if (key === 'radio') {
     applyRadioPreference();
-    syncAutoplaySwitch();
+    syncAutoplaySwitch({ animate: true });
   } else if (key === 'autoplay') {
     // only matters at the next page load
   } else if (state.city && !state.newsId) resetFeed();

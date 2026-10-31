@@ -350,3 +350,10 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .news-body .ta-justify{text-align:justify}
 .news-body ul{padding-inline-start:1.5rem}
 .news-body ol.fa-num{list-style-type:persian}
+
+/* A setting that depends on another one: first it dims (disabled), then it fades and folds away under the item it depends on. */
+.setting-collapse{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .3s ease,opacity .25s ease,margin-top .3s ease}
+.setting-collapse-inner{min-height:0;overflow:hidden}
+.setting-collapse .setting-row{transition:opacity .2s ease}
+.setting-collapse.is-disabled .setting-row{opacity:.5;cursor:default}
+.setting-collapse.is-collapsed{grid-template-rows:0fr;opacity:0;margin-top:-.5rem;pointer-events:none}
