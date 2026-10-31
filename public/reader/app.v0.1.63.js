@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.62.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.62.js';
+import { initDock } from '/shared/dock.v0.1.63.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.63.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -86,7 +86,7 @@ const dock = initDock({ showToast });
 
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
-const DEFAULT_PREFS = Object.freeze({ radio: true, country: true, province: true, siblings: false });
+const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: true, country: true, province: true, siblings: false });
 const prefs = { ...DEFAULT_PREFS };
 try {
   const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
@@ -98,6 +98,11 @@ try {
 function applyRadioPreference() {
   document.documentElement.classList.toggle('radio-hidden', !prefs.radio);
   if (!prefs.radio) dock.stopRadio();
+}
+
+// Autoplay needs the radio to be shown and the reader to allow it; it is tried once per page load.
+function maybeAutoplayRadio() {
+  if (prefs.radio && prefs.autoplay) dock.autoplayRadio();
 }
 applyRadioPreference();
 
@@ -858,6 +863,7 @@ async function initializeReader({ newsOnly = false } = {}) {
       }
     }
     dock.renderRadio(config.radio);
+    if (!newsOnly) maybeAutoplayRadio();
   } catch {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
   }
@@ -987,8 +993,15 @@ const aboutDialog = document.getElementById('about-dialog');
 
 let feedPrefsStale = false;
 
+// Autoplay makes no sense while the radio itself is hidden.
+function syncAutoplaySwitch() {
+  const input = settingsDialog.querySelector('[data-pref="autoplay"]');
+  if (input) input.disabled = !prefs.radio;
+}
+
 function renderSettings() {
   for (const input of settingsDialog.querySelectorAll('[data-pref]')) input.checked = Boolean(prefs[input.dataset.pref]);
+  syncAutoplaySwitch();
   const province = state.province?.name;
   document.getElementById('pref-province-title').textContent = province ? `خبرهای استان ${province}` : 'خبرهای استان من';
   document.getElementById('pref-siblings-hint').textContent = province
@@ -1004,8 +1017,12 @@ settingsDialog.addEventListener('change', (event) => {
   if (!(key in DEFAULT_PREFS)) return;
   prefs[key] = event.target.checked;
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
-  if (key === 'radio') applyRadioPreference();
-  else if (state.city && !state.newsId) resetFeed();
+  if (key === 'radio') {
+    applyRadioPreference();
+    syncAutoplaySwitch();
+  } else if (key === 'autoplay') {
+    // only matters at the next page load
+  } else if (state.city && !state.newsId) resetFeed();
   else feedPrefsStale = true;
 });
 

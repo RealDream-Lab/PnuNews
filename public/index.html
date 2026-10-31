@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام‌نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.62.css">
-  <script src="/shared/theme.v0.1.62.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.63.css">
+  <script src="/shared/theme.v0.1.63.js"></script>
   <title>اخبار پیام‌نور</title>
 </head>
 <body>
@@ -86,6 +86,7 @@
       <div class="info-header"><div><h2 id="settings-title" class="info-title">تنظیمات</h2><p class="info-sub">انتخاب شما فقط روی همین دستگاه ذخیره می‌شود.</p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
       <div class="setting-list">
         <label class="setting-row"><span class="setting-text"><strong>نمایش رادیو</strong><small>نوار پخش رادیوی دانشگاه در پایین صفحه</small></span><input type="checkbox" role="switch" class="switch" data-pref="radio"></label>
+        <label class="setting-row"><span class="setting-text"><strong>پخش خودکار رادیو</strong><small>با باز شدن سایت، رادیو خودکار شروع به پخش می‌کند (در برخی مرورگرها پس از اولین لمس صفحه)</small></span><input type="checkbox" role="switch" class="switch" data-pref="autoplay"></label>
         <label class="setting-row"><span class="setting-text"><strong>خبرهای سازمان مرکزی</strong><small>خبرها و اطلاعیه‌های سراسری</small></span><input type="checkbox" role="switch" class="switch" data-pref="country"></label>
         <label class="setting-row"><span class="setting-text"><strong id="pref-province-title">خبرهای استان من</strong><small>خبرهایی که برای کل استان منتشر شده است</small></span><input type="checkbox" role="switch" class="switch" data-pref="province"></label>
         <label class="setting-row"><span class="setting-text"><strong>خبرهای مراکز هم‌استانی</strong><small id="pref-siblings-hint">خبرهای دیگر مراکز دانشگاهی استان شما</small></span><input type="checkbox" role="switch" class="switch" data-pref="siblings"></label>
@@ -114,6 +115,6 @@
     <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.62.js"></script>
+  <script type="module" src="/reader/app.v0.1.63.js"></script>
 </body>
 </html>
