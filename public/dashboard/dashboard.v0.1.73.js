@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.72.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.73.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -425,19 +425,6 @@ function regionName(regionId) {
   );
 }
 
-function scopeText() {
-  const region = state.regions.find(
-    (item) => Number(item.id) === Number(state.user?.region_id),
-  );
-  if (state.user?.role === "super_admin")
-    return "شما برای کل کشور منتشر می‌کنید.";
-  if (state.user?.role === "country_admin")
-    return "شما برای کل کشور و استان‌ها منتشر می‌کنید.";
-  if (region?.type === "province")
-    return `شما برای استان ${region.name} و مراکز دانشگاهی آن منتشر می‌کنید.`;
-  return `شما برای دانشگاه پیام‌نور ${region?.name || "خود"} منتشر می‌کنید.`;
-}
-
 // The line under the user's name in the sidebar: the unit they belong to (e.g. "دانشگاه پیام‌نور شهر ری").
 function userUnitText() {
   const role = state.user?.role;
@@ -452,9 +439,7 @@ function userUnitText() {
 }
 
 function setScopeBanner() {
-  // The "you publish for ..." sentence is only the banner above the content (phones, where the sidebar is hidden);
-  // the sidebar card shows who is signed in and for which unit.
-  document.getElementById("scope-banner").textContent = scopeText();
+  // The sidebar card shows who is signed in and for which unit.
   document.getElementById("desktop-user-name").textContent =
     state.user?.full_name || "";
   document.getElementById("desktop-user-unit").textContent = userUnitText();
