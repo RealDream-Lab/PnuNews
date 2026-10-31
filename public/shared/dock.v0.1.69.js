@@ -27,6 +27,7 @@ export function initDock({ showToast = () => {} } = {}) {
     if (!button) return;
     button.innerHTML = `<svg class="icon"><use href="#icon-${playing ? 'stop' : 'play'}"/></svg>`;
     button.setAttribute('aria-label', playing ? 'توقف رادیو' : 'پخش رادیو');
+    button.classList.toggle('is-playing', playing);
   }
 
   function stop() {
