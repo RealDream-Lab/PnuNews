@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.60.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.61.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -701,7 +701,6 @@ async function prepareWorkspace() {
     : `${roleLabel(state.user.role)} ${regionNameValue}`;
   const userText = `${state.user.full_name} · ${placeLabel}`;
   document.getElementById("desktop-user").textContent = userText;
-  document.getElementById("mobile-user").textContent = userText;
   setScopeBanner();
   beginQuickCompose();
   document.querySelectorAll("[data-super-only]").forEach((element) => {
