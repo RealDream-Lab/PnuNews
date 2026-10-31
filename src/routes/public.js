@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.67.css">
-<script src="/shared/theme.v0.1.67.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.68.css">
+<script src="/shared/theme.v0.1.68.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.67.js"></script>
+<script type="module" src="/reader/app.v0.1.68.js"></script>
 </body>
 </html>`;
 }
@@ -510,6 +510,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
           id: Number(news.id), title: news.title, summary: news.summary,
           news_type: news.news_type === 'announcement' ? 'announcement' : 'news',
           body_html: sanitizeBodyHtml(news.body_html, { brand: true }),
+          source_url: news.source_url || null,
           category: news.category_id == null ? null : { id: Number(news.category_id), name: news.category_name },
           published_at: news.published_at.toISOString(), expires_at: news.expires_at?.toISOString() ?? null,
           is_pinned: Boolean(news.is_pinned), is_urgent: Boolean(news.is_urgent),

@@ -167,7 +167,7 @@ export function createPortalImporter({
     const text = normalizeNewsInput({
       title: item.title.slice(0, 240),
       summary: item.abstract.slice(0, 600),
-      body_html: `${item.abstract ? `<p>${escapeHtml(item.abstract)}</p>` : ""}<p><a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">مشاهدهٔ متن کامل در پورتال دانشگاه</a></p>`,
+      body_html: `${item.abstract ? `<p>${escapeHtml(item.abstract)}</p>` : ""}<p><a href="${escapeHtml(item.link)}" rel="noopener noreferrer">مشاهدهٔ متن کامل در پورتال دانشگاه</a></p>`,
     });
     if (!text.title) return false;
     const connection = await pool.getConnection();
