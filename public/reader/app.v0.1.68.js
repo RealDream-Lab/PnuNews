@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.67.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.67.js';
+import { initDock } from '/shared/dock.v0.1.68.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.68.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -898,6 +898,18 @@ async function loadNewsPage(id, { initial = false } = {}) {
 
 let galleryImages = [];
 
+// The "full text on the university portal" link of imported portal news opens in the current tab. News imported
+// earlier carries target="_blank" in its stored body, so the attribute is dropped here, whatever the stored form is.
+function sameTabPortalLinks(html, sourceUrl) {
+  if (typeof sourceUrl !== 'string' || !sourceUrl.startsWith('https://')) return html;
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  for (const link of template.content.querySelectorAll('a[target]')) {
+    if (link.getAttribute('href') === sourceUrl) link.removeAttribute('target');
+  }
+  return template.innerHTML;
+}
+
 function renderNewsPage(item, initial) {
   // Two lines: the person, then the university unit (e.g. "دانشگاه پیام‌نور بیجار").
   const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? `<span>${escapeHtml(item.publisher_unit)}</span>` : ''].filter(Boolean);
@@ -913,7 +925,7 @@ function renderNewsPage(item, initial) {
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
     <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1>
     <div class="news-details">${category}<time datetime="${escapeHtml(item.published_at)}">${fullDate}</time><span>${digits.format(item.view_count)} بازدید</span></div>
-    <div class="news-body">${item.body_html}</div>
+    <div class="news-body">${sameTabPortalLinks(item.body_html, item.source_url)}</div>
     ${signature}
     ${gallery ? `<section class="news-gallery" aria-label="تصاویر خبر">${gallery}</section>` : ''}
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
@@ -1161,22 +1173,25 @@ function formatBytes(bytes) {
   return `${digits.format((size / (1024 * 1024)).toFixed(1))} مگابایت`;
 }
 
-async function shareNews({ url, title }) {
+// `text` (when given) is shared instead of a bare link: a message that carries several links, each with its description.
+async function shareNews({ url, title, text }) {
+  const copied = text ? 'پیوندهای خبر کپی شد.' : 'پیوند خبر کپی شد.';
+  const payload = text ? { title, text } : { title, url };
   try {
-    if (navigator.share) await navigator.share({ title, url });
+    if (navigator.share) await navigator.share(payload);
     else if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url);
-      showToast('پیوند خبر کپی شد.');
+      await navigator.clipboard.writeText(text ?? url);
+      showToast(copied);
     } else {
       const input = document.createElement('textarea');
-      input.value = url;
+      input.value = text ?? url;
       input.setAttribute('readonly', '');
       input.className = 'copy-fallback';
       document.body.append(input);
       input.select();
       document.execCommand('copy');
       input.remove();
-      showToast('پیوند خبر کپی شد.');
+      showToast(copied);
     }
   } catch (error) {
     if (error.name !== 'AbortError') showToast('اشتراک‌گذاری انجام نشد.');
@@ -1188,7 +1203,17 @@ function shareCurrentNews() {
 }
 
 function shareCard(card) {
-  return shareNews({ url: `${location.origin}/n/${card.dataset.newsId}`, title: card.getAttribute('aria-label') || document.title });
+  const title = card.getAttribute('aria-label') || document.title;
+  const siteUrl = `${location.origin}/n/${card.dataset.newsId}`;
+  const portalUrl = card.dataset.sourceUrl;
+  // Portal-feed news has two addresses: the original article on the university portal and the page on this site.
+  if (portalUrl && portalUrl.startsWith('https://')) {
+    return shareNews({
+      title,
+      text: `${title}\n\nمتن کامل خبر در پورتال دانشگاه:\n${portalUrl}\n\nخواندن همین خبر در سایت اخبار پیام‌نور:\n${siteUrl}`,
+    });
+  }
+  return shareNews({ url: siteUrl, title });
 }
 
 function navigateToNews(id) {
