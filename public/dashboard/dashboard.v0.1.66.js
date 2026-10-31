@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.65.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.66.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -102,7 +102,6 @@ const INSTALL_SNOOZE_KEY = "pnu.dashboard.installDismissedAt";
 const INSTALL_SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
 const installRoot = document.getElementById("install-root");
 const updateRoot = document.getElementById("update-root");
-const installButton = document.getElementById("install-button");
 let installPrompt = null;
 let waitingWorker = null;
 let swRegistration = null;
@@ -246,14 +245,12 @@ updateRoot?.addEventListener("click", (event) => {
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   installPrompt = event;
-  installButton.hidden = false;
   setTimeout(() => {
     if (installPrompt) showInstallBanner("prompt");
   }, 3000);
 });
 window.addEventListener("appinstalled", () => {
   installPrompt = null;
-  installButton.hidden = true;
   hideInstallBanner();
 });
 if (isIos() && !isStandalone())
@@ -263,7 +260,6 @@ async function runInstall() {
   if (!installPrompt) return;
   const promptEvent = installPrompt;
   installPrompt = null;
-  installButton.hidden = true;
   hideInstallBanner();
   try {
     await promptEvent.prompt();
@@ -271,7 +267,6 @@ async function runInstall() {
     if (outcome !== "accepted") snoozeInstall();
   } catch {}
 }
-installButton.addEventListener("click", runInstall);
 installRoot?.addEventListener("click", (event) => {
   if (event.target.closest("[data-install-dismiss]")) {
     snoozeInstall();
