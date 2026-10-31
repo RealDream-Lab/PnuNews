@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.66.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.67.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3208,6 +3208,16 @@ async function submitProfilePasswordChange(event) {
 }
 
 async function logout() {
+  if (
+    !(await confirmDialog({
+      title: "خروج از حساب؟",
+      text: "از این دستگاه از پنل مدیریت خارج می‌شوید.",
+      tone: "warning",
+      confirmText: "بله، خارج شو",
+      cancelText: "انصراف",
+    }))
+  )
+    return;
   try {
     await api("/api/auth/logout", { method: "POST", body: {} });
   } catch {}
