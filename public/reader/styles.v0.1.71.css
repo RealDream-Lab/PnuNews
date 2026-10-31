@@ -95,6 +95,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-share:focus-visible{outline:2px solid currentColor;outline-offset:1px;border-radius:6px}
 /* Without a cover: in the footer line, without making that line taller */
 .card-foot .card-share{margin-block:-4px;color:var(--muted)}
+@media(hover:hover){.card-foot .card-share:hover{color:var(--primary)}}
 .card-cover-frame{position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--surface-soft)}
 .card-cover-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .card-meta-overlay{position:absolute;inset:auto 0 0 0;z-index:3;display:flex;flex-direction:column;gap:0;padding:.35rem .75rem;background:rgba(0,0,0,.55);color:rgba(255,255,255,.9);font-size:.74rem;line-height:1.6;pointer-events:none}
@@ -378,4 +379,4 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* With a cover: on the dark strip, vertically centered at its left end (one or two lines of meta), text kept clear of it */
 .card-meta-overlay{padding-inline-end:2.6rem}
 .card-meta-overlay .card-share{position:absolute;left:.45rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
-@media(hover:hover){.card-meta-overlay .card-share:hover{color:#fff}}
+@media(hover:hover){.card-meta-overlay .card-share:hover{color:#8fb8ff}}
