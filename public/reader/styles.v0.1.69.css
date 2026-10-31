@@ -357,3 +357,21 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .setting-collapse .setting-row{transition:opacity .2s ease}
 .setting-collapse.is-disabled .setting-row{opacity:.5;cursor:default}
 .setting-collapse.is-collapsed{grid-template-rows:0fr;opacity:0;margin-top:0;pointer-events:none}
+
+/* While the radio plays, a colored ring turns around the play button and a soft glow pulses with it (the look of
+   the new Siri glow). The ring is the button's own gradient border; the glow is a box-shadow whose color travels with it. */
+@property --ring-angle{syntax:"<angle>";inherits:false;initial-value:0deg}
+@keyframes ring-spin{to{--ring-angle:360deg}}
+@keyframes ring-glow{
+  0%,100%{box-shadow:0 0 7px 0 rgba(255,77,141,.5)}
+  25%{box-shadow:0 0 15px 2px rgba(255,178,63,.55)}
+  50%{box-shadow:0 0 8px 0 rgba(76,201,240,.5)}
+  75%{box-shadow:0 0 15px 2px rgba(138,92,255,.55)}
+}
+.audio-button.is-playing,.audio-button.is-playing:hover{
+  border-color:transparent;
+  background:linear-gradient(var(--surface),var(--surface)) padding-box,conic-gradient(from var(--ring-angle),#ff4d8d,#ffb23f,#4cc9f0,#8a5cff,#ff4d8d) border-box;
+  animation:ring-spin 3.2s linear infinite,ring-glow 3.2s ease-in-out infinite;
+}
+.audio-button.is-playing{border-width:2px}
+@media(prefers-reduced-motion:reduce){.audio-button.is-playing,.audio-button.is-playing:hover{animation:none;box-shadow:0 0 10px 1px rgba(138,92,255,.4)}}
