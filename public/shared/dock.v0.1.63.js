@@ -48,6 +48,57 @@ export function initDock({ showToast = () => {} } = {}) {
     }
   }
 
+  // ---------- Autoplay (reader home page) ----------
+  // Starts the radio as soon as the page is up. Browsers refuse sound before the visitor has touched the page
+  // (NotAllowedError); then the attempt is repeated on the visitor's first real interaction instead of showing an error.
+  // Anything that is not "blocked by policy" (a dead stream, no network) ends the attempt quietly.
+  let autoplayDone = false;
+  let cancelAutoplayWait = null;
+
+  function cancelAutoplay() {
+    autoplayDone = true;
+    cancelAutoplayWait?.();
+    cancelAutoplayWait = null;
+  }
+
+  // true: playing; 'blocked': the browser wants a user gesture first; false: failed for another reason.
+  async function tryAutoplay() {
+    if (!audio || !streamUrl) return false;
+    if (!audio.getAttribute('src')) audio.src = streamUrl;
+    try {
+      await audio.play();
+      return true;
+    } catch (error) {
+      stop();
+      return error?.name === 'NotAllowedError' ? 'blocked' : false;
+    }
+  }
+
+  async function autoplayRadio() {
+    if (autoplayDone || !audio || !streamUrl) return;
+    autoplayDone = true;
+    const first = await tryAutoplay();
+    if (first !== 'blocked') return;
+    const events = ['pointerup', 'touchend', 'keydown', 'click'];
+    let busy = false;
+    const finish = () => {
+      for (const name of events) document.removeEventListener(name, onGesture, true);
+      cancelAutoplayWait = null;
+    };
+    async function onGesture(event) {
+      // The visitor is using the radio button themselves: respect that and do not start anything on top of it.
+      if (radioRoot?.contains(event.target)) { finish(); return; }
+      if (busy) return;
+      busy = true;
+      const result = await tryAutoplay();
+      busy = false;
+      // A scroll or a key the browser does not count as a gesture is refused again: keep waiting for the next one.
+      if (result !== 'blocked') finish();
+    }
+    for (const name of events) document.addEventListener(name, onGesture, true);
+    cancelAutoplayWait = finish;
+  }
+
   // A long title scrolls back and forth (right, pause, left, pause) instead of being cut off with an ellipsis.
   function fitNowPlaying() {
     const caption = radioRoot?.querySelector('.radio-now-playing');
@@ -140,6 +191,8 @@ export function initDock({ showToast = () => {} } = {}) {
     const dockElement = radioRoot.closest('.site-dock');
     if (dockElement) dockElement.hidden = !enabled;
     if (!enabled) {
+      cancelAutoplayWait?.();
+      cancelAutoplayWait = null;
       if (audio) stop();
       radioRoot.replaceChildren();
       if ('mediaSession' in navigator) {
@@ -199,6 +252,7 @@ export function initDock({ showToast = () => {} } = {}) {
   radioRoot?.addEventListener('click', async (event) => {
     const button = event.target.closest('.radio-play');
     if (!button || !streamUrl || !audio) return;
+    cancelAutoplay();
     if (!audio.paused) {
       stop();
       return;
@@ -219,5 +273,10 @@ export function initDock({ showToast = () => {} } = {}) {
     } catch {}
   }
 
-  return { renderRadio, loadRadio, setMediaMetadata, stopRadio: stop };
+  function stopRadio() {
+    cancelAutoplay();
+    stop();
+  }
+
+  return { renderRadio, loadRadio, setMediaMetadata, stopRadio, autoplayRadio };
 }
