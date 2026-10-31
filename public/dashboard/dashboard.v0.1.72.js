@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.71.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.72.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -438,10 +438,26 @@ function scopeText() {
   return `شما برای دانشگاه پیام‌نور ${region?.name || "خود"} منتشر می‌کنید.`;
 }
 
+// The line under the user's name in the sidebar: the unit they belong to (e.g. "دانشگاه پیام‌نور شهر ری").
+function userUnitText() {
+  const role = state.user?.role;
+  if (role === "super_admin" || role === "country_admin") return roleLabel(role);
+  const region = state.regions.find(
+    (item) => Number(item.id) === Number(state.user?.region_id),
+  );
+  if (!region) return roleLabel(role);
+  return region.type === "province"
+    ? `دانشگاه پیام‌نور استان ${region.name}`
+    : `دانشگاه پیام‌نور ${region.name}`;
+}
+
 function setScopeBanner() {
-  const text = scopeText();
-  document.getElementById("scope-banner").textContent = text;
-  document.getElementById("desktop-scope").textContent = text;
+  // The "you publish for ..." sentence is only the banner above the content (phones, where the sidebar is hidden);
+  // the sidebar card shows who is signed in and for which unit.
+  document.getElementById("scope-banner").textContent = scopeText();
+  document.getElementById("desktop-user-name").textContent =
+    state.user?.full_name || "";
+  document.getElementById("desktop-user-unit").textContent = userUnitText();
 }
 
 function formatDate(value) {
@@ -690,12 +706,6 @@ async function prepareWorkspace() {
   ]);
   state.regions = regions.regions;
   state.categories = categories.categories;
-  const regionNameValue = regionName(state.user.region_id);
-  const placeLabel = ["super_admin", "country_admin"].includes(state.user.role)
-    ? roleLabel(state.user.role)
-    : `${roleLabel(state.user.role)} ${regionNameValue}`;
-  const userText = `${state.user.full_name} · ${placeLabel}`;
-  document.getElementById("desktop-user").textContent = userText;
   setScopeBanner();
   beginQuickCompose();
   document.querySelectorAll("[data-super-only]").forEach((element) => {
