@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.69.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.69.js';
+import { initDock } from '/shared/dock.v0.1.70.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.70.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -280,14 +280,14 @@ const FEATURED_IMAGE_SIZES = '(max-width: 959px) 100vw, 650px';
 const IS_APPLE_TOUCH = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const SHARE_ICON = IS_APPLE_TOUCH ? '#icon-share-ios' : '#icon-share-android';
 
-// Icon-only version of the news page's share button, laid over the cover's top-left corner (or the card's, without a cover).
+// Icon-only version of the news page's share button: no circle, at the left end of the card's meta line (on the strip over the cover, or in the footer line without a cover).
 function cardShareMarkup() {
   return `<button type="button" class="card-share" data-share-card aria-label="اشتراک‌گذاری خبر" title="اشتراک‌گذاری خبر"><svg class="icon" aria-hidden="true"><use href="${SHARE_ICON}"/></svg></button>`;
 }
 
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}${cardShareMarkup()}</div>`;
+  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
 // Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
@@ -325,9 +325,9 @@ function cardMarkup(item, { featured = false } = {}) {
     const portalSummary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
     const portalBody = hasCover
       ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
-      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}</div></div>`;
+      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}${cardShareMarkup()}</div></div>`;
     return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div></div>`) : cardShareMarkup()}
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div>${cardShareMarkup()}</div>`) : ''}
     ${portalBody}
   </article>`;
   }
@@ -342,12 +342,12 @@ function cardMarkup(item, { featured = false } = {}) {
   // With a cover, all meta sits on a translucent black strip over the image; only title and summary stay below it.
   // Always at most two lines: related labels share the first line, source and time share the second.
   const labels = badge || category || urgent ? `<div class="overlay-row">${badge}${category}${urgent}</div>` : '';
-  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}</div></div>`;
+  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}</div>${cardShareMarkup()}</div>`;
   const body = hasCover
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
-    : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}</div></div>`;
+    : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}${cardShareMarkup()}</div></div>`;
   return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, overlay) : cardShareMarkup()}
+    ${hasCover ? coverMarkup(item, featured, overlay) : ''}
     ${body}
   </article>`;
 }
