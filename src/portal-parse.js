@@ -1,8 +1,7 @@
-// The server may not be able to reach pnu.ac.ir directly, so the news list is read from the radio server's
-// proxy.php (action=pnu_news), which already scrapes the portal and returns clean JSON.
+// Normalises the portal news list (from src/portal-scrape.js, or from a JSON source set with PORTAL_NEWS_URL) into
+// the items the importer stores.
 import { cleanFaText } from './lib/fa.js';
 
-export const PORTAL_PROXY_URL = 'https://radio.pnu.ac.ir/proxy.php?action=pnu_news';
 export const PORTAL_BASE_URL = 'https://pnu.ac.ir';
 
 // Only https addresses on pnu.ac.ir are accepted: readers open the links and the server downloads the images.
@@ -19,8 +18,8 @@ export function portalUrl(value) {
 }
 
 export function parseProxyNews(payload, limit = 20) {
-  if (!payload || payload.error) throw new Error(`پاسخ خطا از سرور رادیو: ${payload?.message || 'نامشخص'}`);
-  if (!Array.isArray(payload.items)) throw new Error('پاسخ سرور رادیو فهرست خبر ندارد.');
+  if (!payload || payload.error) throw new Error(`پاسخ خطا از منبع خبر: ${payload?.message || 'نامشخص'}`);
+  if (!Array.isArray(payload.items)) throw new Error('پاسخ منبع خبر فهرست خبر ندارد.');
   const seen = new Set();
   const items = [];
   for (const raw of payload.items) {

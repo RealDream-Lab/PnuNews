@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.78.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.79.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2690,16 +2690,20 @@ function describePortalRun(run) {
 
 // The sentence under the portal switch is built from what the server really does, so it cannot drift from the code.
 function describePortalSource(status) {
-  let place = "پراکسی رادیو";
+  // Direct reading of the portal page is the default; a JSON source (PORTAL_NEWS_URL, the old proxy.php format) is the exception.
+  let intro = "سرور خبرهای «اخبار اصلی» را مستقیم از صفحهٔ پورتال pnu.ac.ir می‌خواند";
   try {
     const url = new URL(status.source);
-    place = `پراکسی رادیو (${url.host}${url.pathname})`;
+    if (!/(^|\.)pnu\.ac\.ir$/.test(url.hostname) || url.pathname.endsWith("proxy.php")) {
+      intro = `خبرهای «اخبار اصلی» pnu.ac.ir از منبع JSON (${url.host}${url.pathname}) خوانده می‌شود`;
+    }
   } catch {}
+  const minutes = faDigits.format(status.refresh_minutes || 3);
   const schedule =
     status.mode === "external"
       ? "زمان‌بندی را سیستم‌عامل یا Docker انجام می‌دهد (cron/systemd)"
-      : "هر ۱۰ دقیقه خودکار";
-  return `خبرهای «اخبار اصلی» pnu.ac.ir از ${place} خوانده می‌شود (${schedule})؛ در هر بار حداکثر ${faDigits.format(status.limit || 20)} خبر بررسی و خبرهای تازه به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. شمار خبرِ بررسی‌شده همان است که پراکسی برمی‌گرداند و در سطر «آخرین اجرا» می‌بینید. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست. دکمهٔ «همین حالا بگیر» با همان پراکسی و همان کد زمان‌بند کار می‌کند.`;
+      : `هر ${minutes} دقیقه خودکار`;
+  return `${intro} (${schedule})؛ در هر بار حداکثر ${faDigits.format(status.limit || 20)} خبر بررسی و خبرهای تازه به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. شمار خبرِ بررسی‌شده همان است که منبع برمی‌گرداند و در سطر «آخرین اجرا» می‌بینید. نتیجهٔ هر دریافت ${minutes} دقیقه کش می‌شود. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست. دکمهٔ «همین حالا بگیر» با همان منبع و همان کد زمان‌بند کار می‌کند.`;
 }
 
 async function loadPortalStatus() {
