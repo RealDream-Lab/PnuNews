@@ -12,6 +12,7 @@ const RETRY_SECONDS = { transient: 0, access: 30, other: 60 };
 const MAX_POST_AGE_DAYS = 2;
 const CHANNEL_FAILURES_BEFORE_DISABLE = 3;
 const CAPTION_LIMIT = 1024;
+const TEXT_ONLY = 'text-only';
 
 // ---------- Pure helpers (unit-tested) ----------
 
@@ -116,7 +117,7 @@ export function createTelegramService({
       try {
         const source = await readFile(candidate.file);
         // Telegram is happiest with JPEG; flatten transparency onto white.
-        const data = await sharp(source).rotate().flatten({ background: '#ffffff' }).resize({ width: 1280, withoutEnlargement: true }).jpeg({ quality: 86 }).toBuffer();
+        const data = await sharp(source).rotate().flatten({ background: '#ffffff' }).resize({ width: 800, withoutEnlargement: true }).jpeg({ quality: 78, mozjpeg: true }).toBuffer();
         return { key: candidate.key, data };
       } catch {
         // missing or unreadable: try the next candidate (the built-in default)
@@ -217,6 +218,30 @@ export function createTelegramService({
     const caption = buildCaption({ title: news.title, summary: news.summary });
     const replyMarkup = { inline_keyboard: [[{ text: buttonLabel(news.news_type), url }]] };
 
+    if (post.state === 'sent' && post.cover_key === TEXT_ONLY) {
+      // this message went out as plain text (the photo upload kept failing): keep it in sync as text
+      if (hash !== post.text_hash) {
+        try {
+          await client.call(token, 'editMessageText', {
+            chat_id: post.chat_id,
+            message_id: Number(post.message_id),
+            text: caption,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            reply_markup: replyMarkup,
+          });
+        } catch (error) {
+          if (!(error instanceof TelegramError && /message is not modified/i.test(error.message))) throw error;
+        }
+      }
+      await pool.execute(
+        `UPDATE telegram_posts SET text_hash = ?, needs_update = 0, attempts = 0, last_error = NULL WHERE news_id = ? AND user_id = ?`,
+        [hash, post.news_id, post.user_id],
+      );
+      await recordChannelSuccess(post.user_id);
+      return;
+    }
+
     if (post.state === 'sent') {
       const photo = await loadPhoto(news.cover_stored_name, news.news_type);
       const coverChanged = photo.key !== post.cover_key;
@@ -254,16 +279,32 @@ export function createTelegramService({
     }
 
     const photo = await loadPhoto(news.cover_stored_name, news.news_type);
-    const sent = await client.call(token, 'sendPhoto', {
-      chat_id: post.channel_chat_id,
-      caption,
-      parse_mode: 'HTML',
-      reply_markup: replyMarkup,
-    }, { photo: { data: photo.data, filename: 'cover.jpg', type: 'image/jpeg' } });
+    let sent;
+    let coverKey = photo.key;
+    try {
+      sent = await client.call(token, 'sendPhoto', {
+        chat_id: post.channel_chat_id,
+        caption,
+        parse_mode: 'HTML',
+        reply_markup: replyMarkup,
+      }, { photo: { data: photo.data, filename: 'cover.jpg', type: 'image/jpeg' } });
+    } catch (error) {
+      // The upload cannot get through (connection reset / timeout): small JSON calls still work, so send the news as text.
+      if (!(error instanceof TelegramError && error.network)) throw error;
+      log(`Telegram photo upload failed for news ${post.news_id} (${error.detail || 'network'}); sending as text`);
+      sent = await client.call(token, 'sendMessage', {
+        chat_id: post.channel_chat_id,
+        text: caption,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+        reply_markup: replyMarkup,
+      });
+      coverKey = TEXT_ONLY;
+    }
     await pool.execute(
       `UPDATE telegram_posts SET state = 'sent', chat_id = ?, message_id = ?, text_hash = ?, cover_key = ?,
          needs_update = 0, attempts = 0, last_error = NULL WHERE news_id = ? AND user_id = ?`,
-      [String(post.channel_chat_id), Number(sent.message_id), hash, photo.key, post.news_id, post.user_id],
+      [String(post.channel_chat_id), Number(sent.message_id), hash, coverKey, post.news_id, post.user_id],
     );
     await recordChannelSuccess(post.user_id);
   }

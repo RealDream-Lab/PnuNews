@@ -7,12 +7,14 @@
 export const TOKEN_PATTERN = /^\d{6,12}:[A-Za-z0-9_-]{30,60}$/;
 
 export class TelegramError extends Error {
-  constructor(message, { code = 0, retryAfter = 0, network = false } = {}) {
+  constructor(message, { code = 0, retryAfter = 0, network = false, detail = '' } = {}) {
     super(message);
     this.name = 'TelegramError';
     this.code = code;
     this.retryAfter = retryAfter;
     this.network = network;
+    // Short technical hint for network failures (timeout, ECONNRESET, HTTP 502 ...). Never contains the token.
+    this.detail = detail;
   }
 }
 
@@ -36,7 +38,7 @@ function scrub(text, token) {
 // What the person sees for a failure (Persian), never the raw token-bearing text.
 export function describeTelegramError(error) {
   if (!(error instanceof TelegramError)) return 'خطای ناشناخته در ارتباط با تلگرام.';
-  if (error.network) return 'اتصال به تلگرام برقرار نشد.';
+  if (error.network) return `اتصال به تلگرام برقرار نشد${error.detail ? ` (${error.detail})` : ''}.`;
   const text = String(error.message).toLowerCase();
   if (error.code === 401) return 'توکن ربات معتبر نیست یا ابطال شده است.';
   if (error.code === 429) return 'تلگرام موقتاً درخواست‌ها را محدود کرده است؛ کمی بعد دوباره تلاش می‌شود.';
@@ -58,7 +60,9 @@ export function createTelegramClient({ fetchImpl = fetch, baseUrl, fallbackUrl =
     if (!TOKEN_PATTERN.test(token)) throw new TelegramError('Invalid token format', { code: 401 });
     if (!/^[A-Za-z]+$/.test(method)) throw new TypeError('Invalid method');
     const hasFiles = Object.keys(files).length > 0;
-    let lastFailure = new TelegramError('no response', { network: true });
+    let lastFailure = new TelegramError('no response', { network: true, detail: 'no response' });
+    // Uploading a photo through the proxy takes longer than a small JSON call.
+    const effectiveTimeout = hasFiles ? Math.max(timeoutMs, 60_000) : timeoutMs;
 
     for (const base of bases) {
       let body;
@@ -83,11 +87,13 @@ export function createTelegramClient({ fetchImpl = fetch, baseUrl, fallbackUrl =
           method: 'POST',
           headers,
           body,
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: AbortSignal.timeout(effectiveTimeout),
           redirect: 'error',
         });
-      } catch {
-        lastFailure = new TelegramError('network error', { network: true });
+      } catch (cause) {
+        const timedOut = cause?.name === 'TimeoutError' || cause?.name === 'AbortError';
+        const detail = timedOut ? 'timeout' : String(cause?.cause?.code || cause?.name || 'network').slice(0, 40);
+        lastFailure = new TelegramError('network error', { network: true, detail });
         continue;
       }
 
@@ -95,7 +101,7 @@ export function createTelegramClient({ fetchImpl = fetch, baseUrl, fallbackUrl =
       try { payload = await response.json(); } catch { payload = null; }
       if (!payload || typeof payload !== 'object' || typeof payload.ok !== 'boolean') {
         // Not a Telegram answer (the proxy itself failed): try the next address.
-        lastFailure = new TelegramError(`unexpected response ${response.status}`, { network: true, code: response.status });
+        lastFailure = new TelegramError(`unexpected response ${response.status}`, { network: true, code: response.status, detail: `پاسخ غیرتلگرامی از پروکسی، HTTP ${response.status}` });
         continue;
       }
       if (payload.ok) return payload.result;
