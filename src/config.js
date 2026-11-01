@@ -18,6 +18,15 @@ const KNOWN_DEV_SECRETS = new Set([
   'root_dev_only',
 ]);
 
+function httpsBase(value, name) {
+  let url;
+  try { url = new URL(value); } catch { url = null; }
+  if (!url || url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    throw new Error(`${name} باید یک نشانی https:// معتبر باشد.\n${name} must be a valid https:// address.`);
+  }
+  return url.href.replace(/\/+$/, '');
+}
+
 export function loadConfig(env = process.env) {
   const missing = required.filter((key) => !env[key] || env[key].includes('CHANGE_ME'));
   if (missing.length) {
@@ -51,6 +60,11 @@ export function loadConfig(env = process.env) {
     }
   }
 
+  // Telegram Bot API address. By default the Cloudflare Worker that forwards to api.telegram.org; an optional
+  // fallback address is tried when the first one cannot be reached.
+  const telegramBase = httpsBase(env.TELEGRAM_API_BASE || 'https://bots.realdream.workers.dev', 'TELEGRAM_API_BASE');
+  const telegramFallback = env.TELEGRAM_API_FALLBACK ? httpsBase(env.TELEGRAM_API_FALLBACK, 'TELEGRAM_API_FALLBACK') : '';
+
   return Object.freeze({
     port,
     nodeEnv: env.NODE_ENV,
@@ -65,6 +79,8 @@ export function loadConfig(env = process.env) {
     }),
     appSecret: env.APP_SECRET,
     uploadDir: env.UPLOAD_DIR,
+    telegramApiBase: telegramBase,
+    telegramApiFallback: telegramFallback,
     // Host names that may resolve to private addresses for the radio "now playing" request (set by the server operator).
     radioTrustedHosts: Object.freeze(String(env.RADIO_TRUSTED_HOSTS ?? '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)),
   });
