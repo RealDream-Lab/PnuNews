@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.77.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.77.js';
+import { initDock } from '/shared/dock.v0.1.78.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.78.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -445,6 +445,7 @@ function clearFeed() {
   state.ended = false;
   state.firstId = null;
   liveDirty = false;
+  freshPending = false;
   pinnedStrip.replaceChildren();
   pinnedStrip.hidden = true;
   newItemsBanner.hidden = true;
@@ -534,6 +535,9 @@ async function loadMore() {
     recycleFeed();
     if (state.ended) intersectionObserver?.unobserve(sentinel);
     else rearmSentinel();
+    // First page painted (possibly from cache): once the screen is filled, check the server for anything newer.
+    if (isFirstPage) queueFreshCheck();
+    else maybeRunFreshCheck();
   } catch (error) {
     feed.querySelectorAll('.news-skeleton').forEach((node) => node.remove());
     state.loading = false;
@@ -542,6 +546,8 @@ async function loadMore() {
     // Transient failure (weak connection): try again by itself instead of leaving the feed stuck.
     clearTimeout(loadRetryTimer);
     loadRetryTimer = setTimeout(() => { if (!state.loading && !state.ended && state.city && !state.newsId) rearmSentinel(); }, 4000);
+    skipNextFreshCheck = false;
+    maybeRunFreshCheck();
   }
 }
 
@@ -556,6 +562,11 @@ let liveSyncing = false;
 let liveDirty = false;
 let liveTimer = 0;
 let liveHadError = false;
+// Freshness check: the first page may have been painted from the service worker's cache, so once the page is on
+// screen the reader asks the server one more time for the newest first page (see queueFreshCheck below).
+let freshPending = false;
+let skipNextFreshCheck = false;
+let lastFeedSyncAt = 0;
 
 function createCardNode(item, featured) {
   const template = document.createElement('template');
@@ -617,11 +628,11 @@ async function applyLiveData(data, { compensate = false } = {}) {
 
   if (!state.entries.length) {
     // Empty state (or nothing loaded yet): simply load the feed normally when something showed up.
-    if (plan.items.length || plan.pinned.length) resetFeed();
+    if (plan.items.length || plan.pinned.length) rebuildFromFresh();
     return;
   }
   // Cards above the viewport were recycled (a spacer stands in for them): rebuilding from the top is the safe way.
-  if (plan.resync || (state.spacer && (plan.inserts.length || plan.removed.length))) { resetFeed(); return; }
+  if (plan.resync || (state.spacer && (plan.inserts.length || plan.removed.length))) { rebuildFromFresh(); return; }
   if (!plan.inserts.length && !plan.updates.length && !plan.removed.length && !pinnedChanged) {
     state.firstId = firstId ?? state.firstId;
     return;
@@ -708,6 +719,60 @@ async function applyLiveData(data, { compensate = false } = {}) {
   for (const node of fresh) animateIn(node);
 }
 
+// A rebuild that was caused by fresh server data (the service worker stores it as the new cached first page) does not
+// need another freshness check afterwards.
+function rebuildFromFresh() {
+  skipNextFreshCheck = true;
+  resetFeed();
+}
+
+// Resolves once the page has had time to finish painting: the load event (but never waiting longer than a moment
+// on a slow connection) plus two animation frames.
+function pageSettled() {
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    };
+    if (document.readyState === 'complete') { finish(); return; }
+    setTimeout(finish, 2500);
+    addEventListener('load', finish, { once: true });
+  });
+}
+
+function queueFreshCheck() {
+  if (skipNextFreshCheck) { skipNextFreshCheck = false; return; }
+  freshPending = true;
+  maybeRunFreshCheck();
+}
+
+function maybeRunFreshCheck() {
+  if (!freshPending || state.loading || !state.city || state.newsId) return;
+  freshPending = false;
+  pageSettled().then(() => {
+    // The screen needed another page in the meantime: loadMore calls this again when it is done.
+    if (state.loading) { freshPending = true; return; }
+    syncFeed();
+  });
+}
+
+// Coming back to the page (phone unlocked, app switched back, back/forward cache, network returned): the live
+// channel may have been cut while the page was away and missed events, so check again when the last look is old.
+const RESUME_STALE_MS = 20_000;
+function startFreshnessWatch() {
+  const check = () => {
+    // liveDirty: the live channel's own visibility handler is already syncing.
+    if (document.hidden || liveSyncing || liveDirty || !state.city || state.newsId) return;
+    if (Date.now() - lastFeedSyncAt < RESUME_STALE_MS) return;
+    syncFeed();
+  };
+  document.addEventListener('visibilitychange', check);
+  addEventListener('pageshow', (event) => { if (event.persisted) check(); });
+  addEventListener('online', check);
+}
+
 async function syncFeed() {
   refreshCategories();
   if (!state.city || state.newsId || state.loading || liveSyncing || bannerScrolling || document.hidden) { liveDirty = true; return; }
@@ -718,6 +783,7 @@ async function syncFeed() {
   try {
     const params = new URLSearchParams({ city: cityId, scope: state.scope, limit: '12', ...feedPreferenceParams(), ...categoryParams(), live: String(Date.now()) });
     const data = await getJson(`/api/public/feed?${params}`);
+    lastFeedSyncAt = Date.now();
     if (!state.city || String(state.city.id) !== cityId || state.category !== categoryId || state.newsId || state.loading) { liveDirty = true; return; }
     if (window.scrollY > LIVE_NEAR_TOP) {
       // The reader is down the page: never move the content under their finger; just offer the banner.
@@ -869,7 +935,7 @@ async function initializeReader({ newsOnly = false } = {}) {
   }
   state.refreshTimer = setInterval(refreshConfig, 15_000);
   setInterval(syncFeed, 60_000);
-  if (!newsOnly) startLive();
+  if (!newsOnly) { startLive(); startFreshnessWatch(); }
 }
 
 async function loadNewsPage(id, { initial = false } = {}) {
