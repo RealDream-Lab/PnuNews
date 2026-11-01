@@ -6,6 +6,8 @@ import { createScheduler } from './src/scheduler.js';
 import { createPortalImporter } from './src/portal-news.js';
 import { appEvents, emitNewsPublished } from './src/events.js';
 import { createStaticAssets } from './src/lib/static.js';
+import { createTelegramClient } from './src/lib/telegram.js';
+import { createTelegramService } from './src/telegram-publisher.js';
 import { fileURLToPath } from 'node:url';
 
 let config;
@@ -18,6 +20,16 @@ try {
 
 const pool = createPool(config.db);
 await migrate(pool);
+// News goes to the users' Telegram channels through the worker address (or the optional fallback).
+const telegram = createTelegramService({
+  pool,
+  config,
+  client: createTelegramClient({ baseUrl: config.telegramApiBase, fallbackUrl: config.telegramApiFallback }),
+  uploadRoot: config.uploadDir,
+  publicDir: fileURLToPath(new URL('./public/', import.meta.url)),
+});
+// started before the scheduler so news that falls due at start-up is not missed
+telegram.start();
 const scheduler = createScheduler(pool);
 await scheduler.runOnce();
 scheduler.start();
@@ -45,13 +57,14 @@ else {
   }, 30_000);
   watcher.unref?.();
 }
-const app = createApp({ pool, config, staticAssets, portalImporter });
+const app = createApp({ pool, config, staticAssets, portalImporter, telegram });
 const server = app.listen(config.port, '0.0.0.0', () => {
   console.info(`PnuNews listening on port ${config.port}`);
 });
 
 async function shutdown() {
   scheduler.stop();
+  telegram.stop();
   portalImporter.stop();
   server.close(async () => {
     await pool.end();

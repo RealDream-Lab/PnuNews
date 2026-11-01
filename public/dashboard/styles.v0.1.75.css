@@ -412,3 +412,15 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .install-banner .button{min-height:38px;padding:.2rem 1.1rem;flex:1 1 auto;white-space:nowrap}
 .install-banner .icon-button{width:34px;height:34px;border-radius:10px;flex:none}
 @media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button{flex:none}}
+
+/* ---------- Telegram channel panel ---------- */
+.telegram-panel{grid-column:1/-1}
+.telegram-status{display:grid;gap:.3rem;margin:0 0 1rem;padding:.7rem .8rem;border:1px solid var(--border);border-radius:10px;background:var(--soft);font-size:.84rem;line-height:1.8}
+.telegram-error{color:var(--danger);font-size:.8rem}
+.telegram-panel input[name=bot_token],.telegram-panel input[name=channel]{direction:ltr;text-align:left}
+.telegram-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.telegram-help{font-size:.83rem;color:var(--muted)}
+.telegram-help summary{cursor:pointer;color:var(--primary)}
+.telegram-help ol{margin:.5rem 0;padding-inline-start:1.3rem;line-height:2}
+.telegram-help code{direction:ltr;unicode-bidi:isolate;padding:0 .3rem;border-radius:5px;background:var(--soft)}
+.telegram-panel .compact-list{margin-top:1rem}

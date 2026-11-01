@@ -10,6 +10,7 @@ import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
+import { createTelegramRouter } from './telegram.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -72,12 +73,13 @@ function writeAudit(connection, actorId, action, entity, entityId, request, meta
   );
 }
 
-export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null, fetchImpl = fetch }) {
+export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, portalImporter = null, fetchImpl = fetch, telegram = null }) {
   const router = express.Router();
   router.use(createAuthMiddleware(pool, config), requirePasswordChanged);
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
+  if (telegram) router.use('/telegram', createTelegramRouter({ pool, telegram, clock }));
 
   // internal = the app's own timer (every 10 minutes); external = an OS scheduler runs scripts/fetch-portal-news.sh
   const portalMode = () => (process.env.PORTAL_FETCH_MODE === 'external' ? 'external' : 'internal');

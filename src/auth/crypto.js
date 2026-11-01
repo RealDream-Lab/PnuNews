@@ -282,3 +282,40 @@ export function consumeBackupCode(code, hashes) {
   hashes.splice(matchedIndex, 1);
   return true;
 }
+
+// General-purpose encryption of small secrets stored in the database (e.g. a user's Telegram bot token).
+// Each purpose derives its own key from APP_SECRET, so a ciphertext made for one purpose never opens for another.
+function derivePurposeKey(appSecret, purpose) {
+  requireString(appSecret, 'APP_SECRET');
+  requireString(purpose, 'purpose');
+  if (!appSecret) throw new TypeError('APP_SECRET must not be empty');
+  return Buffer.from(hkdfSync(
+    'sha256',
+    Buffer.from(appSecret, 'utf8'),
+    Buffer.from(`pnu-news:${purpose}:v1`, 'utf8'),
+    Buffer.from('aes-256-gcm', 'utf8'),
+    32,
+  ));
+}
+
+export function encryptSecret(value, appSecret, purpose) {
+  requireString(value, 'Secret');
+  const nonce = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', derivePurposeKey(appSecret, purpose), nonce);
+  const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return ['v1', nonce.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join('.');
+}
+
+export function decryptSecret(envelope, appSecret, purpose) {
+  requireString(envelope, 'Encrypted secret');
+  const parts = envelope.split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1' || !parts.slice(1).every((part) => /^[A-Za-z\d_-]*$/.test(part))) {
+    throw new TypeError('Invalid encrypted secret format');
+  }
+  const nonce = Buffer.from(parts[1], 'base64url');
+  const tag = Buffer.from(parts[2], 'base64url');
+  if (nonce.length !== 12 || tag.length !== 16) throw new TypeError('Invalid encrypted secret parameters');
+  const decipher = createDecipheriv('aes-256-gcm', derivePurposeKey(appSecret, purpose), nonce);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(Buffer.from(parts[3], 'base64url')), decipher.final()]).toString('utf8');
+}

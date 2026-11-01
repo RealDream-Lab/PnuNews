@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.74.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.75.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2952,6 +2952,104 @@ async function loadStats() {
   }
 }
 
+// ---------- Telegram channel (per user) ----------
+const TELEGRAM_POST_STATES = { sent: "ارسال شد", pending: "در صف ارسال", failed: "ناموفق" };
+
+function renderTelegram(data) {
+  const form = document.getElementById("telegram-form");
+  const configured = Boolean(data?.configured);
+  form.elements.bot_token.value = "";
+  form.elements.bot_token.required = !configured;
+  form.elements.bot_token.placeholder = configured
+    ? "برای تغییر ربات، توکن تازه را وارد کنید"
+    : "123456789:AA…";
+  form.elements.channel.value = configured ? data.chat_ref : "";
+  form.elements.enabled.checked = configured ? data.enabled : true;
+  document.getElementById("telegram-test").hidden = !configured;
+  document.getElementById("telegram-remove").hidden = !configured;
+  document.getElementById("telegram-error").textContent = "";
+
+  const status = document.getElementById("telegram-status");
+  if (!configured) {
+    status.innerHTML = '<span class="muted">هنوز اتصالی تنظیم نشده است.</span>';
+    document.getElementById("telegram-posts").innerHTML = "";
+    return;
+  }
+  const ref = `<bdi dir="ltr">${escapeHtml(data.chat_ref)}</bdi>`;
+  const channel = data.chat_title ? `${escapeHtml(data.chat_title)} (${ref})` : ref;
+  status.innerHTML =
+    `<div><span class="status-badge ${data.enabled ? "published" : "draft"}">${data.enabled ? "فعال" : "غیرفعال"}</span> ` +
+    `کانال ${channel}${data.bot_username ? ` · ربات <bdi dir="ltr">@${escapeHtml(data.bot_username)}</bdi>` : ""}</div>` +
+    (data.last_sent_at ? `<small class="muted">آخرین ارسال: ${formatDate(data.last_sent_at)}</small>` : "") +
+    (data.last_error ? `<small class="telegram-error">${escapeHtml(data.last_error)}</small>` : "");
+  document.getElementById("telegram-posts").innerHTML = (data.posts ?? [])
+    .map(
+      (post) =>
+        `<div class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(post.title)}</strong><small>${TELEGRAM_POST_STATES[post.state] ?? ""}${post.needs_update ? " · در انتظار به‌روزرسانی پیام" : ""}${post.last_error ? ` · ${escapeHtml(post.last_error)}` : ""}</small></div></div>`,
+    )
+    .join("");
+}
+
+async function loadTelegram() {
+  try {
+    renderTelegram(await api("/api/admin/telegram"));
+  } catch (error) {
+    document.getElementById("telegram-status").innerHTML =
+      `<span class="telegram-error">${escapeHtml(error.message)}</span>`;
+  }
+}
+
+async function submitTelegram(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const error = document.getElementById("telegram-error");
+  const submit = form.querySelector('button[type="submit"]');
+  error.textContent = "";
+  const body = { channel: form.elements.channel.value, enabled: form.elements.enabled.checked };
+  if (form.elements.bot_token.value.trim()) body.bot_token = form.elements.bot_token.value.trim();
+  submit.disabled = true;
+  try {
+    renderTelegram(await api("/api/admin/telegram", { method: "PUT", body }));
+    showToast("اتصال تلگرام ذخیره شد.");
+  } catch (failure) {
+    error.textContent = failure.message;
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function sendTelegramTest() {
+  const button = document.getElementById("telegram-test");
+  button.disabled = true;
+  try {
+    renderTelegram(await api("/api/admin/telegram/test", { method: "POST", body: {} }));
+    showToast("پیام آزمایشی ارسال شد.");
+  } catch (failure) {
+    document.getElementById("telegram-error").textContent = failure.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function removeTelegram() {
+  if (
+    !(await confirmDialog({
+      title: "حذف اتصال تلگرام؟",
+      text: "خبرهای تازه دیگر به کانال ارسال نمی‌شود و پیام‌های قبلی در کانال می‌مانند، اما دیگر به‌روز نمی‌شوند.",
+      tone: "danger",
+      confirmText: "بله، حذف شود",
+    }))
+  )
+    return;
+  try {
+    await api("/api/admin/telegram", { method: "DELETE", body: {} });
+    renderTelegram({ configured: false });
+    showToast("اتصال تلگرام حذف شد.");
+  } catch (failure) {
+    document.getElementById("telegram-error").textContent = failure.message;
+  }
+}
+
 async function loadProfile() {
   document.getElementById("profile-password-form")?.reset();
   document.getElementById("profile-password-error").textContent = "";
@@ -2961,6 +3059,7 @@ async function loadProfile() {
       api("/api/auth/devices"),
     ]);
     state.user = me.user;
+    loadTelegram();
     const profile = document.getElementById("profile-details");
     profile.innerHTML = `<dt>نام</dt><dd>${escapeHtml(me.user.full_name)}</dd><dt>نام کاربری</dt><dd>${escapeHtml(me.user.username)}</dd><dt>نقش</dt><dd>${roleLabel(me.user.role)}</dd><dt>محدوده</dt><dd>${escapeHtml(regionName(me.user.region_id))}</dd>`;
     document.getElementById("device-list").innerHTML = deviceResponse.devices
@@ -3238,6 +3337,9 @@ function bindEvents() {
   document
     .getElementById("profile-password-form")
     .addEventListener("submit", submitProfilePasswordChange);
+  document.getElementById("telegram-form").addEventListener("submit", submitTelegram);
+  document.getElementById("telegram-test").addEventListener("click", sendTelegramTest);
+  document.getElementById("telegram-remove").addEventListener("click", removeTelegram);
   document
     .getElementById("backup-continue")
     .addEventListener("click", async () => {
