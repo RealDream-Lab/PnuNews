@@ -2685,32 +2685,18 @@ function describePortalRun(run) {
   if (!run) return "هنوز اجرایی ثبت نشده است.";
   const when = formatDate(run.at);
   if (run.error) return `آخرین اجرا (${when}) ناموفق بود: ${run.error}`;
-  return `آخرین اجرا: ${when} · ${faDigits.format(run.created)} خبر تازه از ${faDigits.format(run.total)} خبر صفحهٔ پورتال`;
+  return `آخرین اجرا: ${when} · ${describePortalCreated(run.created)}`;
 }
 
-// The sentence under the portal switch is built from what the server really does, so it cannot drift from the code.
-function describePortalSource(status) {
-  // Direct reading of the portal page is the default; a JSON source (PORTAL_NEWS_URL, the old proxy.php format) is the exception.
-  let intro = "سرور خبرهای «اخبار اصلی» را مستقیم از صفحهٔ پورتال pnu.ac.ir می‌خواند";
-  try {
-    const url = new URL(status.source);
-    if (!/(^|\.)pnu\.ac\.ir$/.test(url.hostname) || url.pathname.endsWith("proxy.php")) {
-      intro = `خبرهای «اخبار اصلی» pnu.ac.ir از منبع JSON (${url.host}${url.pathname}) خوانده می‌شود`;
-    }
-  } catch {}
-  const minutes = faDigits.format(status.refresh_minutes || 3);
-  const schedule =
-    status.mode === "external"
-      ? "زمان‌بندی را سیستم‌عامل یا Docker انجام می‌دهد (cron/systemd)"
-      : `هر ${minutes} دقیقه خودکار`;
-  return `${intro} (${schedule})؛ در هر بار حداکثر ${faDigits.format(status.limit || 20)} خبر بررسی و خبرهای تازه به‌عنوان خبر سراسری و با نام «ربات خبرخوان» منتشر می‌شود. شمار خبرِ بررسی‌شده همان است که منبع برمی‌گرداند و در سطر «آخرین اجرا» می‌بینید. نتیجهٔ هر دریافت ${minutes} دقیقه کش می‌شود. کارت این خبرها لینک پورتال را باز می‌کند و ویرایش‌پذیر نیست. دکمهٔ «همین حالا بگیر» با همان منبع و همان کد زمان‌بند کار می‌کند.`;
+function describePortalCreated(created) {
+  return created > 0
+    ? `${faDigits.format(created)} خبر جدید دریافت شد`
+    : "خبر جدیدی دریافت نشد";
 }
 
 async function loadPortalStatus() {
   try {
     const status = await api("/api/admin/portal-news");
-    document.getElementById("portal-description").textContent =
-      describePortalSource(status);
     document.getElementById("portal-enabled").checked = status.enabled;
     document.getElementById("portal-status").textContent = describePortalRun(
       status.last_run,
@@ -2749,12 +2735,10 @@ async function runPortal(event) {
     document.getElementById("portal-status").textContent = describePortalRun(
       status.last_run,
     );
-    document.getElementById("portal-description").textContent =
-      describePortalSource(status);
     showToast(
       status.result?.error
         ? "دریافت ناموفق بود."
-        : `${faDigits.format(status.result?.created ?? 0)} خبر تازه دریافت شد.`,
+        : `${describePortalCreated(status.result?.created ?? 0)}.`,
     );
   } catch (error) {
     showToast(error.message);
