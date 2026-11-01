@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مدیریت خبرها" />
     <meta name="application-name" content="مدیریت خبرها" />
-    <link rel="stylesheet" href="/dashboard/styles.v0.1.77.css" />
-    <script src="/shared/theme.v0.1.77.js"></script>
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.67.css" />
+    <script src="/shared/theme.v0.1.67.js"></script>
     <title>مدیریت خبرها — اخبار پیام‌نور</title>
   </head>
   <body>
@@ -357,11 +357,12 @@
             </button>
           </nav>
           <div class="sidebar-scope">
-            <strong id="desktop-user-name" class="sidebar-user-name"></strong>
-            <span id="desktop-user-unit" class="sidebar-user-unit"></span>
+            <span id="desktop-scope"></span>
+            <span id="desktop-user" class="user-chip"></span>
           </div>
         </aside>
         <div class="admin-content">
+          <div id="scope-banner" class="scope-banner"></div>
           <section
             id="dashboard-view"
             class="admin-view"
@@ -1381,77 +1382,6 @@
                   ></p>
                 </form>
               </div>
-              <div class="panel profile-panel telegram-panel">
-                <h2>کانال تلگرام</h2>
-                <p class="muted">
-                  خبرهایی که برای واحد شما و واحدهای بالادستی (مرکز، استان، کشور)
-                  منتشر می‌شود، خودکار با عکس، عنوان، چکیده و دکمهٔ مشاهده در کانال
-                  شما هم قرار می‌گیرد؛ با ویرایش خبر، پیام کانال هم به‌روز می‌شود.
-                </p>
-                <div id="telegram-status" class="telegram-status"></div>
-                <form id="telegram-form" class="form-stack">
-                  <label
-                    >توکن ربات<input
-                      name="bot_token"
-                      type="password"
-                      autocomplete="off"
-                      spellcheck="false"
-                      dir="ltr"
-                      placeholder="123456789:AA…"
-                  /></label>
-                  <label
-                    >شناسهٔ کانال<input
-                      name="channel"
-                      type="text"
-                      autocomplete="off"
-                      spellcheck="false"
-                      dir="ltr"
-                      placeholder="@my_channel"
-                      required
-                  /></label>
-                  <label class="check-row"
-                    ><input name="enabled" type="checkbox" checked />ارسال خودکار
-                    خبرها به کانال فعال باشد</label
-                  >
-                  <details class="telegram-help">
-                    <summary>راهنمای راه‌اندازی</summary>
-                    <ol>
-                      <li>در تلگرام با <code>@BotFather</code> یک ربات بسازید و توکن آن را اینجا وارد کنید.</li>
-                      <li>ربات را به کانال خود اضافه کنید و آن را «مدیر» کانال کنید (دسترسی ارسال پیام و ویرایش پیام‌ها).</li>
-                      <li>شناسهٔ کانال را بنویسید، مثل <code>@my_channel</code> (برای کانال خصوصی شناسهٔ عددی مثل <code>-1001234567890</code>).</li>
-                      <li>«ذخیره و بررسی اتصال» را بزنید و بعد پیام آزمایشی بفرستید.</li>
-                    </ol>
-                    <p>توکن رمزنگاری‌شده ذخیره می‌شود و دوباره نمایش داده نمی‌شود.</p>
-                  </details>
-                  <div class="telegram-actions">
-                    <button class="button primary" type="submit">
-                      ذخیره و بررسی اتصال
-                    </button>
-                    <button
-                      id="telegram-test"
-                      class="button outline"
-                      type="button"
-                      hidden
-                    >
-                      ارسال پیام آزمایشی
-                    </button>
-                    <button
-                      id="telegram-remove"
-                      class="button subtle"
-                      type="button"
-                      hidden
-                    >
-                      حذف اتصال
-                    </button>
-                  </div>
-                  <p
-                    id="telegram-error"
-                    class="form-error"
-                    role="alert"
-                  ></p>
-                </form>
-                <div id="telegram-posts" class="compact-list"></div>
-              </div>
             </div>
           </section>
         </div>
@@ -1583,6 +1513,6 @@
       <div id="update-root"></div>
       <div id="install-root"></div>
     </div>
-    <script type="module" src="/dashboard/dashboard.v0.1.77.js"></script>
+    <script type="module" src="/dashboard/dashboard.v0.1.67.js"></script>
   </body>
 </html>
