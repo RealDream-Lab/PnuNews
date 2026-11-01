@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { decryptSecret, encryptSecret } from '../src/auth/crypto.js';
 import { loadConfig } from '../src/config.js';
 import { TelegramError, createTelegramClient, describeTelegramError, parseChannelRef } from '../src/lib/telegram.js';
-import { buildCaption, buttonLabel, channelsForNews, newsUrl, retryDelaySeconds, textHash } from '../src/telegram-publisher.js';
+import { buildCaption, buttonLabel, channelsForNews, failureKind, newsUrl, retryDelaySeconds, textHash } from '../src/telegram-publisher.js';
 
 const SECRET = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const TOKEN = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -36,8 +36,17 @@ test('button label, link and content hash', () => {
   for (const change of [{ title: 'x' }, { summary: 'x' }, { newsType: 'announcement' }, { url: 'x' }]) assert.notEqual(textHash(base), textHash({ ...base, ...change }));
 });
 
-test('retry delays grow and stay at the last step', () => {
-  assert.deepEqual([0, 1, 2, 3, 4, 9].map(retryDelaySeconds), [30, 120, 600, 1800, 7200, 7200]);
+test('delivery is retried without limit: at once for outages, a little later for permission and request problems', () => {
+  assert.equal(retryDelaySeconds('transient'), 0);
+  assert.equal(retryDelaySeconds('access'), 30);
+  assert.equal(retryDelaySeconds('other'), 60);
+  assert.equal(failureKind(new TelegramError('x', { network: true })), 'transient');
+  assert.equal(failureKind(new TelegramError('Bad Gateway', { code: 502 })), 'transient');
+  assert.equal(failureKind(new TelegramError('Unauthorized', { code: 401 })), 'access');
+  assert.equal(failureKind(new TelegramError('Forbidden', { code: 403 })), 'access');
+  assert.equal(failureKind(new TelegramError('Bad Request: chat not found', { code: 400 })), 'access');
+  assert.equal(failureKind(new TelegramError('Bad Request: wrong file', { code: 400 })), 'other');
+  assert.equal(failureKind(new Error('boom')), 'other');
 });
 
 test('a channel gets the news of its own unit and of the units above it, never of those below', () => {
