@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.74.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.74.js';
+import { initDock } from '/shared/dock.v0.1.75.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.75.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1141,6 +1141,9 @@ categoryList.addEventListener('click', (event) => {
 document.getElementById('about-button').addEventListener('click', () => {
   const version = /app\.v([\d.]+)\.js/.exec(import.meta.url)?.[1] ?? '';
   document.getElementById('about-version').textContent = version.replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
+  // Active centers = the centers the reader can pick (centers with an active admin or forced visible).
+  const centerCount = (state.config?.provinces ?? []).reduce((sum, province) => sum + province.cities.length, 0);
+  document.getElementById('about-centers').textContent = String(centerCount).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
   aboutDialog.showModal();
 });
 
