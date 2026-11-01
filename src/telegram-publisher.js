@@ -6,8 +6,9 @@ import { decryptSecret, encryptSecret } from './auth/crypto.js';
 import { TOKEN_PATTERN, TelegramError, describeTelegramError, parseChannelRef } from './lib/telegram.js';
 
 const SECRET_PURPOSE = 'telegram-bot-token';
-const RETRY_SECONDS = [30, 120, 600, 1800, 7200];
-const MAX_ATTEMPTS = RETRY_SECONDS.length;
+// Delivery is retried until it succeeds (there is no attempt limit); only the pause differs by cause.
+// transient: Telegram or the network is down, so the very next queue round (every few seconds) tries again.
+const RETRY_SECONDS = { transient: 0, access: 30, other: 60 };
 const MAX_POST_AGE_DAYS = 2;
 const CHANNEL_FAILURES_BEFORE_DISABLE = 3;
 const CAPTION_LIMIT = 1024;
@@ -39,8 +40,17 @@ export function textHash({ title, summary, newsType, url }) {
   return createHash('sha256').update(JSON.stringify([title, summary, newsType, url])).digest('hex');
 }
 
-export function retryDelaySeconds(attempt) {
-  return RETRY_SECONDS[Math.min(Math.max(attempt, 0), RETRY_SECONDS.length - 1)];
+export function retryDelaySeconds(kind) {
+  return RETRY_SECONDS[kind] ?? RETRY_SECONDS.other;
+}
+
+// "transient" = nothing reached Telegram or it failed on its side; "access" = bot/channel permission problems;
+// "other" = Telegram refused the request itself (something about the message or the settings must change).
+export function failureKind(error) {
+  if (!(error instanceof TelegramError)) return 'other';
+  if (error.network || error.code >= 500) return 'transient';
+  if (error.code === 401 || error.code === 403 || /chat not found/i.test(error.message)) return 'access';
+  return 'other';
 }
 
 function ancestry(regionId, regionMap) {
@@ -170,7 +180,7 @@ export function createTelegramService({
     }
   }
 
-  async function failPost(post, message, { final }) {
+  async function failPost(post, message, { final, kind = 'other' }) {
     if (final) {
       await pool.execute(
         `UPDATE telegram_posts SET state = IF(state = 'sent', 'sent', 'failed'), needs_update = 0, last_error = ? WHERE news_id = ? AND user_id = ?`,
@@ -181,7 +191,7 @@ export function createTelegramService({
     await pool.execute(
       `UPDATE telegram_posts SET attempts = attempts + 1, last_error = ?,
          next_attempt_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND) WHERE news_id = ? AND user_id = ?`,
-      [message.slice(0, 300), retryDelaySeconds(Number(post.attempts)), post.news_id, post.user_id],
+      [message.slice(0, 300), retryDelaySeconds(kind), post.news_id, post.user_id],
     );
   }
 
@@ -261,7 +271,7 @@ export function createTelegramService({
   async function handleFailure(post, error) {
     if (!(error instanceof TelegramError)) {
       log(`Telegram delivery failed for news ${post.news_id}: ${error.message}`);
-      await failPost(post, 'خطای داخلی در آماده‌سازی پیام.', { final: Number(post.attempts) + 1 >= MAX_ATTEMPTS });
+      await failPost(post, 'خطای داخلی در آماده‌سازی پیام.', { final: false, kind: 'other' });
       return;
     }
     const message = describeTelegramError(error);
@@ -278,10 +288,9 @@ export function createTelegramService({
       await failPost(post, message, { final: true });
       return;
     }
-    if (error.code === 401 || error.code === 403 || /chat not found/i.test(error.message)) {
-      await recordChannelFailure(post.user_id, message);
-    }
-    await failPost(post, message, { final: Number(post.attempts) + 1 >= MAX_ATTEMPTS });
+    const kind = failureKind(error);
+    if (kind === 'access') await recordChannelFailure(post.user_id, message);
+    await failPost(post, message, { final: false, kind });
   }
 
   async function processQueue() {
