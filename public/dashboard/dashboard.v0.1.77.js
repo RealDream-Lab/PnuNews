@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.76.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.77.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
