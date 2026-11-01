@@ -1,6 +1,6 @@
 {
   "name": "pnunews",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,11 +15,12 @@
     "fetch-portal": "node --import ./scripts/load-env.js scripts/fetch-portal-news.js",
     "reset-2fa": "node --import ./scripts/load-env.js scripts/reset-2fa.js",
     "bump": "node scripts/bump-version.js",
-    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js test/brand.test.js test/nowplaying.test.js test/default-category.test.js test/category-order.test.js test/rich-text.test.js test/dashboard.test.js test/sw.test.js"
+    "test": "node --test test/policy.test.js test/live.test.js test/security.test.js test/brand.test.js test/nowplaying.test.js test/default-category.test.js test/category-order.test.js test/rich-text.test.js test/dashboard.test.js test/sw.test.js test/portal-scrape.test.js"
   },
   "dependencies": {
     "busboy": "1.6.0",
     "express": "5.1.0",
+    "htmlparser2": "12.0.0",
     "mysql2": "3.24.6",
     "qrcode": "1.5.4",
     "sanitize-html": "2.18.1",

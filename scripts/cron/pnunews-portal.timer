@@ -1,11 +1,11 @@
 # /etc/systemd/system/pnunews-portal.timer
 # فعال‌سازی: systemctl daemon-reload && systemctl enable --now pnunews-portal.timer
 [Unit]
-Description=PnuNews: fetch portal news every 10 minutes
+Description=PnuNews: fetch portal news every 3 minutes
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=10min
+OnUnitActiveSec=3min
 RandomizedDelaySec=30
 Persistent=true
 

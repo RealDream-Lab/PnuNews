@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { appEvents, emitNewsPublished } from "./events.js";
 import { normalizeNewsInput } from "./news/content.js";
-import { PORTAL_PROXY_URL, parseProxyNews, portalUrl } from "./portal-parse.js";
+import { parseProxyNews, portalUrl } from "./portal-parse.js";
+import { PORTAL_CACHE_TTL_MS, PORTAL_SOURCE_URL, createCachedPortalPayload, fetchPortalHtml } from "./portal-scrape.js";
 
 export const PORTAL_LIMIT = 20;
 export const PORTAL_CATEGORY_NAME = "خبرهای پورتال سازمان مرکزی";
@@ -26,10 +27,16 @@ export function createPortalImporter({
   clock = Date.now,
   events = appEvents,
   logger = console,
-  sourceUrl = process.env.PORTAL_NEWS_URL || PORTAL_PROXY_URL,
+  // By default the news list is read straight from the portal (src/portal-scrape.js). PORTAL_NEWS_URL points the
+  // importer at a JSON source instead (the old proxy.php?action=pnu_news format); PORTAL_NEWS_FALLBACK_URL is such a
+  // JSON source that is only asked when the portal itself cannot be reached.
+  sourceUrl = process.env.PORTAL_NEWS_URL || null,
+  fallbackUrl = process.env.PORTAL_NEWS_FALLBACK_URL || null,
+  fetchHtml = fetchPortalHtml,
 }) {
   let running = false;
   let timer = null;
+  const portalFeed = createCachedPortalPayload({ fetchHtml, clock });
 
   async function getSetting(key) {
     const [rows] = await pool.execute("SELECT v FROM settings WHERE k = ?", [
@@ -56,8 +63,9 @@ export function createPortalImporter({
     return {
       enabled: (await getSetting("portal_news_enabled")) !== "0",
       last_run: lastRun,
-      source: sourceUrl,
+      source: sourceUrl || PORTAL_SOURCE_URL,
       limit: PORTAL_LIMIT,
+      refresh_minutes: Math.round(PORTAL_CACHE_TTL_MS / 60_000),
     };
   }
 
@@ -142,6 +150,17 @@ export function createPortalImporter({
         `پاسخ نامعتبر از سرور رادیو: ${response.status}${payload?.message ? ` — ${payload.message}` : ""}`,
       );
     return payload;
+  }
+
+  async function loadPayload({ force = false } = {}) {
+    if (sourceUrl) return fetchJson(sourceUrl);
+    try {
+      return await portalFeed({ force });
+    } catch (error) {
+      if (!fallbackUrl) throw error;
+      logger.warn?.(`[portal-news] دریافت مستقیم از پورتال ناموفق بود (${error.message})؛ منبع جایگزین استفاده می‌شود.`);
+      return fetchJson(fallbackUrl);
+    }
   }
 
   async function importOne(item, setup) {
@@ -229,8 +248,8 @@ export function createPortalImporter({
       error: null,
     };
     try {
-      const items = parseProxyNews(await fetchJson(sourceUrl), PORTAL_LIMIT);
-      if (!items.length) throw new Error("سرور رادیو فهرست خبر خالی برگرداند.");
+      const items = parseProxyNews(await loadPayload({ force }), PORTAL_LIMIT);
+      if (!items.length) throw new Error("فهرست خبر خالی است.");
       result.total = items.length;
       const setup = await ensureSetup();
       let failures = 0;
@@ -260,7 +279,7 @@ export function createPortalImporter({
     return result;
   }
 
-  function start({ intervalMs = 10 * 60_000, initialDelayMs = 20_000 } = {}) {
+  function start({ intervalMs = PORTAL_CACHE_TTL_MS, initialDelayMs = 20_000 } = {}) {
     stop();
     const tick = () => {
       runOnce().catch((error) =>
