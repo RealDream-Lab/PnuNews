@@ -5,6 +5,15 @@ import { loadConfig } from '../src/config.js';
 import { TelegramError, createTelegramClient, describeTelegramError, parseChannelRef } from '../src/lib/telegram.js';
 import { buildCaption, buttonLabel, channelsForNews, failureKind, newsUrl, retryDelaySeconds, textHash } from '../src/telegram-publisher.js';
 
+import http from 'node:http';
+import https from 'node:https';
+import net from 'node:net';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createProxyFetch, parseProxyUrl } from '../src/lib/http-proxy-fetch.js';
+
 const SECRET = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const TOKEN = '123456789:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
@@ -153,4 +162,63 @@ test('the Telegram address comes from the configuration and must be https', () =
   assert.equal(loadConfig({ ...env, TELEGRAM_API_BASE: 'https://tg.example.com/', TELEGRAM_API_FALLBACK: 'https://api.telegram.org' }).telegramApiBase, 'https://tg.example.com');
   assert.throws(() => loadConfig({ ...env, TELEGRAM_API_BASE: 'http://tg.example.com' }), /https/);
   assert.throws(() => loadConfig({ ...env, TELEGRAM_API_FALLBACK: 'ftp://x' }), /https/);
+});
+
+test('the proxy address must be a plain http://host:port', () => {
+  assert.deepEqual(parseProxyUrl('http://v2raya:20171'), { hostname: 'v2raya', port: 20171 });
+  for (const bad of ['', 'v2raya:20171', 'https://v2raya:20171', 'http://u:p@v2raya:1', 'http://v2raya:1/x', 'socks5://v2raya:1080']) {
+    assert.throws(() => parseProxyUrl(bad), /TELEGRAM|proxy/, bad);
+  }
+});
+
+test('a proxy that refuses the tunnel is reported as a network failure with its code', async () => {
+  const seen = [];
+  const proxy = http.createServer();
+  proxy.on('connect', (request, socket) => { seen.push(request.url); socket.end('HTTP/1.1 403 Forbidden\r\n\r\n'); });
+  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+  try {
+    const client = createTelegramClient({ baseUrl: 'https://api.telegram.org', fetchImpl: createProxyFetch(`http://127.0.0.1:${proxy.address().port}`) });
+    await assert.rejects(client.call(TOKEN, 'getMe'), (error) => error.network === true && error.detail === 'PROXY_403');
+    assert.deepEqual(seen, ['api.telegram.org:443']);
+  } finally { proxy.close(); }
+});
+
+test('JSON and multipart calls go through the CONNECT tunnel and come back parsed', async (t) => {
+  let cert;
+  try {
+    const dir = mkdtempSync(path.join(tmpdir(), 'pnu-tls-'));
+    execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=localhost', '-days', '1'], { stdio: 'ignore' });
+    cert = { key: readFileSync(path.join(dir, 'k.pem')), cert: readFileSync(path.join(dir, 'c.pem')) };
+  } catch { t.skip('openssl is not available'); return; }
+
+  const received = [];
+  const origin = https.createServer(cert, (request, response) => {
+    const chunks = [];
+    request.on('data', (chunk) => chunks.push(chunk));
+    request.on('end', () => {
+      received.push({ url: request.url, type: request.headers['content-type'], size: Buffer.concat(chunks).length });
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({ ok: true, result: { message_id: 7 } }));
+    });
+  });
+  await new Promise((resolve) => origin.listen(0, '127.0.0.1', resolve));
+  const proxy = http.createServer();
+  proxy.on('connect', (request, socket) => {
+    // whatever address is asked for, the test tunnel ends at the local origin
+    const upstream = net.connect(origin.address().port, '127.0.0.1', () => { socket.write('HTTP/1.1 200 Connection Established\r\n\r\n'); upstream.pipe(socket); socket.pipe(upstream); });
+    upstream.on('error', () => socket.destroy());
+    socket.on('error', () => upstream.destroy());
+  });
+  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+  try {
+    const fetchImpl = createProxyFetch(`http://127.0.0.1:${proxy.address().port}`, { tlsOptions: { rejectUnauthorized: false } });
+    const client = createTelegramClient({ baseUrl: 'https://api.telegram.org', fetchImpl });
+    const sent = await client.call(TOKEN, 'sendMessage', { chat_id: '@x', text: 'سلام' });
+    assert.equal(sent.message_id, 7);
+    const photo = Buffer.alloc(200_000, 7);
+    await client.call(TOKEN, 'sendPhoto', { chat_id: '@x', caption: 'c' }, { photo: { data: photo, filename: 'cover.jpg', type: 'image/jpeg' } });
+    assert.equal(received[0].url, `/bot${TOKEN}/sendMessage`);
+    assert.match(received[1].type, /^multipart\/form-data; boundary=/);
+    assert.ok(received[1].size > 200_000);
+  } finally { proxy.close(); origin.close(); }
 });

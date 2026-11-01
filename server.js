@@ -6,6 +6,7 @@ import { createScheduler } from './src/scheduler.js';
 import { createPortalImporter } from './src/portal-news.js';
 import { appEvents, emitNewsPublished } from './src/events.js';
 import { createStaticAssets } from './src/lib/static.js';
+import { createProxyFetch } from './src/lib/http-proxy-fetch.js';
 import { createTelegramClient } from './src/lib/telegram.js';
 import { createTelegramService } from './src/telegram-publisher.js';
 import { fileURLToPath } from 'node:url';
@@ -20,11 +21,16 @@ try {
 
 const pool = createPool(config.db);
 await migrate(pool);
-// News goes to the users' Telegram channels through the worker address (or the optional fallback).
+// News goes to the users' Telegram channels through the HTTP proxy (TELEGRAM_PROXY, e.g. the v2rayA container) when it
+// is set, otherwise through the worker address (or the optional fallback).
 const telegram = createTelegramService({
   pool,
   config,
-  client: createTelegramClient({ baseUrl: config.telegramApiBase, fallbackUrl: config.telegramApiFallback }),
+  client: createTelegramClient({
+    baseUrl: config.telegramApiBase,
+    fallbackUrl: config.telegramApiFallback,
+    ...(config.telegramProxy ? { fetchImpl: createProxyFetch(config.telegramProxy) } : {}),
+  }),
   uploadRoot: config.uploadDir,
   publicDir: fileURLToPath(new URL('./public/', import.meta.url)),
 });

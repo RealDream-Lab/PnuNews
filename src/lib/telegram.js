@@ -92,7 +92,7 @@ export function createTelegramClient({ fetchImpl = fetch, baseUrl, fallbackUrl =
         });
       } catch (cause) {
         const timedOut = cause?.name === 'TimeoutError' || cause?.name === 'AbortError';
-        const detail = timedOut ? 'timeout' : String(cause?.cause?.code || cause?.name || 'network').slice(0, 40);
+        const detail = timedOut ? 'timeout' : String(cause?.cause?.code || cause?.code || cause?.name || 'network').slice(0, 40);
         lastFailure = new TelegramError('network error', { network: true, detail });
         continue;
       }
