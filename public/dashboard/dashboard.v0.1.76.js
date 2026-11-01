@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.75.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.76.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -284,6 +284,24 @@ document.getElementById("about-button").addEventListener("click", () => {
     /\d/g,
     (digit) => "۰۱۲۳۴۵۶۷۸۹"[digit],
   );
+  const centersLabel = document.getElementById("about-centers");
+  centersLabel.textContent = "…";
+  // Same number the reader shows: the centers a reader can pick (public config, no login needed).
+  fetch("/api/public/config", { cache: "no-store" })
+    .then((response) => (response.ok ? response.json() : Promise.reject()))
+    .then((config) => {
+      const count = (config.provinces ?? []).reduce(
+        (sum, province) => sum + province.cities.length,
+        0,
+      );
+      centersLabel.textContent = String(count).replace(
+        /\d/g,
+        (digit) => "۰۱۲۳۴۵۶۷۸۹"[digit],
+      );
+    })
+    .catch(() => {
+      centersLabel.textContent = "—";
+    });
   aboutDialog.showModal();
 });
 aboutDialog.addEventListener("click", (event) => {
