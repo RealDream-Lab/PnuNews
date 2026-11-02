@@ -373,16 +373,32 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     }
   });
 
-  router.get('/me', authenticate, (request, response) => response.json({
-    user: {
-      id: request.user.id,
-      username: request.user.username,
-      full_name: request.user.full_name,
-      role: request.user.role,
-      region_id: request.user.region_id,
-      must_change_password: Boolean(request.user.must_change_password),
-    },
-  }));
+  router.get('/me', authenticate, async (request, response, next) => {
+    try {
+      // `level` is the type of the user's unit (country / province / city); `domain_*` is set for domain users only.
+      const [rows] = await pool.execute(
+        `SELECT r.type AS level, u.domain_id, d.name AS domain_name
+         FROM users u JOIN regions r ON r.id = u.region_id
+         LEFT JOIN work_domains d ON d.id = u.domain_id WHERE u.id = ?`,
+        [request.user.id],
+      );
+      return response.json({
+        user: {
+          id: request.user.id,
+          username: request.user.username,
+          full_name: request.user.full_name,
+          role: request.user.role,
+          region_id: request.user.region_id,
+          level: rows[0]?.level ?? null,
+          domain_id: rows[0]?.domain_id ?? null,
+          domain_name: rows[0]?.domain_name ?? null,
+          must_change_password: Boolean(request.user.must_change_password),
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   router.post('/change-password', authenticate, async (request, response, next) => {
     try {

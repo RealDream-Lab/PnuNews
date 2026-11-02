@@ -26,11 +26,10 @@ async function accessNews(pool, user, newsId) {
   const news = rows[0];
   if (!news) return null;
   const [regions] = await pool.query('SELECT id, parent_id, type FROM regions');
-  const [settings] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
   return {
     news,
-    canView: canViewNews(user, news, { regions, peerEditEnabled: settings[0]?.v === '1' }),
-    canEdit: !news.source_url && canEditNews(user, news, { regions, peerEditEnabled: settings[0]?.v === '1' }),
+    canView: canViewNews(user, news, { regions }),
+    canEdit: !news.source_url && canEditNews(user, news, { regions }),
   };
 }
 
@@ -210,9 +209,8 @@ export function createAttachmentDeleteRouter({ pool, uploadRoot }) {
       const attachment = rows[0];
       if (!attachment) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       const [regions] = await pool.query('SELECT id, parent_id, type FROM regions');
-      const [settings] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
-      const canView = canViewNews(request.user, attachment, { regions, peerEditEnabled: settings[0]?.v === '1' });
-      const canEdit = !attachment.source_url && canEditNews(request.user, attachment, { regions, peerEditEnabled: settings[0]?.v === '1' });
+      const canView = canViewNews(request.user, attachment, { regions });
+      const canEdit = !attachment.source_url && canEditNews(request.user, attachment, { regions });
       if (!canView) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       if (!canEdit) return response.status(403).json({ error: 'اجازهٔ حذف این پیوست را ندارید.' });
 

@@ -49,11 +49,6 @@ async function loadRegions(pool) {
   return regions;
 }
 
-async function loadPeerSetting(pool) {
-  const [rows] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
-  return rows[0]?.v === '1';
-}
-
 async function loadNews(pool, id) {
   const [rows] = await pool.execute(
     `SELECT n.*, creator.role AS created_by_role,
@@ -95,24 +90,19 @@ async function validateTargets(pool, user, targetIds, regions, keepIds = []) {
   return targets;
 }
 
-function editorCanEdit(user, news, peerEditEnabled) {
-  return canEditNews(user, news, { regions: news._regions, peerEditEnabled });
-}
-
 async function getPolicyNews(pool, user, id) {
-  const [news, regions, peerEditEnabled] = await Promise.all([
+  const [news, regions] = await Promise.all([
     loadNews(pool, id),
     loadRegions(pool),
-    loadPeerSetting(pool),
   ]);
   if (!news) return null;
   news._regions = regions;
-  const canView = canViewNews(user, news, { regions, peerEditEnabled });
-  return { news, regions, canView, canEdit: canView && !news.source_url && editorCanEdit(user, news, peerEditEnabled) };
+  const canView = canViewNews(user, news, { regions });
+  return { news, regions, canView, canEdit: canView && !news.source_url && canEditNews(user, news, { regions }) };
 }
 
 function publisherUnit(creatorRole, region) {
-  if (region.type === 'country') return creatorRole === 'country_admin' ? 'روابط عمومی سازمان مرکزی' : 'روابط عمومی کل کشور';
+  if (region.type === 'country') return creatorRole === 'country_admin' || creatorRole === 'domain_user' ? 'روابط عمومی سازمان مرکزی' : 'روابط عمومی کل کشور';
   if (region.type === 'province') return `دانشگاه پیام نور استان ${region.name}`;
   return `دانشگاه پیام نور ${region.name}`;
 }
@@ -140,7 +130,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const regions = await loadRegions(pool);
       const clauses = ['n.deleted_at IS NULL'];
       const values = [];
-      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: await loadPeerSetting(pool) });
+      const visibility = newsVisibilitySql(request.user, regions);
       if (visibility) {
         clauses.push(visibility.sql);
         values.push(...visibility.values);
@@ -160,6 +150,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const categoryId = request.query.category ? idValue(request.query.category) : null;
       if (request.query.category && !categoryId) return response.status(400).json({ error: 'دسته‌بندی معتبر نیست.' });
       if (categoryId) { clauses.push('n.category_id = ?'); values.push(categoryId); }
+      const domainId = request.query.domain ? idValue(request.query.domain) : null;
+      if (request.query.domain && !domainId) return response.status(400).json({ error: 'حوزه معتبر نیست.' });
+      if (domainId) { clauses.push('creator.domain_id = ?'); values.push(domainId); }
       const regionId = request.query.region ? idValue(request.query.region) : null;
       if (request.query.region && !regionId) return response.status(400).json({ error: 'منطقه معتبر نیست.' });
       if (regionId) {
@@ -208,9 +201,11 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
                 n.is_pinned, n.is_urgent, n.view_count, n.origin_region_id, n.publisher_name,
                 n.publisher_unit, n.source_url, n.created_by, n.updated_at, r.name AS origin_region_name,
                 r.type AS origin_region_type, c.name AS category_name,
+                creator.role AS creator_role, creator.full_name AS creator_name, dom.name AS creator_domain_name,
                 cover.stored_name AS cover_stored_name, cover.dominant_color AS cover_dominant_color
          FROM news n JOIN regions r ON r.id = n.origin_region_id
          JOIN users creator ON creator.id = n.created_by
+         LEFT JOIN work_domains dom ON dom.id = creator.domain_id
          LEFT JOIN categories c ON c.id = n.category_id
          LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
          WHERE ${clauses.join(' AND ')}
@@ -378,7 +373,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     try {
       const context = await getPolicyNews(pool, request.user, id);
       if (!context?.canView) return response.status(404).json({ error: 'خبر پیدا نشد.' });
-      if (!canDeleteNews(request.user, context.news, { regions: context.regions, peerEditEnabled: await loadPeerSetting(pool) })) {
+      if (!canDeleteNews(request.user, context.news, { regions: context.regions })) {
         return response.status(403).json({ error: 'اجازهٔ حذف این خبر را ندارید.' });
       }
       const connection = await pool.getConnection();
