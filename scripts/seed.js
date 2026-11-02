@@ -18,8 +18,6 @@ const defaultSettings = {
   radio_nowplaying_url: '',
   byline_show_person: '1',
   site_title: 'اخبار پیام نور',
-  max_city_admins: '1',
-  peer_edit_enabled: '0',
 };
 
 export async function seed(pool, regionsPath = new URL('../data/regions.json', import.meta.url)) {

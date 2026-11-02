@@ -10,14 +10,16 @@ import { appEvents } from '../events.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
+import { createDomainAdminRouter } from './domains-admin.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
 const MANAGE_ROUTES = new Set(['deactivate', 'activate', 'reset-password', 'reset-2fa']);
 const ADMIN_SETTING_KEYS = new Set([
   'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url',
-  'byline_show_person', 'site_title', 'max_city_admins', 'peer_edit_enabled',
+  'byline_show_person', 'site_title',
 ]);
+const UNIT_ADMIN_ROLES = ['country_admin', 'province_admin', 'city_admin'];
 
 function temporaryPassword() {
   return `${randomBytes(15).toString('base64url')}A7`;
@@ -33,6 +35,8 @@ function safeUser(user) {
     region_name: user.region_name,
     region_type: user.region_type,
     parent_region_id: user.parent_region_id,
+    domain_id: user.domain_id ?? null,
+    domain_name: user.domain_name ?? null,
     created_by: user.created_by,
     is_active: Boolean(user.is_active),
     must_change_password: Boolean(user.must_change_password),
@@ -49,10 +53,12 @@ async function getRegions(pool) {
 
 async function loadManagedUser(pool, targetId, actor, regions, action) {
   const [rows] = await pool.execute(
-    `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.created_by, u.is_active,
+    `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.domain_id, u.created_by, u.is_active,
             u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
-            r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id
-     FROM users u JOIN regions r ON r.id = u.region_id WHERE u.id = ? LIMIT 1`,
+            r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id,
+            d.name AS domain_name
+     FROM users u JOIN regions r ON r.id = u.region_id
+     LEFT JOIN work_domains d ON d.id = u.domain_id WHERE u.id = ? LIMIT 1`,
     [targetId],
   );
   const target = rows[0];
@@ -62,6 +68,32 @@ async function loadManagedUser(pool, targetId, actor, regions, action) {
 function parseId(value) {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+// One active admin per unit, and one active user per work domain per unit. `target.id` is 0 for a user not created yet.
+async function activeConflict(connection, target) {
+  if (target.role === 'domain_user') {
+    const [rows] = await connection.execute(
+      `SELECT COUNT(*) AS total FROM users
+       WHERE role = 'domain_user' AND region_id = ? AND domain_id = ? AND is_active = 1 AND id <> ?`,
+      [target.region_id, target.domain_id, target.id],
+    );
+    return Number(rows[0].total) > 0
+      ? 'برای این حوزه در این واحد قبلاً کاربر فعال ثبت شده است؛ ابتدا کاربر فعلی را غیرفعال کنید.'
+      : null;
+  }
+  if (UNIT_ADMIN_ROLES.includes(target.role)) {
+    const [rows] = await connection.execute(
+      `SELECT COUNT(*) AS total FROM users
+       WHERE role IN ('country_admin', 'province_admin', 'city_admin') AND region_id = ?
+         AND is_active = 1 AND is_system = 0 AND id <> ?`,
+      [target.region_id, target.id],
+    );
+    return Number(rows[0].total) > 0
+      ? 'برای این واحد قبلاً مدیر فعال ثبت شده است؛ ابتدا مدیر فعلی را غیرفعال کنید.'
+      : null;
+  }
+  return null;
 }
 
 function writeAudit(connection, actorId, action, entity, entityId, request, meta = null) {
@@ -78,6 +110,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
   router.use('/news', createNewsAdminRouter({ pool, clock, uploadRoot }));
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
+  router.use('/domains', createDomainAdminRouter({ pool }));
 
   // internal = the app's own timer (every 3 minutes); external = an OS scheduler runs scripts/fetch-portal-news.sh
   const portalMode = () => (process.env.PORTAL_FETCH_MODE === 'external' ? 'external' : 'internal');
@@ -141,14 +174,10 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const updates = {};
       for (const key of keys) {
         const value = submitted[key];
-        if (['radio_enabled', 'byline_show_person', 'peer_edit_enabled'].includes(key)) {
+        if (['radio_enabled', 'byline_show_person'].includes(key)) {
           const normalized = value === true ? '1' : value === false ? '0' : String(value);
           if (!['0', '1'].includes(normalized)) return response.status(400).json({ error: `مقدار تنظیم «${key}» باید روشن یا خاموش باشد.` });
           updates[key] = normalized;
-        } else if (key === 'max_city_admins') {
-          const number = Number(value);
-          if (!Number.isSafeInteger(number) || number < 1 || number > 10_000) return response.status(400).json({ error: 'حداکثر مدیران مرکز دانشگاهی باید عددی بین ۱ تا ۱۰۰۰۰ باشد.' });
-          updates[key] = String(number);
         } else if (key === 'radio_stream_url' || key === 'radio_nowplaying_url') {
           if (typeof value !== 'string' || value.length > 2048) return response.status(400).json({ error: 'نشانی رادیو معتبر نیست.' });
           const trimmed = value.trim();
@@ -211,8 +240,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const clauses = ['n.deleted_at IS NULL'];
       const values = [];
       const regions = await getRegions(pool);
-      const [peerRows] = await pool.execute('SELECT v FROM settings WHERE k = ?', ['peer_edit_enabled']);
-      const visibility = newsVisibilitySql(request.user, regions, { peerEditEnabled: peerRows[0]?.v === '1' });
+      const visibility = newsVisibilitySql(request.user, regions);
       if (visibility) {
         clauses.push(visibility.sql);
         values.push(...visibility.values);
@@ -256,10 +284,13 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     try {
       const regions = await getRegions(pool);
       const [rows] = await pool.query(
-        `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.created_by, u.is_active,
+        `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.domain_id, u.created_by, u.is_active,
                 u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
-                r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id
-         FROM users u JOIN regions r ON r.id = u.region_id WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, u.username`,
+                r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id,
+                d.name AS domain_name
+         FROM users u JOIN regions r ON r.id = u.region_id
+         LEFT JOIN work_domains d ON d.id = u.domain_id
+         WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, d.sort_order, u.username`,
       );
       const users = request.user.role === 'super_admin'
         ? rows
@@ -295,6 +326,8 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     if (!USERNAME_PATTERN.test(username) || !fullName || fullName.length > 160 || !regionId) {
       return response.status(400).json({ error: 'نام کاربری، نام کامل یا منطقه معتبر نیست.' });
     }
+    const domainId = role === 'domain_user' ? parseId(request.body?.domain_id) : null;
+    if (role === 'domain_user' && !domainId) return response.status(400).json({ error: 'حوزهٔ کاربر را انتخاب کنید.' });
     try {
       const regions = await getRegions(pool);
       const target = regions.find((region) => Number(region.id) === regionId);
@@ -316,27 +349,25 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           await connection.rollback();
           return response.status(403).json({ error: 'منطقهٔ انتخاب‌شده دیگر مجاز نیست.' });
         }
-        if (role === 'city_admin') {
-          const [settingRows] = await connection.execute('SELECT v FROM settings WHERE k = ?', ['max_city_admins']);
-          const configuredLimit = Number.parseInt(settingRows[0]?.v ?? '1', 10);
-          const maxAdmins = Number.isSafeInteger(configuredLimit) ? Math.max(1, configuredLimit) : 1;
-          const [countRows] = await connection.execute(
-            `SELECT COUNT(*) AS active_count FROM users
-             WHERE region_id = ? AND role = 'city_admin' AND is_active = 1`,
-            [regionId],
-          );
-          if (Number(countRows[0].active_count) >= maxAdmins) {
+        if (role === 'domain_user') {
+          const [domains] = await connection.execute('SELECT id FROM work_domains WHERE id = ? AND is_active = 1', [domainId]);
+          if (!domains.length) {
             await connection.rollback();
-            return response.status(409).json({ error: `برای این مرکز دانشگاهی حداکثر ${maxAdmins} مدیر فعال مجاز است؛ ابتدا مدیر فعلی را غیرفعال کنید.` });
+            return response.status(400).json({ error: 'حوزهٔ انتخاب‌شده پیدا نشد یا غیرفعال است.' });
           }
         }
+        const conflict = await activeConflict(connection, { id: 0, role, region_id: regionId, domain_id: domainId });
+        if (conflict) {
+          await connection.rollback();
+          return response.status(409).json({ error: conflict });
+        }
         const [result] = await connection.execute(
-          `INSERT INTO users (username, password_hash, full_name, role, region_id, created_by, is_active, must_change_password)
-           VALUES (?, ?, ?, ?, ?, ?, 1, 1)`,
-          [username, passwordHash, fullName, role, regionId, request.user.id],
+          `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
+          [username, passwordHash, fullName, role, regionId, domainId, request.user.id],
         );
         insertedId = result.insertId;
-        await writeAudit(connection, request.user.id, 'user.create', 'user', insertedId, request, { role, region_id: regionId });
+        await writeAudit(connection, request.user.id, 'user.create', 'user', insertedId, request, { role, region_id: regionId, ...(domainId ? { domain_id: domainId } : {}) });
         await connection.commit();
       } catch (error) {
         await connection.rollback();
@@ -345,7 +376,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       } finally {
         connection.release();
       }
-      return response.status(201).json({ id: insertedId, username, full_name: fullName, role, region_id: regionId, temporary_password: generatedPassword });
+      return response.status(201).json({ id: insertedId, username, full_name: fullName, role, region_id: regionId, domain_id: domainId, temporary_password: generatedPassword });
     } catch (error) {
       return next(error);
     }
@@ -413,6 +444,12 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
             await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [id]);
           } else if (action === 'activate') {
+            await connection.execute('SELECT id FROM regions WHERE id = ? FOR UPDATE', [target.region_id]);
+            const conflict = await activeConflict(connection, target);
+            if (conflict) {
+              await connection.rollback();
+              return response.status(409).json({ error: conflict });
+            }
             await connection.execute('UPDATE users SET is_active = 1 WHERE id = ?', [id]);
           } else if (action === 'reset-password') {
             generatedPassword = temporaryPassword();
@@ -487,6 +524,17 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           );
           if (superiors[0]) successor = superiors[0];
         }
+        // A domain user's news stay with the unit: they go to its active admin (otherwise to the person deleting).
+        if (target.role === 'domain_user') {
+          const [supervisors] = await connection.execute(
+            `SELECT id, full_name FROM users
+             WHERE role IN ('country_admin', 'province_admin', 'city_admin') AND region_id = ?
+               AND is_active = 1 AND is_system = 0 AND id <> ?
+             ORDER BY id LIMIT 1`,
+            [target.region_id, id],
+          );
+          if (supervisors[0]) successor = supervisors[0];
+        }
         const [moved] = await connection.execute('UPDATE news SET created_by = ? WHERE created_by = ?', [successor.id, id]);
         movedNews = Number(moved.affectedRows);
         await connection.execute('UPDATE news SET updated_by = ? WHERE updated_by = ?', [successor.id, id]);
@@ -526,8 +574,8 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     try {
       const [rows] = await pool.query(
         `SELECT r.id, r.parent_id, r.type, r.name, r.visibility_override,
-                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1) AS active_admins,
-                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 ORDER BY u.id LIMIT 1) AS admin_name
+                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user') AS active_admins,
+                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user' ORDER BY u.id LIMIT 1) AS admin_name
          FROM regions r WHERE r.type IN ('province', 'city') ORDER BY r.sort_order, r.id`,
       );
       return response.json({
@@ -623,6 +671,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
   });
 
   router.get('/audit', async (request, response, next) => {
+    if (request.user.role === 'domain_user') return response.status(403).json({ error: 'گزارش رویدادها برای کاربران حوزه در دسترس نیست.' });
     try {
       const paged = request.query.page !== undefined;
       const requestedPage = Number(request.query.page);
