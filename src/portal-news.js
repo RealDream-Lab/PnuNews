@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { appEvents, emitNewsPublished } from "./events.js";
 import { normalizeNewsInput } from "./news/content.js";
 import { parseProxyNews, portalUrl } from "./portal-parse.js";
-import { PORTAL_CACHE_TTL_MS, PORTAL_SOURCE_URL, createCachedPortalPayload, fetchPortalHtml } from "./portal-scrape.js";
+import {
+  PORTAL_CACHE_TTL_MS,
+  PORTAL_SOURCE_URL,
+  createCachedPortalPayload,
+  fetchPortalHtml,
+} from "./portal-scrape.js";
 
 export const PORTAL_LIMIT = 20;
 export const PORTAL_CATEGORY_NAME = "خبرهای پورتال سازمان مرکزی";
@@ -158,13 +163,19 @@ export function createPortalImporter({
       return await portalFeed({ force });
     } catch (error) {
       if (!fallbackUrl) throw error;
-      logger.warn?.(`[portal-news] دریافت مستقیم از پورتال ناموفق بود (${error.message})؛ منبع جایگزین استفاده می‌شود.`);
+      logger.warn?.(
+        `[portal-news] دریافت مستقیم از پورتال ناموفق بود (${error.message})؛ منبع جایگزین استفاده می‌شود.`,
+      );
       return fetchJson(fallbackUrl);
     }
   }
 
   async function importOne(item, setup) {
-    const sourceHash = createHash("sha256").update(item.link).digest("hex");
+    // The portal sometimes returns the same article with a different letter case in the path (DouranPortal / douranportal),
+    // so the identity of an article is its lower-cased link.
+    const sourceHash = createHash("sha256")
+      .update(item.link.toLowerCase())
+      .digest("hex");
     const [existing] = await pool.execute(
       "SELECT id FROM news WHERE source_hash = ?",
       [sourceHash],
@@ -279,7 +290,10 @@ export function createPortalImporter({
     return result;
   }
 
-  function start({ intervalMs = PORTAL_CACHE_TTL_MS, initialDelayMs = 20_000 } = {}) {
+  function start({
+    intervalMs = PORTAL_CACHE_TTL_MS,
+    initialDelayMs = 20_000,
+  } = {}) {
     stop();
     const tick = () => {
       runOnce().catch((error) =>
