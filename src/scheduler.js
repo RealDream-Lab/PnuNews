@@ -39,10 +39,9 @@ export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 
     return publishedIds;
   }
 
-  // Expired sessions, trusted devices and old lockout counters are useless; do not keep them forever.
+  // Expired sessions and old lockout counters are useless; do not keep them forever.
   async function purgeExpired() {
     await pool.execute('DELETE FROM sessions WHERE expires_at <= UTC_TIMESTAMP()');
-    await pool.execute('DELETE FROM trusted_devices WHERE expires_at <= UTC_TIMESTAMP()');
     await pool.execute('DELETE FROM login_attempts WHERE updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)');
   }
 

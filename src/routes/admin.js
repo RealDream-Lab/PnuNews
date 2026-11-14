@@ -442,7 +442,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           if (action === 'deactivate') {
             await connection.execute('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
-            await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [id]);
           } else if (action === 'activate') {
             await connection.execute('SELECT id FROM regions WHERE id = ? FOR UPDATE', [target.region_id]);
             const conflict = await activeConflict(connection, target);
@@ -459,7 +458,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
               [passwordHash, id],
             );
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
-            await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [id]);
           } else if (action === 'reset-2fa') {
             await connection.execute(
               `UPDATE users SET totp_secret_enc = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = ?`,
@@ -467,7 +465,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
             );
             await connection.execute('DELETE FROM backup_codes WHERE user_id = ?', [id]);
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
-            await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [id]);
           }
           await writeAudit(connection, request.user.id, `user.${action.replace('-', '_')}`, 'user', id, request);
           await connection.commit();

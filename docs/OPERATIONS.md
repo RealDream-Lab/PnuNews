@@ -86,7 +86,7 @@ docker exec -w /workspace/PnuNews nodejs node scripts/seed.js
 docker exec -it -w /workspace/PnuNews nodejs node scripts/create-super-admin.js
 ```
 
-سرور در هر شروع، migrationهای اعمال‌نشده را با قفل MariaDB اجرا می‌کند. seed به‌صورت خودکار در startup اجرا نمی‌شود. مدیر ارشد در نخستین ورود باید 2FA را ثبت کند.
+سرور در هر شروع، migrationهای اعمال‌نشده را با قفل MariaDB اجرا می‌کند. seed به‌صورت خودکار در startup اجرا نمی‌شود. رمز دومرحله‌ای (2FA) اجباری نیست و تنظیم هر کاربر است: هر کاربر از «حساب کاربری ← رمز دومرحله‌ای» آن را روشن یا خاموش می‌کند. مدیر ارشد هم می‌تواند پس از نخستین ورود (فقط با گذرواژه) آن را روشن کند.
 
 برای فعال‌سازی اولیه، `start-all.sh` فقط در شروع کانتینر پوشه‌های دارای `.autostart` را می‌خواند. پس از هماهنگی زمان کم‌ترافیک، `docker restart nodejs` را اجرا کنید؛ این کار موقتاً PnuCard را نیز restart می‌کند.
 
@@ -224,7 +224,7 @@ docker exec -it mariadb mariadb -u pnu_news -p pnu_news
 
 - مدیر ارشد از پنل دسکتاپ یک مدیر استان ایجاد می‌کند؛ مدیر استان مدیران شهرستانِ زیرمجموعه را می‌سازد.
 - مدیران را حذف نکنید؛ آن‌ها را غیرفعال کنید تا سوابق خبر و ممیزی حفظ شود.
-- برای reset کردن 2FA مدیر ارشد، از سرور اجرا کنید: `docker exec -w /workspace/PnuNews nodejs node scripts/reset-2fa.js <username>`. کاربر در ورود بعدی دوباره ثبت‌نام می‌کند.
+- برای reset کردن 2FA مدیر ارشد، از سرور اجرا کنید: `docker exec -w /workspace/PnuNews nodejs node scripts/reset-2fa.js <username>`. 2FA کاربر خاموش می‌شود و می‌تواند از صفحهٔ حساب کاربری دوباره روشنش کند.
 
 ## چک‌لیست تحویل
 

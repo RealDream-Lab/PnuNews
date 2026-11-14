@@ -412,3 +412,4 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .install-banner .button{min-height:38px;padding:.2rem 1.1rem;flex:1 1 auto;white-space:nowrap}
 .install-banner .icon-button{width:34px;height:34px;border-radius:10px;flex:none}
 @media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button{flex:none}}
+.security-panel .button{justify-self:start;min-width:170px}.security-panel .qr-code{margin-inline:0}.security-panel .backup-codes{margin-bottom:.8rem}@media(max-width:560px){.security-panel .button{width:100%}}
