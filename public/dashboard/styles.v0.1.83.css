@@ -414,3 +414,4 @@ html select:not([multiple]){padding-inline-start:.8rem}
 @media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button{flex:none}}
 .security-panel .button{justify-self:start;min-width:170px}.security-panel .qr-code{margin-inline:0}.security-panel .backup-codes{margin-bottom:.8rem}@media(max-width:560px){.security-panel .button{width:100%}}
 .heading-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}@media(max-width:767px){.heading-actions .button{min-height:39px;padding:.3rem .65rem;font-size:.78rem}}
+.tree-city.is-city{padding-inline-start:1.8rem;border-inline-start:3px solid var(--primary-soft)}.tree-city:not(.is-city) strong{color:var(--primary)}

@@ -7,6 +7,7 @@ import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText } from '../lib/fa.js';
 import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
+import { compareUsersForTree, groupUsersForTree } from '../lib/user-tree.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
@@ -317,14 +318,16 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.domain_id, u.created_by, u.is_active,
                 u.must_change_password, u.totp_enabled, u.last_login_at, u.created_at,
                 r.name AS region_name, r.type AS region_type, r.parent_id AS parent_region_id,
+                r.sort_order AS region_sort, p.sort_order AS parent_sort, d.sort_order AS domain_sort,
                 d.name AS domain_name
          FROM users u JOIN regions r ON r.id = u.region_id
+         LEFT JOIN regions p ON p.id = r.parent_id
          LEFT JOIN work_domains d ON d.id = u.domain_id
-         WHERE u.is_system = 0 ORDER BY r.sort_order, u.role, d.sort_order, u.username`,
+         WHERE u.is_system = 0`,
       );
-      const users = request.user.role === 'super_admin'
+      const users = (request.user.role === 'super_admin'
         ? rows
-        : rows.filter((user) => canManageUser(request.user, user, 'view', regions));
+        : rows.filter((user) => canManageUser(request.user, user, 'view', regions))).sort(compareUsersForTree);
       const mapped = users.map((user) => ({
         ...safeUser(user),
         // shown in the delete confirmation: how many city users sit under a province admin
@@ -340,9 +343,21 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       }
       const requestedLimit = Number(request.query.limit ?? 15);
       const limit = Number.isInteger(requestedLimit) ? Math.max(1, Math.min(100, requestedLimit)) : 15;
-      const pages = Math.max(1, Math.ceil(mapped.length / limit));
+      // صفحه‌بندی در مرز گروه‌ها (کشور، هر استان با مراکزش) است تا مراکز هیچ‌وقت از استان خود جدا نشوند؛
+      // گروهی که خودش از `limit` بزرگ‌تر باشد تنها در یک صفحه می‌آید.
+      const pagesOfUsers = [];
+      let current = [];
+      for (const group of groupUsersForTree(mapped)) {
+        if (current.length && current.length + group.length > limit) {
+          pagesOfUsers.push(current);
+          current = [];
+        }
+        current.push(...group);
+      }
+      if (current.length) pagesOfUsers.push(current);
+      const pages = Math.max(1, pagesOfUsers.length);
       const page = Math.min(requestedPage, pages);
-      return response.json({ users: mapped.slice((page - 1) * limit, page * limit), page, pages, total: mapped.length, limit });
+      return response.json({ users: pagesOfUsers[page - 1] ?? [], page, pages, total: mapped.length, limit });
     } catch (error) {
       return next(error);
     }
