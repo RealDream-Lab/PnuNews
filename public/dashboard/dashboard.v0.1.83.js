@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.82.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.83.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2154,7 +2154,7 @@ async function loadUsers(page = state.usersPage) {
         const parent = state.regions.find(
           (region) => Number(region.id) === parentId,
         );
-        return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</section>`;
+        return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city${user.region_type === "city" ? " is-city" : ""}"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</section>`;
       })
       .join("");
   } catch (error) {
