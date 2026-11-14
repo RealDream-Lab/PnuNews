@@ -96,6 +96,36 @@ async function activeConflict(connection, target) {
   return null;
 }
 
+// ساخت گروهیِ یک‌بارمصرف: مدیر استان و مدیر مرکز برای هر واحدی که مدیر فعال ندارد (فقط مدیر ارشد).
+const BULK_CONCURRENCY = 8;
+
+function bulkTemporaryPassword() {
+  // با حرف یا رقم شروع شود تا در CSV/Excel به‌عنوان فرمول تفسیر نشود.
+  let password = temporaryPassword();
+  while (!/^[A-Za-z0-9]/.test(password)) password = temporaryPassword();
+  return password;
+}
+
+async function unitsWithoutAdmin(db) {
+  const [rows] = await db.query(
+    `SELECT r.id, r.type, r.name, r.code, r.parent_id, p.name AS parent_name
+     FROM regions r LEFT JOIN regions p ON p.id = r.parent_id
+     WHERE r.type IN ('province', 'city')
+       AND NOT EXISTS (
+         SELECT 1 FROM users u
+         WHERE u.region_id = r.id AND u.is_active = 1 AND u.is_system = 0
+           AND u.role IN ('country_admin', 'province_admin', 'city_admin'))
+     ORDER BY r.sort_order, r.id`,
+  );
+  return rows;
+}
+
+function bulkUsername(region) {
+  const prefix = region.type === 'province' ? 'p' : 'c';
+  const digits = String(region.code ?? '').match(/\d+/)?.[0];
+  return `${prefix}-${digits ?? `r${region.id}`}`;
+}
+
 function writeAudit(connection, actorId, action, entity, entityId, request, meta = null) {
   return connection.execute(
     `INSERT INTO audit_log (user_id, action, entity, entity_id, meta, ip)
@@ -313,6 +343,97 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const pages = Math.max(1, Math.ceil(mapped.length / limit));
       const page = Math.min(requestedPage, pages);
       return response.json({ users: mapped.slice((page - 1) * limit, page * limit), page, pages, total: mapped.length, limit });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // پیش‌نمایش ساخت گروهی: چند استان و مرکز هنوز مدیر فعال ندارند.
+  router.get('/users/bulk-admins/preview', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مدیران را گروهی بسازد.' });
+    try {
+      const units = await unitsWithoutAdmin(pool);
+      return response.json({
+        provinces: units.filter((unit) => unit.type === 'province').length,
+        cities: units.filter((unit) => unit.type === 'city').length,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // فقط برای واحدهای بدون مدیر فعال کاربر می‌سازد (اجرای دوباره چیزی تکراری نمی‌سازد). نقش و منطقهٔ هر کاربر مثل ساخت دستی است،
+  // پس قواعد «چه کسی چه کسی را می‌بیند» بدون تغییر می‌ماند. گذرواژه‌های موقت فقط در همین پاسخ برمی‌گردند.
+  router.post('/users/bulk-admins', async (request, response, next) => {
+    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مدیران را گروهی بسازد.' });
+    try {
+      const units = await unitsWithoutAdmin(pool);
+      if (!units.length) return response.json({ created: [], skipped: 0 });
+      const planned = units.map((unit) => ({
+        unit,
+        role: unit.type === 'province' ? 'province_admin' : 'city_admin',
+        username: bulkUsername(unit),
+        fullName: `${unit.type === 'province' ? 'مدیر استان' : 'مدیر مرکز'} ${unit.name}`.slice(0, 160),
+        password: bulkTemporaryPassword(),
+        hash: null,
+      }));
+      for (let index = 0; index < planned.length; index += BULK_CONCURRENCY) {
+        await Promise.all(planned.slice(index, index + BULK_CONCURRENCY).map(async (item) => {
+          item.hash = await hashPassword(item.password);
+        }));
+      }
+
+      const created = [];
+      let skipped = 0;
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        for (const item of planned) {
+          await connection.execute('SELECT id FROM regions WHERE id = ? FOR UPDATE', [item.unit.id]);
+          if (await activeConflict(connection, { id: 0, role: item.role, region_id: item.unit.id, domain_id: null })) {
+            skipped += 1;
+            continue;
+          }
+          let username = item.username;
+          let result;
+          try {
+            [result] = await connection.execute(
+              `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
+               VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 1)`,
+              [username, item.hash, item.fullName, item.role, item.unit.id, request.user.id],
+            );
+          } catch (error) {
+            if (error.code !== 'ER_DUP_ENTRY') throw error;
+            username = `${item.username}-r${item.unit.id}`;
+            [result] = await connection.execute(
+              `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
+               VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 1)`,
+              [username, item.hash, item.fullName, item.role, item.unit.id, request.user.id],
+            );
+          }
+          created.push({
+            id: result.insertId,
+            username,
+            full_name: item.fullName,
+            role: item.role,
+            province_name: item.unit.type === 'province' ? item.unit.name : item.unit.parent_name,
+            unit_name: item.unit.name,
+            temporary_password: item.password,
+          });
+        }
+        await writeAudit(connection, request.user.id, 'user.bulk_create', 'user', null, request, {
+          provinces: created.filter((user) => user.role === 'province_admin').length,
+          cities: created.filter((user) => user.role === 'city_admin').length,
+          skipped,
+        });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      return response.status(201).json({ created, skipped });
     } catch (error) {
       return next(error);
     }

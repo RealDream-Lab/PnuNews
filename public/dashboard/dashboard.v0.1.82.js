@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.81.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.82.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2262,6 +2262,60 @@ async function openUserForm() {
   form.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function downloadBulkAdminsCsv(created) {
+  const header = ["نام کاربری", "گذرواژهٔ موقت", "نام", "نقش", "استان", "مرکز یا واحد"];
+  const rows = created.map((user) => [
+    user.username,
+    user.temporary_password,
+    user.full_name,
+    user.role === "province_admin" ? "مدیر استان" : "مدیر مرکز",
+    user.province_name,
+    user.unit_name,
+  ]);
+  const csv = `\ufeff${[header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  link.download = `pnunews-admins-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+}
+
+async function bulkCreateAdmins() {
+  try {
+    const preview = await api("/api/admin/users/bulk-admins/preview");
+    if (!preview.provinces && !preview.cities) {
+      showToast("همهٔ استان‌ها و مراکز مدیر فعال دارند.");
+      return;
+    }
+    const ok = await confirmDialog({
+      title: "ساخت گروهی مدیران؟",
+      text: `برای ${faDigits.format(preview.provinces)} استان و ${faDigits.format(preview.cities)} مرکزی که مدیر فعال ندارند، یک مدیر با گذرواژهٔ موقت ساخته می‌شود. فهرست نام کاربری و گذرواژه‌ها فقط همین‌یک‌بار به‌صورت فایل CSV دانلود می‌شود؛ آن را امن نگه دارید. توجه: مرکزی که مدیر داشته باشد در فهرست شهرهای خواننده نمایش داده می‌شود.`,
+      tone: "warning",
+      confirmText: "بله، بساز",
+      cancelText: "انصراف",
+    });
+    if (!ok) return;
+    const result = await api("/api/admin/users/bulk-admins", {
+      method: "POST",
+      body: {},
+    });
+    if (result.created.length) downloadBulkAdminsCsv(result.created);
+    showMessage(
+      "مدیران ساخته شدند",
+      `${faDigits.format(result.created.length)} مدیر ساخته شد${result.skipped ? ` و ${faDigits.format(result.skipped)} واحد رد شد` : ""}. فایل CSV گذرواژه‌های موقت دانلود شد و دوباره قابل دریافت نیست. هر مدیر در نخستین ورود باید گذرواژه را تغییر دهد.`,
+    );
+    await loadUsers();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
 async function submitUser(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -3144,6 +3198,7 @@ function auditAction(action) {
     "auth.login": "ورود",
     "auth.logout": "خروج",
     "auth.login_failed": "ورود ناموفق",
+    "user.bulk_create": "ساخت گروهی مدیران",
     "auth.totp_enabled": "روشن‌شدن رمز دومرحله‌ای",
     "auth.totp_disabled": "خاموش‌شدن رمز دومرحله‌ای",
     "auth.sessions_revoked": "خروج از همهٔ دستگاه‌ها",
@@ -3608,6 +3663,9 @@ function bindEvents() {
       setQuickCover(null);
     });
   document.getElementById("user-form").addEventListener("submit", submitUser);
+  document
+    .getElementById("bulk-admins-button")
+    .addEventListener("click", bulkCreateAdmins);
   document
     .getElementById("region-form")
     .addEventListener("submit", submitRegion);
