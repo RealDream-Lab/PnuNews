@@ -6,7 +6,7 @@ import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
-import { cleanFaText } from '../lib/fa.js';
+import { cleanFaText, usernameKey } from '../lib/fa.js';
 import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
 import { compareUsersForTree, groupUsersForTree } from '../lib/user-tree.js';
@@ -137,6 +137,29 @@ function attachmentFilePaths(root, row) {
     ? [path.join(root, name)]
     : [400, 800, 1280].map((width) => path.join(root, `${name}-${width}.webp`));
 }
+
+// Usernames are unique across the whole country (every province, centre and role). The database key catches exact
+// duplicates; this also refuses names that only differ by case, Arabic/Persian letter forms, digits or half-spaces.
+// A named lock serialises the check with the write so two admins cannot take the same name at the same moment.
+const USERNAME_LOCK = 'pnunews-usernames';
+
+async function lockUsernames(connection) {
+  const [rows] = await connection.query('SELECT GET_LOCK(?, 5) AS got', [USERNAME_LOCK]);
+  return Number(rows[0]?.got) === 1;
+}
+
+async function unlockUsernames(connection) {
+  try { await connection.query('SELECT RELEASE_LOCK(?)', [USERNAME_LOCK]); } catch { /* connection already gone */ }
+}
+
+async function usernameTaken(connection, username, exceptId) {
+  const key = usernameKey(username);
+  const [rows] = await connection.query('SELECT username FROM users WHERE id <> ?', [exceptId]);
+  return rows.some((row) => usernameKey(row.username) === key);
+}
+
+const USERNAME_TAKEN = 'این نام کاربری قبلاً در سیستم ثبت شده است؛ نام کاربری باید در کل کشور یکتا باشد.';
+const USERNAME_BUSY = 'سامانه مشغول بررسی نام‌های کاربری است؛ چند لحظه بعد دوباره تلاش کنید.';
 
 function writeAudit(connection, actorId, action, entity, entityId, request, meta = null) {
   return connection.execute(
@@ -508,6 +531,14 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           await connection.rollback();
           return response.status(409).json({ error: conflict });
         }
+        if (!(await lockUsernames(connection))) {
+          await connection.rollback();
+          return response.status(503).json({ error: USERNAME_BUSY });
+        }
+        if (await usernameTaken(connection, username, 0)) {
+          await connection.rollback();
+          return response.status(409).json({ error: USERNAME_TAKEN });
+        }
         const [result] = await connection.execute(
           `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
@@ -518,9 +549,10 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         await connection.commit();
       } catch (error) {
         await connection.rollback();
-        if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'این نام کاربری قبلاً ثبت شده است.' });
+        if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: USERNAME_TAKEN });
         throw error;
       } finally {
+        await unlockUsernames(connection);
         connection.release();
       }
       return response.status(201).json({ id: insertedId, username, full_name: fullName, role, region_id: regionId, domain_id: domainId, temporary_password: generatedPassword });
@@ -554,22 +586,34 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
+        const renamed = username !== undefined && username !== target.username;
+        if (renamed) {
+          if (!(await lockUsernames(connection))) {
+            await connection.rollback();
+            return response.status(503).json({ error: USERNAME_BUSY });
+          }
+          if (await usernameTaken(connection, username, id)) {
+            await connection.rollback();
+            return response.status(409).json({ error: USERNAME_TAKEN });
+          }
+        }
         await connection.execute(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
         await connection.execute(
           `INSERT INTO audit_log (user_id, action, entity, entity_id, meta, ip)
            VALUES (?, 'user.update', 'user', ?, ?, ?)`,
-          [request.user.id, id, JSON.stringify({ fields: keys }), request.ip ?? null],
+          [request.user.id, id, JSON.stringify({ fields: keys, ...(renamed ? { username_from: target.username, username_to: username } : {}) }), request.ip ?? null],
         );
         await connection.commit();
       } catch (error) {
         await connection.rollback();
         throw error;
       } finally {
+        await unlockUsernames(connection);
         connection.release();
       }
       return response.json({ ok: true });
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'این نام کاربری قبلاً ثبت شده است.' });
+      if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: USERNAME_TAKEN });
       return next(error);
     }
   });
