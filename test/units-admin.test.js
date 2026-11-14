@@ -41,3 +41,13 @@ test('region delete and admin password reset are main-admin-only API routes', as
   }
   assert.match(source, /region\.type !== 'city'/);
 });
+
+test('users list: all provinces on one page as accordions, only one open at a time', async () => {
+  const script = await dashboardScript();
+  const body = script.slice(script.indexOf('async function loadUsers'), script.indexOf('// Provinces that already have'));
+  assert.ok(!body.includes('page:'), 'the users list is not requested page by page');
+  assert.match(body, /api\("\/api\/admin\/users"\)/);
+  assert.match(body, /<details class=\\"tree-province\\"|<details class="tree-province"/);
+  assert.match(script, /querySelectorAll\("details\[data-user-group\]\[open\]"\)/);
+  assert.match(script, /state\.usersOpen = new Set\(\[id\]\)/);
+});
