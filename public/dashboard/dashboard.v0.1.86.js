@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.85.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.86.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -89,10 +89,22 @@ function showToast(message) {
   state.toastTimer = setTimeout(() => toast.classList.remove("visible"), 2800);
 }
 
-function showMessage(title, message, secret = "") {
+const COPY_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/></svg>';
+const CHECK_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+// `details` is an optional list of [label, value] rows (e.g. which centre and user a secret belongs to).
+function showMessage(title, message, secret = "", details = []) {
   const dialog = document.getElementById("message-dialog");
   const content = document.getElementById("message-content");
-  content.innerHTML = `<p class="eyebrow">اطلاع‌رسانی</p><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${secret ? `<div class="temp-secret"><code dir="ltr">${escapeHtml(secret)}</code><button class="button outline" type="button" data-copy-secret>کپی</button></div>` : ""}`;
+  const rows = details.length
+    ? `<dl class="message-details">${details.map(([label, value, ltr]) => `<div><dt>${escapeHtml(label)}</dt><dd${ltr ? ' dir="ltr"' : ""}>${escapeHtml(value)}</dd></div>`).join("")}</dl>`
+    : "";
+  const secretBox = secret
+    ? `<div class="temp-secret"><div class="temp-secret-text"><small>گذرواژهٔ موقت</small><code dir="ltr">${escapeHtml(secret)}</code></div><button class="icon-button copy-secret" type="button" data-copy-secret title="کپی گذرواژه" aria-label="کپی گذرواژه">${COPY_ICON}</button></div>`
+    : "";
+  content.innerHTML = `<p class="eyebrow">اطلاع‌رسانی</p><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${rows}${secretBox}`;
   dialog.showModal();
 }
 
@@ -2641,10 +2653,16 @@ async function resetUnitPassword(id) {
       method: "POST",
       body: {},
     });
+    const province = state.units.items.find((item) => item.id === unit.parent_id);
     showMessage(
       "گذرواژه بازنشانی شد",
-      `نام کاربری: ${result.username}. این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به مدیر «${unit.name}» تحویل دهید.`,
+      "این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به مدیر تحویل دهید. مدیر در ورود بعدی باید آن را عوض کند.",
       result.temporary_password,
+      [
+        ["مرکز", province ? `${unit.name} (${province.name})` : unit.name],
+        ["مدیر", result.full_name],
+        ["نام کاربری", result.username, true],
+      ],
     );
   } catch (error) {
     showToast(error.message);
@@ -4024,12 +4042,17 @@ function bindEvents() {
   document
     .getElementById("message-content")
     .addEventListener("click", async (event) => {
-      if (!event.target.closest("[data-copy-secret]")) return;
+      const button = event.target.closest("[data-copy-secret]");
+      if (!button) return;
       const secret =
         document.querySelector(".temp-secret code")?.textContent || "";
       try {
         await navigator.clipboard.writeText(secret);
         showToast("گذرواژه کپی شد.");
+        button.innerHTML = CHECK_ICON;
+        setTimeout(() => {
+          button.innerHTML = COPY_ICON;
+        }, 1500);
       } catch {
         showToast("کپی خودکار در دسترس نیست.");
       }
