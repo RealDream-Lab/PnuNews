@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canViewNews, canEditNews, canDeleteNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql, auditRegionIds } from '../src/auth/policy.js';
+import { canViewNews, canEditNews, canDeleteNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql, auditRegionIds, unitsInScope } from '../src/auth/policy.js';
 
 const regions = [
   { id: 1, parent_id: null, type: 'country' },
@@ -162,4 +162,15 @@ test('domain users have no audit-log scope', () => {
   assert.equal(auditRegionIds(domCity, regions).size, 0);
   assert.equal(auditRegionIds(domCountry, regions).size, 0);
   assert.deepEqual([...auditRegionIds(cityA1, regions)], [100]);
+});
+
+test('«ساختار و کاربران» shows each admin only the units of their own scope', () => {
+  const ids = (user) => unitsInScope(user, regions).map((unit) => unit.id).sort((a, b) => a - b);
+  assert.deepEqual(ids(sup), [1, 10, 11, 100, 101, 110]);
+  assert.deepEqual(ids(country), [1, 10, 11], 'the central organisation and the provinces, no centres');
+  assert.deepEqual(ids(provA), [10, 100, 101], 'own province with its centres, not the other province');
+  assert.deepEqual(ids(provB), [11, 110]);
+  assert.deepEqual(ids(cityA1), [100], 'a centre admin sees only their own centre');
+  assert.deepEqual(ids(domCity), [], 'domain users manage no structure');
+  assert.deepEqual(ids(null), []);
 });

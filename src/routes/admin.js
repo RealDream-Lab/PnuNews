@@ -4,7 +4,7 @@ import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
-import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
+import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds, isUnitAdmin, unitsInScope } from '../auth/policy.js';
 import { createAuthMiddleware, requirePasswordChanged } from './auth.js';
 import { cleanFaText, usernameKey } from '../lib/fa.js';
 import { isObviouslyInternalHost } from '../lib/net-guard.js';
@@ -97,36 +97,6 @@ async function activeConflict(connection, target) {
       : null;
   }
   return null;
-}
-
-// ساخت گروهیِ یک‌بارمصرف: مدیر استان و مدیر مرکز برای هر واحدی که مدیر فعال ندارد (فقط مدیر ارشد).
-const BULK_CONCURRENCY = 8;
-
-function bulkTemporaryPassword() {
-  // با حرف یا رقم شروع شود تا در CSV/Excel به‌عنوان فرمول تفسیر نشود.
-  let password = temporaryPassword();
-  while (!/^[A-Za-z0-9]/.test(password)) password = temporaryPassword();
-  return password;
-}
-
-async function unitsWithoutAdmin(db) {
-  const [rows] = await db.query(
-    `SELECT r.id, r.type, r.name, r.code, r.parent_id, p.name AS parent_name
-     FROM regions r LEFT JOIN regions p ON p.id = r.parent_id
-     WHERE r.type IN ('province', 'city')
-       AND NOT EXISTS (
-         SELECT 1 FROM users u
-         WHERE u.region_id = r.id AND u.is_active = 1 AND u.is_system = 0
-           AND u.role IN ('country_admin', 'province_admin', 'city_admin'))
-     ORDER BY r.sort_order, r.id`,
-  );
-  return rows;
-}
-
-function bulkUsername(region) {
-  const prefix = region.type === 'province' ? 'p' : 'c';
-  const digits = String(region.code ?? '').match(/\d+/)?.[0];
-  return `${prefix}-${digits ?? `r${region.id}`}`;
 }
 
 // Files on disk that belong to one attachment row: images are stored as three webp sizes, other files as one blob.
@@ -392,97 +362,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const pages = Math.max(1, pagesOfUsers.length);
       const page = Math.min(requestedPage, pages);
       return response.json({ users: pagesOfUsers[page - 1] ?? [], page, pages, total: mapped.length, limit });
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  // پیش‌نمایش ساخت گروهی: چند استان و مرکز هنوز مدیر فعال ندارند.
-  router.get('/users/bulk-admins/preview', async (request, response, next) => {
-    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مدیران را گروهی بسازد.' });
-    try {
-      const units = await unitsWithoutAdmin(pool);
-      return response.json({
-        provinces: units.filter((unit) => unit.type === 'province').length,
-        cities: units.filter((unit) => unit.type === 'city').length,
-      });
-    } catch (error) {
-      return next(error);
-    }
-  });
-
-  // فقط برای واحدهای بدون مدیر فعال کاربر می‌سازد (اجرای دوباره چیزی تکراری نمی‌سازد). نقش و منطقهٔ هر کاربر مثل ساخت دستی است،
-  // پس قواعد «چه کسی چه کسی را می‌بیند» بدون تغییر می‌ماند. گذرواژه‌های موقت فقط در همین پاسخ برمی‌گردند.
-  router.post('/users/bulk-admins', async (request, response, next) => {
-    if (request.user.role !== 'super_admin') return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مدیران را گروهی بسازد.' });
-    try {
-      const units = await unitsWithoutAdmin(pool);
-      if (!units.length) return response.json({ created: [], skipped: 0 });
-      const planned = units.map((unit) => ({
-        unit,
-        role: unit.type === 'province' ? 'province_admin' : 'city_admin',
-        username: bulkUsername(unit),
-        fullName: `${unit.type === 'province' ? 'مدیر استان' : 'مدیر مرکز'} ${unit.name}`.slice(0, 160),
-        password: bulkTemporaryPassword(),
-        hash: null,
-      }));
-      for (let index = 0; index < planned.length; index += BULK_CONCURRENCY) {
-        await Promise.all(planned.slice(index, index + BULK_CONCURRENCY).map(async (item) => {
-          item.hash = await hashPassword(item.password);
-        }));
-      }
-
-      const created = [];
-      let skipped = 0;
-      const connection = await pool.getConnection();
-      try {
-        await connection.beginTransaction();
-        for (const item of planned) {
-          await connection.execute('SELECT id FROM regions WHERE id = ? FOR UPDATE', [item.unit.id]);
-          if (await activeConflict(connection, { id: 0, role: item.role, region_id: item.unit.id, domain_id: null })) {
-            skipped += 1;
-            continue;
-          }
-          let username = item.username;
-          let result;
-          try {
-            [result] = await connection.execute(
-              `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
-               VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 1)`,
-              [username, item.hash, item.fullName, item.role, item.unit.id, request.user.id],
-            );
-          } catch (error) {
-            if (error.code !== 'ER_DUP_ENTRY') throw error;
-            username = `${item.username}-r${item.unit.id}`;
-            [result] = await connection.execute(
-              `INSERT INTO users (username, password_hash, full_name, role, region_id, domain_id, created_by, is_active, must_change_password)
-               VALUES (?, ?, ?, ?, ?, NULL, ?, 1, 1)`,
-              [username, item.hash, item.fullName, item.role, item.unit.id, request.user.id],
-            );
-          }
-          created.push({
-            id: result.insertId,
-            username,
-            full_name: item.fullName,
-            role: item.role,
-            province_name: item.unit.type === 'province' ? item.unit.name : item.unit.parent_name,
-            unit_name: item.unit.name,
-            temporary_password: item.password,
-          });
-        }
-        await writeAudit(connection, request.user.id, 'user.bulk_create', 'user', null, request, {
-          provinces: created.filter((user) => user.role === 'province_admin').length,
-          cities: created.filter((user) => user.role === 'city_admin').length,
-          skipped,
-        });
-        await connection.commit();
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      } finally {
-        connection.release();
-      }
-      return response.status(201).json({ created, skipped });
     } catch (error) {
       return next(error);
     }
@@ -757,22 +636,37 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     }
   });
 
+  // «ساختار و کاربران»: the units each admin sees (see `unitsInScope`) with what the page needs to draw them. Everyone
+  // with a unit gets the read-only structure; the counts used by the delete confirmation are for the main admin only.
   router.get('/regions/overview', async (request, response, next) => {
-    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مراکز و واحدها را مدیریت کند.' });
+    if (!canManageRegion(request.user) && !isUnitAdmin(request.user)) {
+      return response.status(403).json({ error: 'این بخش برای کاربران حوزه در دسترس نیست.' });
+    }
     try {
       const [rows] = await pool.query(
         `SELECT r.id, r.parent_id, r.type, r.name, r.visibility_override,
-                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user') AS active_admins,
-                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user' ORDER BY u.id LIMIT 1) AS admin_name,
+                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.is_system = 0
+                   AND u.role IN ('country_admin', 'province_admin', 'city_admin')) AS active_admins,
+                (SELECT COUNT(*) FROM regions c WHERE c.parent_id = r.id AND c.type = 'city') AS cities_total,
+                (SELECT COUNT(*) FROM regions c WHERE c.parent_id = r.id AND c.type = 'city' AND c.visibility_override <> 'hide'
+                   AND (c.visibility_override = 'show' OR EXISTS (
+                     SELECT 1 FROM users u WHERE u.region_id = c.id AND u.is_active = 1 AND u.is_system = 0
+                       AND u.role IN ('country_admin', 'province_admin', 'city_admin')))) AS active_cities,
                 (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id) AS users_total,
                 (SELECT COUNT(*) FROM news n WHERE n.origin_region_id = r.id) AS news_total
-         FROM regions r WHERE r.type IN ('province', 'city') ORDER BY r.sort_order, r.id`,
+         FROM regions r WHERE r.type IN ('country', 'province', 'city') ORDER BY r.sort_order, r.id`,
       );
+      const isSuper = canManageRegion(request.user);
+      const visible = new Set(unitsInScope(request.user, rows).map((unit) => Number(unit.id)));
       return response.json({
-        units: rows.map((row) => ({
-          ...row, id: Number(row.id), parent_id: Number(row.parent_id), active_admins: Number(row.active_admins),
-          users_total: Number(row.users_total), news_total: Number(row.news_total),
-        })),
+        units: rows.filter((row) => visible.has(Number(row.id))).map((row) => {
+          const unit = {
+            id: Number(row.id), parent_id: row.parent_id === null ? null : Number(row.parent_id), type: row.type, name: row.name,
+            visibility_override: row.visibility_override, active_admins: Number(row.active_admins),
+            cities_total: Number(row.cities_total), active_cities: Number(row.active_cities),
+          };
+          return isSuper ? { ...unit, users_total: Number(row.users_total), news_total: Number(row.news_total) } : unit;
+        }),
       });
     } catch (error) {
       return next(error);
@@ -859,55 +753,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       return response.json({ ok: true });
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'نام منطقه در این شاخه تکراری است.' });
-      return next(error);
-    }
-  });
-
-  // Instant password reset for the active admin of a university centre (main admin only). Same effect as
-  // /users/:id/reset-password: new temporary password, forced change at next login, sessions closed.
-  router.post('/regions/:id/reset-admin-password', async (request, response, next) => {
-    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند گذرواژهٔ مدیر مرکز را بازنشانی کند.' });
-    const id = parseId(request.params.id);
-    if (!id) return response.status(400).json({ error: 'شناسهٔ مرکز معتبر نیست.' });
-    try {
-      const connection = await pool.getConnection();
-      let admin;
-      let generatedPassword;
-      try {
-        await connection.beginTransaction();
-        const [units] = await connection.execute("SELECT id, name FROM regions WHERE id = ? AND type = 'city' FOR UPDATE", [id]);
-        if (!units[0]) {
-          await connection.rollback();
-          return response.status(404).json({ error: 'مرکز دانشگاهی پیدا نشد.' });
-        }
-        const [admins] = await connection.execute(
-          `SELECT id, username, full_name FROM users
-           WHERE region_id = ? AND role = 'city_admin' AND is_active = 1 AND is_system = 0
-           ORDER BY id LIMIT 1 FOR UPDATE`,
-          [id],
-        );
-        admin = admins[0];
-        if (!admin) {
-          await connection.rollback();
-          return response.status(404).json({ error: 'این مرکز مدیر فعال ندارد.' });
-        }
-        generatedPassword = temporaryPassword();
-        const passwordHash = await hashPassword(generatedPassword);
-        await connection.execute(
-          `UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NULL WHERE id = ?`,
-          [passwordHash, admin.id],
-        );
-        await connection.execute('DELETE FROM sessions WHERE user_id = ?', [admin.id]);
-        await writeAudit(connection, request.user.id, 'user.reset_password', 'user', admin.id, request, { via: 'region', region_id: id });
-        await connection.commit();
-      } catch (error) {
-        await connection.rollback();
-        throw error;
-      } finally {
-        connection.release();
-      }
-      return response.json({ ok: true, temporary_password: generatedPassword, username: admin.username, full_name: admin.full_name });
-    } catch (error) {
       return next(error);
     }
   });

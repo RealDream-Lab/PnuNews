@@ -215,6 +215,28 @@ export function canManageRegion(user) {
   return user?.role === ROLE.SUPER_ADMIN;
 }
 
+// The units an admin sees in «ساختار و کاربران»: the main admin everything; the central organisation the country and
+// the provinces; a province admin their province and its centres; a centre admin their own centre. Domain users none.
+// Seeing a unit is not managing it: renaming, hiding and deleting stay with `canManageRegion`.
+export function unitsInScope(user, regions) {
+  const own = Number(user?.region_id);
+  return [...toRegionMap(regions).values()].filter((region) => {
+    const id = Number(region.id);
+    switch (user?.role) {
+      case ROLE.SUPER_ADMIN:
+        return ['country', 'province', 'city'].includes(region.type);
+      case ROLE.COUNTRY_ADMIN:
+        return (region.type === 'country' && id === own) || region.type === 'province';
+      case ROLE.PROVINCE_ADMIN:
+        return (region.type === 'province' && id === own) || (region.type === 'city' && Number(region.parent_id) === own);
+      case ROLE.CITY_ADMIN:
+        return region.type === 'city' && id === own;
+      default:
+        return false;
+    }
+  });
+}
+
 export function allowedPublishTargets(user, regions) {
   return [...toRegionMap(regions).values()]
     .filter((region) => canPublishTo(user, region, regions))

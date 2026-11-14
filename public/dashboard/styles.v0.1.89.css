@@ -421,3 +421,19 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .message-details{display:grid;gap:.5rem;margin:1rem 0;padding:.75rem .9rem;border:1px solid var(--border);border-radius:12px;background:var(--soft)}.message-details>div{display:flex;align-items:baseline;justify-content:space-between;gap:1rem}.message-details dt{flex:none;color:var(--muted);font-size:.8rem}.message-details dd{margin:0;min-width:0;font-weight:500;font-size:.9rem;text-align:left;overflow-wrap:anywhere}
 .temp-secret{display:flex;align-items:center;gap:.75rem;margin:1rem 0 .25rem;padding:.6rem .7rem .6rem .6rem;border:1px dashed var(--primary);border-radius:12px;background:var(--primary-soft)}.temp-secret-text{flex:1;min-width:0;display:grid;gap:.15rem}.temp-secret-text small{color:var(--muted);font-size:.74rem}.temp-secret code{display:block;font:600 1rem ui-monospace,monospace;overflow-wrap:anywhere;user-select:all}.temp-secret .copy-secret{flex:none;color:var(--primary)}
 .tree-city>div:first-child{min-width:0}.tree-city .compact-actions{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end}.swal-text{white-space:pre-line}
+
+/* ساختار و کاربران: هر واحد با کاربرانش */
+.unit-flat{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+.unit-flat>.unit-city+.unit-city{border-top:1px solid var(--border)}
+.unit-city{flex-wrap:wrap}
+.unit-body{display:grid}
+.unit-own{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.55rem 1rem;color:var(--muted);font-size:.82rem;border-bottom:1px solid var(--border)}
+.unit-users{flex:1 1 100%;display:grid;margin-top:.15rem;padding-inline-start:.75rem;border-inline-start:3px solid var(--primary-soft)}
+.unit-body>.unit-users{margin:.25rem 1rem .6rem}
+.unit-user{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.45rem 0}
+.unit-user+.unit-user{border-top:1px dashed var(--border)}
+.unit-user-main{min-width:0;display:grid;gap:.1rem}
+.unit-user-main small{color:var(--muted);font-size:.78rem}
+.unit-user.is-inactive strong{color:var(--muted)}
+.unit-user .compact-actions{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}
+@media(max-width:767px){.unit-user{flex-wrap:wrap}.unit-user .compact-actions{flex:1 1 100%;justify-content:flex-start}}
