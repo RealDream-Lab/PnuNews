@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.88.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.89.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -16,8 +16,6 @@ const state = {
   newsPage: 1,
   auditPage: 1,
   mobilePages: { mine: 1, all: 1 },
-  usersPage: 1,
-  usersOpen: new Set(),
   newsDates: { published_at: null, expires_at: null },
   calendar: {
     year: 0,
@@ -30,7 +28,7 @@ const state = {
   toastTimer: null,
   activeView: "",
   busy: false,
-  units: { items: [], open: new Set(), editing: null },
+  units: { items: [], users: [], open: new Set(), editing: null, seeded: false },
   categoryAdmin: { items: [], editing: null },
   domainAdmin: { items: [], editing: null },
   uploads: { cover: [], images: [], files: [] },
@@ -675,6 +673,8 @@ function applyCalendarDate() {
 const FEED_ROLES = ["super_admin", "country_admin"];
 
 function goToView(view) {
+  // «مراکز و واحدها» and «مدیریت کاربران» are one page now.
+  if (view === "regions") view = "users";
   // Domain users manage nobody and have no event log.
   if (
     (view === "users" || view === "audit") &&
@@ -711,8 +711,7 @@ function goToView(view) {
   state.activeView = actualView;
   if (actualView === "dashboard") loadDashboard();
   else if (actualView === "news") loadNewsList(1);
-  else if (actualView === "users") loadUsers(1);
-  else if (actualView === "regions") loadRegions();
+  else if (actualView === "users") loadStructure();
   else if (actualView === "categories") loadCategories();
   else if (actualView === "domains") loadDomains();
   else if (actualView === "settings") loadSettings();
@@ -2133,125 +2132,55 @@ async function loadMobileNews(scope, page = state.mobilePages[scope] ?? 1) {
   }
 }
 
-async function loadUsers(page = state.usersPage) {
-  state.usersPage = page;
-  const panel = document.getElementById("users-tree");
-  const pager = document.getElementById("users-pager");
-  if (!panel.querySelector(".tree-province"))
-    panel.innerHTML = '<p class="empty-panel">در حال دریافت کاربران…</p>';
-  try {
-    // One page for everyone: every province is an accordion section, so no numbered pages.
-    const { users } = await api("/api/admin/users");
-    pager.innerHTML = "";
-    if (!users.length) {
-      panel.innerHTML =
-        '<p class="empty-panel">کاربری برای نمایش وجود ندارد.</p>';
-      return;
-    }
-    const grouped = new Map();
-    for (const user of users) {
-      const parentId =
-        user.region_type === "city"
-          ? Number(user.parent_region_id)
-          : Number(user.region_id);
-      if (!grouped.has(parentId)) grouped.set(parentId, []);
-      grouped.get(parentId).push(user);
-    }
-    const subordinateCount = (user) => Number(user.subordinate_count) || 0;
-    panel.innerHTML = [...grouped.entries()]
-      .map(([parentId, entries]) => {
-        const parent = state.regions.find(
-          (region) => Number(region.id) === parentId,
-        );
-        return `<details class="tree-province" data-user-group="${parentId}"${state.usersOpen.has(parentId) ? " open" : ""}><summary class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></summary>${entries.map((user) => `<div class="tree-city${user.region_type === "city" ? " is-city" : ""}"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="rename" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-username="${escapeHtml(user.username)}">تغییر نام کاربری</button><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</details>`;
-      })
-      .join("");
-  } catch (error) {
-    panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`;
-  }
+// ---------- Structure and users (one page: every unit with its users) ----------
+const UNIT_ADMIN_BY_TYPE = {
+  country: "country_admin",
+  province: "province_admin",
+  city: "city_admin",
+};
+
+// The roles the signed-in admin can create inside one unit. Mirrors `canCreateUser` (src/auth/policy.js); the server
+// has the last word. A unit takes one active admin, so the admin role is offered only while the unit has none, and the
+// main admin adds a centre's admin only under a province that already has one.
+function creatableRoles(unit) {
+  const actor = state.user.role;
+  const roles = [];
+  const parent = state.units.items.find((item) => item.id === unit.parent_id);
+  const mayAddAdmin =
+    (actor === "super_admin" &&
+      (unit.type !== "city" || (parent?.active_admins ?? 0) > 0)) ||
+    (actor === "country_admin" && unit.type === "province") ||
+    (actor === "province_admin" && unit.type === "city");
+  if (mayAddAdmin && unit.active_admins === 0)
+    roles.push(UNIT_ADMIN_BY_TYPE[unit.type]);
+  if (actor !== "super_admin" && unit.id === Number(state.user.region_id))
+    roles.push("domain_user");
+  return roles;
 }
 
-// Provinces that already have an active province admin: the main admin may add city users only under these.
-async function provincesWithAdmin() {
-  const { users } = await api("/api/admin/users");
-  const ids = new Set(
-    users
-      .filter((user) => user.role === "province_admin" && user.is_active)
-      .map((user) => Number(user.region_id)),
-  );
-  return state.regions.filter(
-    (region) => region.type === "province" && ids.has(Number(region.id)),
-  );
-}
-
-function fillUserRegions() {
+function syncUserFormRole() {
   const form = document.getElementById("user-form");
-  const role = form.elements.role.value;
-  const domain = role === "domain_user";
-  const city = role === "city_admin";
-  const country = role === "country_admin";
-  const isSuper = state.user.role === "super_admin";
-  document.getElementById("user-domain-label").hidden = !domain;
-  document.getElementById("user-province-label").hidden = !(isSuper && city);
-  const provinceId = Number(form.elements.province_id.value);
-  const regionType = city ? "city" : country ? "country" : "province";
-  // A domain user always belongs to the unit of the admin who creates it.
-  const options = domain
-    ? state.regions.filter(
-        (item) => Number(item.id) === Number(state.user.region_id),
-      )
-    : state.regions.filter(
-        (item) =>
-          item.type === regionType &&
-          (!isSuper || !city || Number(item.parent_id) === provinceId),
-      );
-  form.elements.region_id.innerHTML = options
-    .map(
-      (item) =>
-        `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`,
-    )
-    .join("");
-  document.getElementById("user-region-label").firstChild.textContent = domain
-    ? "واحد"
-    : city
-      ? "مرکز دانشگاهی"
-      : country
-        ? "محدوده"
-        : "استان";
+  document.getElementById("user-domain-label").hidden =
+    form.elements.role.value !== "domain_user";
 }
 
-async function openUserForm() {
+async function openUserForm(unitId) {
+  const unit = state.units.items.find((item) => item.id === unitId);
+  const roles = unit ? creatableRoles(unit) : [];
+  if (!roles.length) return;
   const form = document.getElementById("user-form");
-  form.hidden = false;
   form.reset();
   document.getElementById("user-error").textContent = "";
-  const role = form.elements.role;
-  const actor = state.user.role;
-  const domainOption = '<option value="domain_user">کاربر حوزه</option>';
-  if (actor === "country_admin") {
-    role.innerHTML = `<option value="province_admin">${roleLabel("province_admin")}</option>${domainOption}`;
-  } else if (actor === "super_admin") {
-    role.innerHTML = `<option value="country_admin">${roleLabel("country_admin")}</option><option value="province_admin">مدیر استان</option><option value="city_admin">مدیر مرکز دانشگاهی</option>`;
-    try {
-      const provinces = await provincesWithAdmin();
-      form.elements.province_id.innerHTML = provinces
-        .map(
-          (item) =>
-            `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`,
-        )
-        .join("");
-      if (!provinces.length)
-        role.querySelector('[value="city_admin"]').disabled = true;
-    } catch (error) {
-      showToast(error.message);
-    }
-  } else if (actor === "province_admin") {
-    role.innerHTML = `<option value="city_admin">${roleLabel("city_admin")}</option>${domainOption}`;
-  } else {
-    role.innerHTML = domainOption;
-  }
+  form.elements.region_id.value = unit.id;
+  form.elements.region_name.value = unit.name;
+  form.elements.role.innerHTML = roles
+    .map(
+      (role) =>
+        `<option value="${role}">${role === "domain_user" ? "کاربر حوزه" : escapeHtml(roleLabel(role))}</option>`,
+    )
+    .join("");
   // The work domains the main admin defined: a unit admin picks one for the new domain user.
-  if (actor !== "super_admin") {
+  if (roles.includes("domain_user")) {
     try {
       const { domains } = await api("/api/admin/domains");
       const active = domains.filter((domain) => domain.is_active);
@@ -2262,67 +2191,20 @@ async function openUserForm() {
         )
         .join("");
       if (!active.length)
-        role.querySelector('[value="domain_user"]').disabled = true;
+        form.elements.role.querySelector('[value="domain_user"]').remove();
     } catch (error) {
       showToast(error.message);
-    }
-  }
-  fillUserRegions();
-  form.scrollIntoView({ block: "center", behavior: "smooth" });
-}
-
-function csvCell(value) {
-  return `"${String(value ?? "").replaceAll('"', '""')}"`;
-}
-
-function downloadBulkAdminsCsv(created) {
-  const header = ["نام کاربری", "گذرواژهٔ موقت", "نام", "نقش", "استان", "مرکز یا واحد"];
-  const rows = created.map((user) => [
-    user.username,
-    user.temporary_password,
-    user.full_name,
-    user.role === "province_admin" ? "مدیر استان" : "مدیر مرکز",
-    user.province_name,
-    user.unit_name,
-  ]);
-  const csv = `\ufeff${[header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  link.download = `pnunews-admins-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
-}
-
-async function bulkCreateAdmins() {
-  try {
-    const preview = await api("/api/admin/users/bulk-admins/preview");
-    if (!preview.provinces && !preview.cities) {
-      showToast("همهٔ استان‌ها و مراکز مدیر فعال دارند.");
       return;
     }
-    const ok = await confirmDialog({
-      title: "ساخت گروهی مدیران؟",
-      text: `برای ${faDigits.format(preview.provinces)} استان و ${faDigits.format(preview.cities)} مرکزی که مدیر فعال ندارند، یک مدیر با گذرواژهٔ موقت ساخته می‌شود. فهرست نام کاربری و گذرواژه‌ها فقط همین‌یک‌بار به‌صورت فایل CSV دانلود می‌شود؛ آن را امن نگه دارید. توجه: مرکزی که مدیر داشته باشد در فهرست شهرهای خواننده نمایش داده می‌شود.`,
-      tone: "warning",
-      confirmText: "بله، بساز",
-      cancelText: "انصراف",
-    });
-    if (!ok) return;
-    const result = await api("/api/admin/users/bulk-admins", {
-      method: "POST",
-      body: {},
-    });
-    if (result.created.length) downloadBulkAdminsCsv(result.created);
-    showMessage(
-      "مدیران ساخته شدند",
-      `${faDigits.format(result.created.length)} مدیر ساخته شد${result.skipped ? ` و ${faDigits.format(result.skipped)} واحد رد شد` : ""}. فایل CSV گذرواژه‌های موقت دانلود شد و دوباره قابل دریافت نیست. هر مدیر در نخستین ورود باید گذرواژه را تغییر دهد.`,
-    );
-    await loadUsers();
-  } catch (error) {
-    showToast(error.message);
   }
+  if (!form.elements.role.options.length) {
+    showToast("هنوز حوزه‌ای تعریف نشده است؛ مدیر ارشد باید حوزه‌ها را بسازد.");
+    return;
+  }
+  syncUserFormRole();
+  form.hidden = false;
+  form.scrollIntoView({ block: "center", behavior: "smooth" });
+  form.elements.full_name.focus({ preventScroll: true });
 }
 
 async function submitUser(event) {
@@ -2349,7 +2231,7 @@ async function submitUser(event) {
       "این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود. آن را از مسیر امن به کاربر تحویل دهید.",
       result.temporary_password,
     );
-    await loadUsers();
+    await loadStructure();
   } catch (error) {
     message.textContent = error.message;
   }
@@ -2386,7 +2268,7 @@ async function renameUser(button) {
         body: { username: value },
       });
       showToast(`نام کاربری به «${value}» تغییر کرد.`);
-      await loadUsers();
+      await loadStructure();
       return;
     } catch (error) {
       problem = error.message;
@@ -2408,6 +2290,7 @@ async function handleUserAction(button) {
     return;
   }
   const label = button.textContent.trim();
+  const isReset = action === "reset-password";
   const confirmed = isDelete
     ? await confirmDialog({
         title: `حذف «${button.dataset.userName || "کاربر"}»؟`,
@@ -2417,7 +2300,9 @@ async function handleUserAction(button) {
       })
     : await confirmDialog({
         title: `${label}؟`,
-        text: "آیا از انجام این کار مطمئن هستید؟",
+        text: isReset
+          ? `برای «${button.dataset.userName || "کاربر"}» یک گذرواژهٔ موقت تازه ساخته می‌شود، ورودهای فعلی او بسته می‌شود و در ورود بعدی باید گذرواژه را عوض کند.`
+          : "آیا از انجام این کار مطمئن هستید؟",
         tone: action === "deactivate" ? "warning" : "question",
         confirmText: "بله، انجام شود",
       });
@@ -2430,8 +2315,15 @@ async function handleUserAction(button) {
     if (result.temporary_password)
       showMessage(
         "گذرواژه بازنشانی شد",
-        "گذرواژهٔ موقت را فقط یک‌بار به کاربر تحویل دهید.",
+        "این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به کاربر تحویل دهید. کاربر در ورود بعدی باید آن را عوض کند.",
         result.temporary_password,
+        [
+          button.dataset.unitType === "city"
+            ? ["دانشگاه", `دانشگاه پیام‌نور ${button.dataset.unitName}`]
+            : ["واحد", button.dataset.unitName || "—"],
+          ["نام کاربر", button.dataset.userName || "—"],
+          ["نام کاربری", button.dataset.username || "—", true],
+        ],
       );
     else if (isDelete)
       showToast(
@@ -2440,7 +2332,7 @@ async function handleUserAction(button) {
           : "کاربر حذف شد.",
       );
     else showToast("تغییر انجام شد.");
-    await loadUsers();
+    await loadStructure();
   } catch (error) {
     showToast(error.message);
   }
@@ -2458,7 +2350,7 @@ const VISIBILITY_LABELS = {
   ],
 };
 
-function unitState(unit, cities = []) {
+function unitState(unit) {
   if (unit.visibility_override === "hide")
     return { key: "hidden", label: "پنهان", active: false };
   if (unit.type === "city") {
@@ -2468,7 +2360,7 @@ function unitState(unit, cities = []) {
       return { key: "forced", label: "نمایش اجباری", active: true };
     return { key: "inactive", label: "بدون مدیر", active: false };
   }
-  return cities.some((city) => unitState(city).active)
+  return unit.active_cities > 0
     ? { key: "active", label: "فعال", active: true }
     : { key: "inactive", label: "فعال نشده", active: false };
 }
@@ -2499,46 +2391,98 @@ function unitEditForm(unit) {
   </form>`;
 }
 
-function cityRow(city) {
-  if (state.units.editing === city.id)
-    return `<div class="unit-row is-editing">${unitEditForm(city)}</div>`;
-  const info = unitState(city);
-  const admin =
-    city.active_admins > 0
-      ? `مدیر: ${escapeHtml(city.admin_name || "—")}`
-      : "مدیری ثبت نشده";
-  const resetButton =
-    city.active_admins > 0
-      ? `<button class="mini-button" type="button" data-unit-reset="${city.id}">ریست فوری رمز</button>`
-      : `<button class="mini-button" type="button" disabled title="این مرکز مدیر فعال ندارد">ریست فوری رمز</button>`;
-  return `<div class="unit-row"><div class="unit-main"><span class="unit-name">${escapeHtml(city.name)}</span><small class="muted">${admin}</small></div>${unitBadge(info)}<div class="unit-actions"><button class="mini-button" type="button" data-unit-edit="${city.id}">ویرایش</button>${resetButton}<button class="mini-button danger" type="button" data-unit-delete="${city.id}">حذف</button></div></div>`;
+// One user under its unit. Instant password reset is for the admins; a domain user keeps the plain reset.
+function userRow(user, unit) {
+  const id = Number(user.id);
+  const mine = id === Number(state.user?.id);
+  const admin = UNIT_ADMIN_ROLES.includes(user.role);
+  const name = escapeHtml(user.full_name);
+  const username = escapeHtml(user.username);
+  const badge = user.is_active
+    ? ""
+    : ' <span class="status-badge draft">غیرفعال</span>';
+  const actions = mine
+    ? '<span class="muted">حساب شما</span>'
+    : `<button class="mini-button" type="button" data-user-action="rename" data-user-id="${id}" data-user-name="${name}" data-username="${username}">تغییر نام کاربری</button>` +
+      `<button class="mini-button" type="button" data-user-action="reset-password" data-user-id="${id}" data-user-name="${name}" data-username="${username}" data-unit-name="${escapeHtml(unit.name)}" data-unit-type="${unit.type}">${admin ? "ریست فوری رمز" : "بازنشانی گذرواژه"}</button>` +
+      `<button class="mini-button" type="button" data-user-action="reset-2fa" data-user-id="${id}">بازنشانی ۲مرحله‌ای</button>` +
+      `<button class="mini-button" type="button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${id}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>` +
+      (user.role !== "super_admin"
+        ? `<button class="mini-button danger" type="button" data-user-action="delete" data-user-id="${id}" data-user-name="${name}" data-subordinates="${Number(user.subordinate_count) || 0}">حذف کاربر</button>`
+        : "");
+  return `<div class="unit-user${user.is_active ? "" : " is-inactive"}"><div class="unit-user-main"><strong>${name}</strong>${badge}<small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${username}</small></div><div class="compact-actions">${actions}</div></div>`;
 }
 
-function renderUnits() {
-  const container = document.getElementById("regions-tree");
-  const summary = document.getElementById("regions-summary");
+function usersBlock(users, unit) {
+  return users.length
+    ? `<div class="unit-users">${users.map((user) => userRow(user, unit)).join("")}</div>`
+    : "";
+}
+
+function addUserButton(unit) {
+  return creatableRoles(unit).length
+    ? `<button class="mini-button" type="button" data-unit-add="${unit.id}">＋ کاربر</button>`
+    : "";
+}
+
+function cityRow(city, users) {
+  if (state.units.editing === city.id)
+    return `<div class="unit-row unit-city is-editing">${unitEditForm(city)}</div>`;
+  const isSuper = state.user.role === "super_admin";
+  const parent = state.units.items.find((item) => item.id === city.parent_id);
+  const note =
+    city.active_admins > 0
+      ? ""
+      : isSuper && (parent?.active_admins ?? 0) === 0
+        ? "مدیری ثبت نشده؛ ابتدا مدیر استان را بسازید"
+        : "مدیری ثبت نشده";
+  const actions =
+    addUserButton(city) +
+    (isSuper
+      ? `<button class="mini-button" type="button" data-unit-edit="${city.id}">ویرایش</button><button class="mini-button danger" type="button" data-unit-delete="${city.id}">حذف</button>`
+      : "");
+  return `<div class="unit-row unit-city"><div class="unit-main"><span class="unit-name">${escapeHtml(city.name)}</span>${note ? `<small class="muted">${note}</small>` : ""}</div>${unitBadge(unitState(city))}<div class="unit-actions">${actions}</div>${usersBlock(users, city)}</div>`;
+}
+
+function renderStructure() {
+  const container = document.getElementById("structure-tree");
+  const summary = document.getElementById("structure-summary");
   const all = state.units.items;
+  const isSuper = state.user.role === "super_admin";
+  const usersByUnit = new Map();
+  for (const user of state.units.users) {
+    const key = Number(user.region_id);
+    if (!usersByUnit.has(key)) usersByUnit.set(key, []);
+    usersByUnit.get(key).push(user);
+  }
+  const usersOf = (unit) => usersByUnit.get(unit.id) ?? [];
+  const root = all.find((unit) => unit.type === "country");
   const provinces = all
     .filter((unit) => unit.type === "province")
     .sort((a, b) => faCollator.compare(a.name, b.name));
-  const citiesOf = (provinceId) =>
-    all
-      .filter((unit) => unit.type === "city" && unit.parent_id === provinceId)
-      .sort((a, b) => faCollator.compare(a.name, b.name));
   const allCities = all.filter((unit) => unit.type === "city");
-  const activeCities = allCities.filter(
-    (city) => unitState(city).active,
-  ).length;
-  const activeProvinces = provinces.filter(
-    (province) => unitState(province, citiesOf(province.id)).active,
-  ).length;
-  summary.innerHTML = [
-    [activeProvinces, `از ${faDigits.format(provinces.length)} استان فعال`],
-    [
-      activeCities,
+  const provinceIds = new Set(provinces.map((province) => province.id));
+  const byName = (a, b) => faCollator.compare(a.name, b.name);
+  const citiesOf = (provinceId) =>
+    allCities.filter((city) => city.parent_id === provinceId).sort(byName);
+  // A centre admin sees only their own centre, so its province is not in the list.
+  const looseCities = allCities
+    .filter((city) => !provinceIds.has(city.parent_id))
+    .sort(byName);
+
+  const stats = [];
+  if (provinces.length > 1)
+    stats.push([
+      provinces.filter((province) => unitState(province).active).length,
+      `از ${faDigits.format(provinces.length)} استان فعال`,
+    ]);
+  if (allCities.length > 1)
+    stats.push([
+      allCities.filter((city) => unitState(city).active).length,
       `از ${faDigits.format(allCities.length)} مرکز دانشگاهی فعال`,
-    ],
-  ]
+    ]);
+  stats.push([state.units.users.length, "کاربر"]);
+  summary.innerHTML = stats
     .map(
       ([value, label]) =>
         `<div class="units-stat"><strong>${faDigits.format(value)}</strong><span>${label}</span></div>`,
@@ -2554,57 +2498,87 @@ function renderUnits() {
   else if (state.units.open.size > 1)
     state.units.open = new Set([[...state.units.open].at(-1)]);
 
-  const query = faKey(document.getElementById("regions-search").value);
+  const query = faKey(document.getElementById("structure-search").value);
   const filter =
-    document.querySelector('input[name="regions_filter"]:checked')?.value ||
+    document.querySelector('input[name="structure_filter"]:checked')?.value ||
     "all";
   const wantActive = (active) =>
     filter === "all" || (filter === "active") === active;
+  const nameMatches = (unit) => !query || faKey(unit.name).includes(query);
+  const userMatches = (unit) =>
+    Boolean(query) &&
+    usersOf(unit).some((user) =>
+      faKey(`${user.full_name} ${user.username}`).includes(query),
+    );
+  const cityShown = (city, parentMatches) =>
+    (parentMatches || nameMatches(city) || userMatches(city)) &&
+    wantActive(unitState(city).active);
+
   const html = [];
+  if (root && filter === "all" && (nameMatches(root) || userMatches(root)))
+    html.push(
+      `<div class="unit-flat"><div class="unit-row unit-city"><div class="unit-main"><span class="unit-name">${escapeHtml(root.name)}</span></div><div class="unit-actions">${addUserButton(root)}</div>${usersBlock(usersOf(root), root)}</div></div>`,
+    );
   for (const province of provinces) {
     const cities = citiesOf(province.id);
-    const info = unitState(province, cities);
-    const provinceMatches = !query || faKey(province.name).includes(query);
-    const visibleCities = cities.filter(
-      (city) =>
-        (provinceMatches || faKey(city.name).includes(query)) &&
-        (filter === "all" || wantActive(unitState(city).active)),
-    );
+    const info = unitState(province);
+    const nameMatch = nameMatches(province);
+    const shownCities = cities.filter((city) => cityShown(city, nameMatch));
     const showProvince =
-      (provinceMatches || visibleCities.length) &&
-      (filter === "all"
-        ? true
-        : wantActive(info.active) || visibleCities.length);
+      (nameMatch || userMatches(province) || shownCities.length) &&
+      (filter === "all" || wantActive(info.active) || shownCities.length);
     if (!showProvince) continue;
-    const shownCities =
-      filter === "all" && provinceMatches ? cities : visibleCities;
-    const activeCount = cities.filter((city) => unitState(city).active).length;
     const open =
       state.units.open.has(province.id) || Boolean(query) || filter !== "all";
-    const heading =
-      state.units.editing === province.id
-        ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
-        : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(activeCount)} از ${faDigits.format(cities.length)} مرکز دانشگاهی فعال</span>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button></summary>`;
+    const editing = state.units.editing === province.id;
+    const heading = editing
+      ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
+      : `<summary><span class="unit-name">${escapeHtml(province.name)}</span><span class="unit-meta">${faDigits.format(province.active_cities)} از ${faDigits.format(province.cities_total)} مرکز دانشگاهی فعال</span>${unitBadge(info)}${isSuper ? `<button class="mini-button" type="button" data-unit-edit="${province.id}">ویرایش</button>` : ""}</summary>`;
+    const ownUsers = usersOf(province);
+    const add = addUserButton(province);
+    const own =
+      ownUsers.length || add
+        ? `<div class="unit-own"><span>کاربران خود استان</span>${add}</div>${usersBlock(ownUsers, province)}`
+        : "";
+    const rows =
+      shownCities.map((city) => cityRow(city, usersOf(city))).join("") ||
+      (allCities.length
+        ? '<p class="empty-panel">مرکز دانشگاهی برای نمایش نیست.</p>'
+        : "");
     html.push(
-      `<details class="unit-province" data-province="${province.id}" ${open ? "open" : ""}>${state.units.editing === province.id ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-cities">${shownCities.map(cityRow).join("") || '<p class="empty-panel">مرکز دانشگاهی برای نمایش نیست.</p>'}</div></details>`,
+      `<details class="unit-province" data-province="${province.id}" ${open ? "open" : ""}>${editing ? `<summary class="is-editing">${escapeHtml(province.name)}</summary>${heading}` : heading}<div class="unit-body">${own}<div class="unit-cities">${rows}</div></div></details>`,
     );
   }
+  const shownLoose = looseCities.filter((city) => cityShown(city, false));
+  if (shownLoose.length)
+    html.push(
+      `<div class="unit-flat">${shownLoose.map((city) => cityRow(city, usersOf(city))).join("")}</div>`,
+    );
   container.innerHTML =
     html.join("") || '<p class="empty-panel">موردی پیدا نشد.</p>';
 }
 
-async function loadRegions() {
-  const container = document.getElementById("regions-tree");
+async function loadStructure() {
+  const container = document.getElementById("structure-tree");
   if (!state.units.items.length)
     container.innerHTML = '<p class="empty-panel">در حال دریافت فهرست…</p>';
   try {
-    const [overview, targets] = await Promise.all([
+    const [overview, users, targets] = await Promise.all([
       api("/api/admin/regions/overview"),
+      api("/api/admin/users"),
       api("/api/admin/regions"),
     ]);
     state.units.items = overview.units;
+    state.units.users = users.users;
     state.regions = targets.regions;
-    renderUnits();
+    // A province admin has exactly one province: show it open the first time.
+    if (!state.units.seeded) {
+      state.units.seeded = true;
+      const provinces = overview.units.filter((unit) => unit.type === "province");
+      if (provinces.length === 1)
+        state.units.open = new Set([provinces[0].id]);
+    }
+    renderStructure();
     populateRegionParents();
   } catch (error) {
     container.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`;
@@ -2649,7 +2623,7 @@ async function submitRegion(event) {
     form.hidden = true;
     form.reset();
     showToast(isProvince ? "استان افزوده شد." : "مرکز دانشگاهی افزوده شد.");
-    await loadRegions();
+    await loadStructure();
   } catch (error) {
     message.textContent = error.message;
   }
@@ -2665,7 +2639,7 @@ async function saveUnit(form) {
     body.visibility_override = form.elements.visibility.value;
   state.units.editing = null;
   if (!Object.keys(body).length) {
-    renderUnits();
+    renderStructure();
     return;
   }
   try {
@@ -2674,38 +2648,8 @@ async function saveUnit(form) {
   } catch (error) {
     showToast(error.message);
   }
-  await loadRegions();
+  await loadStructure();
   setScopeBanner();
-}
-
-async function resetUnitPassword(id) {
-  const unit = state.units.items.find((item) => item.id === id);
-  if (!unit) return;
-  const confirmed = await confirmDialog({
-    title: `ریست رمز مدیر «${unit.name}»؟`,
-    text: `برای ${unit.admin_name ? `«${unit.admin_name}»، ` : ""}مدیر این مرکز یک گذرواژهٔ موقت تازه ساخته می‌شود، ورودهای فعلی او بسته می‌شود و در ورود بعدی باید گذرواژه را عوض کند.`,
-    tone: "warning",
-    confirmText: "بله، ریست شود",
-  });
-  if (!confirmed) return;
-  try {
-    const result = await api(`/api/admin/regions/${id}/reset-admin-password`, {
-      method: "POST",
-      body: {},
-    });
-    showMessage(
-      "گذرواژه بازنشانی شد",
-      "این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به مدیر تحویل دهید. مدیر در ورود بعدی باید آن را عوض کند.",
-      result.temporary_password,
-      [
-        ["دانشگاه", `دانشگاه پیام‌نور ${unit.name}`],
-        ["نام کاربر", result.full_name],
-        ["نام کاربری", result.username, true],
-      ],
-    );
-  } catch (error) {
-    showToast(error.message);
-  }
 }
 
 async function deleteUnit(id) {
@@ -2736,7 +2680,7 @@ async function deleteUnit(id) {
     showToast(
       `مرکز «${unit.name}» حذف شد (${faDigits.format(result.users_deleted)} کاربر و ${faDigits.format(result.news_deleted)} خبر).`,
     );
-    await loadRegions();
+    await loadStructure();
     setScopeBanner();
   } catch (error) {
     showToast(error.message);
@@ -3787,9 +3731,6 @@ function bindEvents() {
     });
   document.getElementById("user-form").addEventListener("submit", submitUser);
   document
-    .getElementById("bulk-admins-button")
-    .addEventListener("click", bulkCreateAdmins);
-  document
     .getElementById("region-form")
     .addEventListener("submit", submitRegion);
   document
@@ -3811,7 +3752,6 @@ function bindEvents() {
     .addEventListener("click", () => loadNewsList(1));
   const pagerHandlers = {
     "news-pager": (page) => loadNewsList(page),
-    "users-pager": (page) => loadUsers(page),
     "audit-pager": (page) => loadAudit(page),
     "mobile-recent-pager": (page) => loadMobileNews("mine", page),
     "mobile-feed-pager": (page) => loadMobileNews("all", page),
@@ -3854,14 +3794,8 @@ function bindEvents() {
     .getElementById("editor-unpublish")
     .addEventListener("click", unpublishEditorNews);
   document
-    .getElementById("new-user-button")
-    .addEventListener("click", openUserForm);
-  document
     .querySelector('#user-form [name="role"]')
-    .addEventListener("change", fillUserRegions);
-  document
-    .querySelector('#user-form [name="province_id"]')
-    .addEventListener("change", fillUserRegions);
+    .addEventListener("change", syncUserFormRole);
   document.getElementById("new-region-button").addEventListener("click", () => {
     document.getElementById("region-form").hidden = false;
     populateRegionParents();
@@ -4002,26 +3936,26 @@ function bindEvents() {
       if (event.target.closest('[data-action="cancel-domain"]'))
         document.getElementById("domain-form").hidden = true;
     });
-  const regionsTree = document.getElementById("regions-tree");
-  regionsTree.addEventListener("click", (event) => {
+  const structureTree = document.getElementById("structure-tree");
+  structureTree.addEventListener("click", (event) => {
+    const add = event.target.closest("[data-unit-add]");
+    if (add) {
+      event.preventDefault();
+      openUserForm(Number(add.dataset.unitAdd));
+      return;
+    }
     const edit = event.target.closest("[data-unit-edit]");
     if (edit) {
       event.preventDefault();
       state.units.editing = Number(edit.dataset.unitEdit);
-      renderUnits();
+      renderStructure();
       document.querySelector('.unit-edit input[name="name"]')?.focus();
       return;
     }
     if (event.target.closest("[data-unit-cancel]")) {
       event.preventDefault();
       state.units.editing = null;
-      renderUnits();
-      return;
-    }
-    const reset = event.target.closest("[data-unit-reset]");
-    if (reset) {
-      event.preventDefault();
-      resetUnitPassword(Number(reset.dataset.unitReset));
+      renderStructure();
       return;
     }
     const remove = event.target.closest("[data-unit-delete]");
@@ -4030,13 +3964,13 @@ function bindEvents() {
       deleteUnit(Number(remove.dataset.unitDelete));
     }
   });
-  regionsTree.addEventListener("submit", (event) => {
+  structureTree.addEventListener("submit", (event) => {
     const form = event.target.closest("[data-unit-form]");
     if (!form) return;
     event.preventDefault();
     saveUnit(form);
   });
-  regionsTree.addEventListener("click", (event) => {
+  structureTree.addEventListener("click", (event) => {
     const summary = event.target.closest("summary");
     if (!summary || event.target.closest("button, input, select, textarea, a"))
       return;
@@ -4049,34 +3983,16 @@ function bindEvents() {
       return;
     }
     // accordion: opening one province closes the one that was open
-    for (const other of regionsTree.querySelectorAll("details[data-province][open]"))
+    for (const other of structureTree.querySelectorAll("details[data-province][open]"))
       if (other !== province) other.open = false;
     state.units.open = new Set([id]);
   });
-  const usersTree = document.getElementById("users-tree");
-  usersTree.addEventListener("click", (event) => {
-    const summary = event.target.closest("summary");
-    if (!summary || event.target.closest("button, input, select, textarea, a"))
-      return;
-    const group = summary.closest("[data-user-group]");
-    if (!group) return;
-    const id = Number(group.dataset.userGroup);
-    // the browser toggles `open` after this handler, so the new state is the opposite of the current one
-    if (group.open) {
-      state.usersOpen.delete(id);
-      return;
-    }
-    // accordion: opening one province closes the one that was open
-    for (const other of usersTree.querySelectorAll("details[data-user-group][open]"))
-      if (other !== group) other.open = false;
-    state.usersOpen = new Set([id]);
-  });
   document
-    .getElementById("regions-search")
-    .addEventListener("input", renderUnits);
+    .getElementById("structure-search")
+    .addEventListener("input", renderStructure);
   document
-    .getElementById("regions-filter")
-    .addEventListener("change", renderUnits);
+    .getElementById("structure-filter")
+    .addEventListener("change", renderStructure);
 
   document
     .getElementById("message-content")

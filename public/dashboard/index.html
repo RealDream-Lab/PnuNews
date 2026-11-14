@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مدیریت خبرها" />
     <meta name="application-name" content="مدیریت خبرها" />
-    <link rel="stylesheet" href="/dashboard/styles.v0.1.88.css" />
-    <script src="/shared/theme.v0.1.88.js"></script>
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.89.css" />
+    <script src="/shared/theme.v0.1.89.js"></script>
     <title>مدیریت خبرها — اخبار پیام‌نور</title>
   </head>
   <body>
@@ -308,12 +308,8 @@
               data-view="users"
               data-show-roles="super_admin,country_admin,province_admin,city_admin"
             >
-              <svg class="icon"><use href="#admin-icon-users" /></svg>مدیریت
+              <svg class="icon"><use href="#admin-icon-map" /></svg>ساختار و
               کاربران
-            </button>
-            <button type="button" data-view="regions" data-super-only>
-              <svg class="icon"><use href="#admin-icon-map" /></svg>مراکز و
-              واحدها
             </button>
             <button type="button" data-view="categories" data-super-only>
               <svg class="icon"><use href="#admin-icon-tag" /></svg>دسته‌بندی‌ها
@@ -828,73 +824,16 @@
             <div class="view-heading">
               <div>
                 <p class="eyebrow">سلسله‌مراتب سازمانی</p>
-                <h1>مدیریت کاربران</h1>
-              </div>
-              <div class="heading-actions">
-                <button
-                  id="bulk-admins-button"
-                  class="button outline"
-                  type="button"
-                  data-super-only
-                  hidden
-                >
-                  ساخت گروهی مدیران
-                </button>
-                <button id="new-user-button" class="button primary" type="button">
-                  ＋ کاربر تازه
-                </button>
-              </div>
-            </div>
-            <div id="users-tree" class="panel tree-panel"></div>
-            <div id="users-pager" class="pager-wrap"></div>
-            <form id="user-form" class="panel inline-form" hidden>
-              <h2>ساخت کاربر</h2>
-              <label
-                >نام کامل<input name="full_name" required maxlength="160"
-              /></label>
-              <label
-                >نام کاربری<input name="username" required maxlength="80"
-              /></label>
-              <label>نقش<select name="role"></select></label>
-              <label id="user-domain-label" hidden
-                >حوزهٔ کاری<select name="domain_id"></select
-              ></label>
-              <label id="user-province-label" hidden
-                >استان (دارای مدیر استان)<select name="province_id"></select
-              ></label>
-              <label id="user-region-label"
-                >مرکز یا واحد<select name="region_id"></select
-              ></label>
-              <button class="button primary" type="submit">
-                ساخت و دریافت گذرواژهٔ موقت
-              </button>
-              <button
-                class="button outline"
-                data-action="cancel-user"
-                type="button"
-              >
-                انصراف
-              </button>
-              <p id="user-error" class="form-error"></p>
-            </form>
-          </section>
-          <section
-            id="regions-view"
-            class="admin-view"
-            data-panel="regions"
-            hidden
-          >
-            <div class="view-heading">
-              <div>
-                <p class="eyebrow">استان‌ها و مراکز دانشگاهی</p>
-                <h1>مراکز و واحدها</h1>
+                <h1>ساختار و کاربران</h1>
               </div>
               <button
                 id="new-region-button"
                 class="button primary"
                 type="button"
+                data-super-only
+                hidden
               >
-                ＋ افزودن
+                ＋ افزودن استان یا مرکز
               </button>
             </div>
             <form id="region-form" class="panel inline-form" hidden>
@@ -927,18 +866,48 @@
               </div>
               <p id="region-error" class="form-error" role="alert"></p>
             </form>
-            <div id="regions-summary" class="units-summary"></div>
+            <form id="user-form" class="panel inline-form" hidden>
+              <h2>ساخت کاربر</h2>
+              <label
+                >واحد<input name="region_name" readonly tabindex="-1"
+              /></label>
+              <input type="hidden" name="region_id" />
+              <label
+                >نقش<select name="role"></select
+              ></label>
+              <label id="user-domain-label" hidden
+                >حوزهٔ کاری<select name="domain_id"></select
+              ></label>
+              <label
+                >نام کامل<input name="full_name" required maxlength="160"
+              /></label>
+              <label
+                >نام کاربری<input name="username" required maxlength="80"
+              /></label>
+              <button class="button primary" type="submit">
+                ساخت و دریافت گذرواژهٔ موقت
+              </button>
+              <button
+                class="button outline"
+                data-action="cancel-user"
+                type="button"
+              >
+                انصراف
+              </button>
+              <p id="user-error" class="form-error"></p>
+            </form>
+            <div id="structure-summary" class="units-summary"></div>
             <div class="units-toolbar">
               <label class="units-search"
                 ><input
-                  id="regions-search"
+                  id="structure-search"
                   type="search"
-                  placeholder="جست‌وجوی استان یا مرکز دانشگاهی"
+                  placeholder="جست‌وجوی استان، مرکز یا کاربر"
                   autocomplete="off"
-                  aria-label="جست‌وجوی استان یا مرکز دانشگاهی"
+                  aria-label="جست‌وجوی استان، مرکز یا کاربر"
               /></label>
               <div
-                id="regions-filter"
+                id="structure-filter"
                 class="seg"
                 role="radiogroup"
                 aria-label="فیلتر وضعیت"
@@ -946,7 +915,7 @@
                 <label class="seg-item"
                   ><input
                     type="radio"
-                    name="regions_filter"
+                    name="structure_filter"
                     value="all"
                     checked
                   /><span>همه</span></label
@@ -954,20 +923,20 @@
                 <label class="seg-item"
                   ><input
                     type="radio"
-                    name="regions_filter"
+                    name="structure_filter"
                     value="active"
                   /><span>فعال</span></label
                 >
                 <label class="seg-item"
                   ><input
                     type="radio"
-                    name="regions_filter"
+                    name="structure_filter"
                     value="inactive"
                   /><span>فعال‌نشده</span></label
                 >
               </div>
             </div>
-            <div id="regions-tree" class="units-list"></div>
+            <div id="structure-tree" class="units-list"></div>
           </section>
           <section
             id="categories-view"
@@ -1640,6 +1609,6 @@
       <div id="update-root"></div>
       <div id="install-root"></div>
     </div>
-    <script type="module" src="/dashboard/dashboard.v0.1.88.js"></script>
+    <script type="module" src="/dashboard/dashboard.v0.1.89.js"></script>
   </body>
 </html>
