@@ -15,14 +15,15 @@ import {
   verifyTotp,
 } from '../auth/crypto.js';
 import {
+  REMEMBER_RENEW_AFTER_SECONDS,
+  REMEMBER_TTL_SECONDS,
   clearOpaqueCookie,
-
   createPendingStore,
   createSession,
-  createTrustedDevice,
   hashToken,
+  isMobileUserAgent,
   readCookie,
-
+  replaceDeviceSessions,
   setOpaqueCookie,
 } from '../auth/sessions.js';
 
@@ -36,6 +37,7 @@ const FAILURE_LOCK_SECONDS = 15 * 60;
 const MAX_USERNAME_LENGTH = 80;
 const MAX_PASSWORD_LENGTH = 1024;
 const MAX_PENDING_CODE_FAILURES = 5;
+const TOTP_SETUP_TTL_MS = 10 * 60_000;
 const DUMMY_PASSWORD_HASH = `scrypt$16384$8$1$${'00'.repeat(16)}$${'00'.repeat(64)}`;
 const ANY_ADDRESS = '*';
 
@@ -87,10 +89,11 @@ export function createAuthMiddleware(pool, config, clock = Date.now) {
       if (!token) return response.status(401).json({ error: 'برای ادامه وارد شوید.' });
       const [rows] = await pool.execute(
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.is_active,
-                u.must_change_password, s.token_hash
+                u.must_change_password, s.token_hash, s.remember,
+                (s.expires_at < DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? SECOND)) AS renew_due
          FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > UTC_TIMESTAMP() AND u.is_active = 1`,
-        [hashToken(token)],
+        [REMEMBER_TTL_SECONDS - REMEMBER_RENEW_AFTER_SECONDS, hashToken(token)],
       );
       if (!rows.length) {
         clearOpaqueCookie(response, 'session', config.nodeEnv);
@@ -99,6 +102,15 @@ export function createAuthMiddleware(pool, config, clock = Date.now) {
       request.user = rows[0];
       request.sessionToken = token;
       request.authTime = clock();
+      // نشست «به یاد سپاری»: حداکثر روزی یک‌بار تمدید می‌شود تا تا وقتی کوکی هست (و استفاده می‌شود) هرگز منقضی نشود.
+      if (rows[0].remember && Number(rows[0].renew_due)) {
+        const now = clock();
+        await pool.execute(
+          'UPDATE sessions SET expires_at = ? WHERE token_hash = ?',
+          [new Date(now + REMEMBER_TTL_SECONDS * 1000), hashToken(token)],
+        );
+        setOpaqueCookie(response, 'session', token, config.nodeEnv, now, { remember: true });
+      }
       return next();
     } catch (error) {
       return next(error);
@@ -116,6 +128,12 @@ export function requirePasswordChanged(request, response, next) {
 export function createAuthRouter({ pool, config, clock = Date.now }) {
   const router = express.Router();
   const pendingStore = createPendingStore(clock);
+  // رازِ در حال ثبتِ برنامهٔ رمزساز (از صفحهٔ تنظیمات کاربر) تا تأیید با کد، فقط در حافظه نگه داشته می‌شود.
+  const totpSetups = new Map();
+  function takeSetup(userId, now = clock()) {
+    for (const [key, value] of totpSetups) if (value.expiresAt <= now) totpSetups.delete(key);
+    return totpSetups.get(Number(userId)) ?? null;
+  }
   const authenticate = createAuthMiddleware(pool, config, clock);
   // Password hashing is expensive, so the credential endpoints get their own per-address budget on top of the lockout.
   const credentialRateLimit = createRateLimiter({ limit: 30, windowMs: 60_000, clock });
@@ -155,21 +173,20 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     if (context.pending.failures >= MAX_PENDING_CODE_FAILURES) pendingStore.delete(context.token);
   }
 
-  async function finishLogin(request, response, user, { rememberDevice = false, extra = {} } = {}) {
+  // `remember` فقط برای موبایل است؛ نسخهٔ دسکتاپ همیشه نشست ۲۴ ساعته می‌گیرد، حتی اگر کلاینت «remember» بفرستد.
+  async function finishLogin(request, response, user, { remember = false, extra = {} } = {}) {
     const now = clock();
+    const persistent = Boolean(remember) && isMobileUserAgent(request.get?.('user-agent'));
     await resetFailures(request, user.username);
-    const session = await createSession(pool, user.id, request, now);
-    setOpaqueCookie(response, 'session', session.token, config.nodeEnv, now);
+    await replaceDeviceSessions(pool, user.id, request, readCookie(request, 'session', config.nodeEnv));
+    const session = await createSession(pool, user.id, request, now, { remember: persistent });
+    setOpaqueCookie(response, 'session', session.token, config.nodeEnv, now, { remember: persistent });
     const pendingToken = readCookie(request, 'pending', config.nodeEnv);
     pendingStore.delete(pendingToken);
     clearOpaqueCookie(response, 'pending', config.nodeEnv);
-    if (rememberDevice) {
-      const device = await createTrustedDevice(pool, user.id, request, now);
-      setOpaqueCookie(response, 'device', device.token, config.nodeEnv, now);
-    }
     await pool.execute('UPDATE users SET last_login_at = UTC_TIMESTAMP() WHERE id = ?', [user.id]);
     await audit(pool, user.id, 'auth.login', 'user', user.id, request);
-    return response.json({ ok: true, must_change_password: Boolean(user.must_change_password), ...extra });
+    return response.json({ ok: true, must_change_password: Boolean(user.must_change_password), remembered: persistent, ...extra });
   }
 
   async function pendingUser(request) {
@@ -184,6 +201,36 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     );
     if (!rows.length || !rows[0].is_active) return null;
     return { token, pending, user: rows[0] };
+  }
+
+  // کد شش‌رقمی برنامهٔ رمزساز یا یکی از کدهای بازیابی. `user` باید totp_secret_enc و totp_last_step داشته باشد.
+  async function verifySecondFactor(user, rawCode) {
+    const code = typeof rawCode === 'string' ? rawCode.trim().slice(0, 64) : '';
+    if (/^\d{6}$/.test(code)) {
+      if (!user.totp_secret_enc) return false;
+      const secret = base32Decode(decryptTotpSecret(user.totp_secret_enc, config.appSecret));
+      const step = verifyTotp(code, secret, { time: clock(), lastStep: Number(user.totp_last_step ?? -1) });
+      if (step === null) return false;
+      const [result] = await pool.execute(
+        `UPDATE users SET totp_last_step = ?
+         WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)`,
+        [step, user.id, step],
+      );
+      return result.affectedRows === 1;
+    }
+    if (!code) return false;
+    const [backupRows] = await pool.execute(
+      'SELECT id, code_hash FROM backup_codes WHERE user_id = ? AND used_at IS NULL',
+      [user.id],
+    );
+    const hashValues = backupRows.map((row) => Buffer.from(row.code_hash).toString('hex'));
+    if (!consumeBackupCode(code, hashValues)) return false;
+    const matchingHash = Buffer.from(hashBackupCode(code), 'hex');
+    const [result] = await pool.execute(
+      'UPDATE backup_codes SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND code_hash = ? AND used_at IS NULL',
+      [user.id, matchingHash],
+    );
+    return result.affectedRows === 1;
   }
 
   router.post('/login', async (request, response, next) => {
@@ -211,38 +258,28 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         return response.status(401).json({ error: 'نام کاربری یا گذرواژه نادرست است.' });
       }
 
-      if (user.totp_enabled) {
-        const deviceToken = readCookie(request, 'device', config.nodeEnv);
-        if (deviceToken) {
-          const [deviceRows] = await pool.execute(
-            `SELECT id FROM trusted_devices
-             WHERE token_hash = ? AND user_id = ? AND expires_at > UTC_TIMESTAMP() LIMIT 1`,
-            [hashToken(deviceToken), user.id],
-          );
-          if (deviceRows.length) {
-            await pool.execute('UPDATE trusted_devices SET last_used_at = UTC_TIMESTAMP() WHERE id = ?', [deviceRows[0].id]);
-            return finishLogin(request, response, user);
-          }
-        }
-      }
+      // رمز دومرحله‌ای تنظیم هر کاربر است (صفحهٔ حساب کاربری)؛ اگر روشن نباشد، گذرواژه کافی است.
+      const remember = request.body?.remember === true && isMobileUserAgent(request.get?.('user-agent'));
+      if (!user.totp_enabled) return finishLogin(request, response, user, { remember });
 
-      const pendingToken = pendingStore.issue(user.id, clock());
+      const pendingToken = pendingStore.issue(user.id, clock(), { remember });
       setOpaqueCookie(response, 'pending', pendingToken, config.nodeEnv, clock());
-      return response.json({ next: user.totp_enabled ? 'totp' : 'totp_setup' });
+      return response.json({ next: 'totp' });
     } catch (error) {
       return next(error);
     }
   });
 
-  router.get('/totp/setup', async (request, response, next) => {
+  // --- رمز دومرحله‌ای به‌عنوان تنظیم کاربر (نیاز به نشست فعال) ---
+  router.post('/totp/setup', authenticate, requirePasswordChanged, async (request, response, next) => {
     try {
-      const context = await pendingUser(request);
-      if (!context || context.user.totp_enabled) {
-        return response.status(401).json({ error: 'مرحلهٔ ثبت کد دومعتبره منقضی شده است؛ دوباره وارد شوید.' });
+      const [rows] = await pool.execute('SELECT totp_enabled FROM users WHERE id = ?', [request.user.id]);
+      if (rows[0]?.totp_enabled) {
+        return response.status(409).json({ error: 'رمز دومرحله‌ای از قبل روشن است.' });
       }
       const secret = base32Encode(randomBytes(20)).replace(/=+$/, '');
-      context.pending.totpSecret = secret;
-      const label = encodeURIComponent(`PnuNews:${context.user.username}`);
+      totpSetups.set(Number(request.user.id), { secret, expiresAt: clock() + TOTP_SETUP_TTL_MS });
+      const label = encodeURIComponent(`PnuNews:${request.user.username}`);
       const uri = `otpauth://totp/${label}?secret=${secret}&issuer=PnuNews&algorithm=SHA1&digits=6&period=30`;
       const qrSvg = await QRCode.toString(uri, { type: 'svg', errorCorrectionLevel: 'M' });
       return response.json({ secret, qr_svg: qrSvg });
@@ -251,22 +288,20 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     }
   });
 
-  router.post('/totp/enable', async (request, response, next) => {
+  router.post('/totp/enable', authenticate, requirePasswordChanged, async (request, response, next) => {
     try {
-      const context = await pendingUser(request);
-      if (!context || context.user.totp_enabled || !context.pending.totpSecret) {
-        return response.status(401).json({ error: 'ابتدا راه‌اندازی برنامهٔ رمزساز را انجام دهید.' });
+      const setup = takeSetup(request.user.id);
+      if (!setup) {
+        return response.status(400).json({ error: 'ابتدا راه‌اندازی برنامهٔ رمزساز را انجام دهید.' });
       }
-      const code = typeof request.body?.code === 'string' ? request.body.code : '';
-      if (await lockedOut(request, context.user.username)) {
-        return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
+      const code = typeof request.body?.code === 'string' ? request.body.code.trim() : '';
+      if (await lockedOut(request, request.user.username)) {
+        return response.status(429).json({ error: 'امکان این کار موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
       }
-      const secretBytes = base32Decode(context.pending.totpSecret);
-      const step = verifyTotp(code, secretBytes, { time: clock(), lastStep: -1 });
+      const step = verifyTotp(code, base32Decode(setup.secret), { time: clock(), lastStep: -1 });
       if (step === null) {
-        await countFailure(request, context.user.username);
-        countPendingFailure(context);
-        await audit(pool, context.user.id, 'auth.totp_failed', 'user', context.user.id, request);
+        await countFailure(request, request.user.username);
+        await audit(pool, request.user.id, 'auth.totp_failed', 'user', request.user.id, request);
         return response.status(401).json({ error: 'کد واردشده معتبر نیست.' });
       }
 
@@ -277,11 +312,12 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         const [result] = await connection.execute(
           `UPDATE users SET totp_secret_enc = ?, totp_enabled = 1, totp_last_step = ?
            WHERE id = ? AND totp_enabled = 0 AND is_active = 1`,
-          [encryptTotpSecret(context.pending.totpSecret, config.appSecret), step, context.user.id],
+          [encryptTotpSecret(setup.secret, config.appSecret), step, request.user.id],
         );
         if (result.affectedRows !== 1) throw new Error('Two-factor setup state changed unexpectedly');
+        await connection.execute('DELETE FROM backup_codes WHERE user_id = ?', [request.user.id]);
         for (const hash of hashes) {
-          await connection.execute('INSERT INTO backup_codes (user_id, code_hash) VALUES (?, ?)', [context.user.id, Buffer.from(hash, 'hex')]);
+          await connection.execute('INSERT INTO backup_codes (user_id, code_hash) VALUES (?, ?)', [request.user.id, Buffer.from(hash, 'hex')]);
         }
         await connection.commit();
       } catch (error) {
@@ -290,8 +326,52 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       } finally {
         connection.release();
       }
-      await audit(pool, context.user.id, 'auth.totp_enabled', 'user', context.user.id, request);
-      return finishLogin(request, response, context.user, { extra: { backup_codes: codes } });
+      totpSetups.delete(Number(request.user.id));
+      await audit(pool, request.user.id, 'auth.totp_enabled', 'user', request.user.id, request);
+      return response.json({ ok: true, totp_enabled: true, backup_codes: codes });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // خاموش‌کردن: هم گذرواژه و هم یک کد دومرحله‌ای (یا کد بازیابی) لازم است تا نشستِ دزدیده‌شده نتواند آن را خاموش کند.
+  router.post('/totp/disable', authenticate, requirePasswordChanged, async (request, response, next) => {
+    try {
+      if (await lockedOut(request, request.user.username)) {
+        return response.status(429).json({ error: 'امکان این کار موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
+      }
+      const [rows] = await pool.execute(
+        'SELECT id, password_hash, totp_enabled, totp_secret_enc, totp_last_step FROM users WHERE id = ?',
+        [request.user.id],
+      );
+      const user = rows[0];
+      if (!user?.totp_enabled) return response.status(409).json({ error: 'رمز دومرحله‌ای روشن نیست.' });
+      const password = typeof request.body?.password === 'string' ? request.body.password.slice(0, MAX_PASSWORD_LENGTH + 1) : '';
+      const passwordOk = await verifyPassword(password, user.password_hash);
+      const codeOk = passwordOk && await verifySecondFactor(user, request.body?.code);
+      if (!passwordOk || !codeOk) {
+        await countFailure(request, request.user.username);
+        await audit(pool, request.user.id, 'auth.totp_failed', 'user', request.user.id, request);
+        return response.status(401).json({ error: 'گذرواژه یا کد واردشده معتبر نیست.' });
+      }
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        await connection.execute(
+          'UPDATE users SET totp_secret_enc = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = ?',
+          [request.user.id],
+        );
+        await connection.execute('DELETE FROM backup_codes WHERE user_id = ?', [request.user.id]);
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      await resetFailures(request, request.user.username);
+      await audit(pool, request.user.id, 'auth.totp_disabled', 'user', request.user.id, request);
+      return response.json({ ok: true, totp_enabled: false });
     } catch (error) {
       return next(error);
     }
@@ -303,39 +383,11 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       if (!context || !context.user.totp_enabled || !context.user.totp_secret_enc) {
         return response.status(401).json({ error: 'مرحلهٔ تأیید دومعتبره منقضی شده است؛ دوباره وارد شوید.' });
       }
-      const code = typeof request.body?.code === 'string' ? request.body.code.trim().slice(0, 64) : '';
       if (await lockedOut(request, context.user.username)) {
         return response.status(429).json({ error: 'امکان ورود موقتاً وجود ندارد. کمی بعد دوباره تلاش کنید.' });
       }
 
-      let valid = false;
-      const isTotp = /^\d{6}$/.test(code);
-      if (isTotp) {
-        const secret = base32Decode(decryptTotpSecret(context.user.totp_secret_enc, config.appSecret));
-        const step = verifyTotp(code, secret, { time: clock(), lastStep: Number(context.user.totp_last_step ?? -1) });
-        if (step !== null) {
-          const [result] = await pool.execute(
-            `UPDATE users SET totp_last_step = ?
-             WHERE id = ? AND (totp_last_step IS NULL OR totp_last_step < ?)`,
-            [step, context.user.id, step],
-          );
-          valid = result.affectedRows === 1;
-        }
-      } else if (code) {
-        const [backupRows] = await pool.execute(
-          'SELECT id, code_hash FROM backup_codes WHERE user_id = ? AND used_at IS NULL',
-          [context.user.id],
-        );
-        const hashValues = backupRows.map((row) => Buffer.from(row.code_hash).toString('hex'));
-        if (consumeBackupCode(code, hashValues)) {
-          const matchingHash = Buffer.from(hashBackupCode(code), 'hex');
-          const [result] = await pool.execute(
-            'UPDATE backup_codes SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND code_hash = ? AND used_at IS NULL',
-            [context.user.id, matchingHash],
-          );
-          valid = result.affectedRows === 1;
-        }
-      }
+      const valid = await verifySecondFactor(context.user, request.body?.code);
 
       if (!valid) {
         await countFailure(request, context.user.username);
@@ -343,13 +395,8 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         await audit(pool, context.user.id, 'auth.totp_failed', 'user', context.user.id, request);
         return response.status(401).json({ error: 'کد واردشده معتبر نیست.' });
       }
-      const rememberDevice = request.body?.remember === undefined || request.body.remember === true;
-      if (rememberDevice) {
-        const device = await createTrustedDevice(pool, context.user.id, request, clock());
-        setOpaqueCookie(response, 'device', device.token, config.nodeEnv, clock());
-      }
       await audit(pool, context.user.id, 'auth.totp_success', 'user', context.user.id, request);
-      return finishLogin(request, response, context.user);
+      return finishLogin(request, response, context.user, { remember: Boolean(context.pending.remember) });
     } catch (error) {
       return next(error);
     }
@@ -377,7 +424,7 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     try {
       // `level` is the type of the user's unit (country / province / city); `domain_*` is set for domain users only.
       const [rows] = await pool.execute(
-        `SELECT r.type AS level, u.domain_id, d.name AS domain_name
+        `SELECT r.type AS level, u.domain_id, d.name AS domain_name, u.totp_enabled
          FROM users u JOIN regions r ON r.id = u.region_id
          LEFT JOIN work_domains d ON d.id = u.domain_id WHERE u.id = ?`,
         [request.user.id],
@@ -393,6 +440,10 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
           domain_id: rows[0]?.domain_id ?? null,
           domain_name: rows[0]?.domain_name ?? null,
           must_change_password: Boolean(request.user.must_change_password),
+          totp_enabled: Boolean(rows[0]?.totp_enabled),
+          // آیا نشست فعلی «به یاد سپاری» است، و آیا این دستگاه اجازهٔ آن را دارد (فقط موبایل).
+          session_remembered: Boolean(request.user.remember),
+          can_remember: isMobileUserAgent(request.get?.('user-agent')),
         },
       });
     } catch (error) {
@@ -424,7 +475,6 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
           [passwordHash, request.user.id],
         );
         await connection.execute('DELETE FROM sessions WHERE user_id = ?', [request.user.id]);
-        await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [request.user.id]);
         await connection.execute(
           `INSERT INTO audit_log (user_id, action, entity, entity_id, ip)
            VALUES (?, 'auth.password_changed', 'user', ?, ?)`,
@@ -438,37 +488,44 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         connection.release();
       }
       clearOpaqueCookie(response, 'session', config.nodeEnv);
-      clearOpaqueCookie(response, 'device', config.nodeEnv);
       return response.json({ ok: true, reauthentication_required: true });
     } catch (error) {
       return next(error);
     }
   });
 
-  router.get('/devices', authenticate, requirePasswordChanged, async (request, response, next) => {
+  router.get('/sessions', authenticate, requirePasswordChanged, async (request, response, next) => {
     try {
-      const [devices] = await pool.execute(
-        `SELECT id, user_agent, ip, created_at, last_used_at, expires_at
-         FROM trusted_devices WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()
-         ORDER BY last_used_at DESC, id DESC`,
+      const [rows] = await pool.execute(
+        `SELECT token_hash, user_agent, ip, created_at, expires_at, remember
+         FROM sessions WHERE user_id = ? AND expires_at > UTC_TIMESTAMP()
+         ORDER BY created_at DESC`,
         [request.user.id],
       );
-      return response.json({ devices });
+      const current = hashToken(request.sessionToken);
+      const sessions = rows.map((row) => ({
+        user_agent: row.user_agent,
+        ip: row.ip,
+        created_at: row.created_at,
+        expires_at: row.expires_at,
+        remember: Boolean(row.remember),
+        current: Buffer.from(row.token_hash).equals(current),
+      }));
+      return response.json({ sessions });
     } catch (error) {
       return next(error);
     }
   });
 
-  router.delete('/devices', authenticate, async (request, response, next) => {
+  router.delete('/sessions', authenticate, async (request, response, next) => {
     try {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
         await connection.execute('DELETE FROM sessions WHERE user_id = ?', [request.user.id]);
-        await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [request.user.id]);
         await connection.execute(
           `INSERT INTO audit_log (user_id, action, entity, entity_id, ip)
-           VALUES (?, 'auth.devices_revoked', 'user', ?, ?)`,
+           VALUES (?, 'auth.sessions_revoked', 'user', ?, ?)`,
           [request.user.id, request.user.id, request.ip ?? null],
         );
         await connection.commit();
@@ -479,7 +536,6 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         connection.release();
       }
       clearOpaqueCookie(response, 'session', config.nodeEnv);
-      clearOpaqueCookie(response, 'device', config.nodeEnv);
       return response.json({ ok: true });
     } catch (error) {
       return next(error);

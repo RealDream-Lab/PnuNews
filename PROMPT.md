@@ -102,7 +102,7 @@ Terms: a user's *subtree* = their region and all descendants. `origin_region` of
   - **One admin per city:** creating a second *active* `city_admin` for the same city is rejected with a clear Persian message (check inside a transaction that locks the region row). The limit is the setting `max_city_admins` (default `1`), so the owner can raise it later without a migration. To replace a city's admin, deactivate the old one, then create the new one.
 - `city_admin` manages no users.
 - No one can create a user of equal or higher role; no one edits their own role/region.
-- Users are **never hard-deleted** (news reference them) — only deactivated. Deactivation revokes all sessions and trusted devices immediately.
+- Users are **never hard-deleted** (news reference them) — only deactivated. Deactivation revokes all sessions immediately.
 - A superior can reset a subordinate's password (temporary password, `must_change_password=1`) and reset their 2FA (forces re-enrollment).
 
 **Enforce all of this in one policy module** (`src/auth/policy.js`) used by every route; unit-test it thoroughly. Never rely on the UI hiding buttons.
@@ -117,8 +117,7 @@ Create versioned, idempotent migrations (`migrations/001_init.sql`, …) tracked
 
 - `regions(id, parent_id NULL, type ENUM('country','province','city'), name, code NULL, sort_order, visibility_override, created_at)`
 - `users(id, username UNIQUE, password_hash, full_name, role, region_id, created_by, is_active, must_change_password, totp_secret_enc NULL, totp_enabled, password_changed_at, last_login_at, created_at)`
-- `sessions(token_hash PK, user_id, created_at, expires_at, ip, user_agent)`
-- `trusted_devices(id, user_id, token_hash UNIQUE, user_agent, ip, created_at, last_used_at, expires_at)`
+- `sessions(token_hash PK, user_id, created_at, expires_at, remember, ip, user_agent)`
 - `backup_codes(id, user_id, code_hash, used_at)`
 - `login_attempts` (or equivalent) for throttling
 - `categories(id, name, sort_order, is_active)` — seed: آموزشی، امتحانات، ثبت‌نام و پذیرش، فرهنگی و دانشجویی، پژوهشی، اطلاعیه‌های عمومی
@@ -135,25 +134,25 @@ Create versioned, idempotent migrations (`migrations/001_init.sql`, …) tracked
 
 ## 5. Authentication (admins only; readers never log in)
 
-**Two-factor is mandatory for every admin.** Use TOTP (authenticator app) + 10 one-time backup codes. Two separate cookies:
+**Two-factor is a per-user setting (off by default), switched on/off on the user's account page.** Use TOTP (authenticator app) + 10 one-time backup codes. One session cookie:
 
 | Cookie | Purpose | Lifetime |
 |---|---|---|
-| `__Host-pnu_session` | proves a password login happened | **24 hours, absolute** (not extended by activity) |
-| `__Host-pnu_device` | "this device already passed 2FA" | **30 days**, fixed from issue |
+| `__Host-pnu_session` | proves a login happened | **24 hours, absolute** on desktop; on phones, if «مرا به خاطر بسپار» was ticked, a persistent session (cookie renewed on use, at most daily) |
 
 Both: `HttpOnly; Secure; SameSite=Lax; Path=/`, random 256-bit opaque tokens, **only SHA-256 hashes stored in DB**. **A password is never stored in a cookie.** (When `NODE_ENV!=='production'` use plain cookie names and omit `Secure`, so it also works on `http://localhost` in Safari.)
 
 **Login flow**
 1. `POST /api/auth/login {username,password}`. Wrong → generic error, throttled (per IP and per username).
 2. Password OK:
-   - 2FA not enrolled → issue a short-lived (10 min) HttpOnly "pending" cookie and require **enrollment**: `GET /api/auth/totp/setup` (secret + QR as inline SVG via `qrcode`) → `POST /api/auth/totp/enable {code}` → show backup codes **once** → create session.
-   - 2FA enrolled and a **valid device cookie for this user** exists → create the session immediately (no code). Update `last_used_at`.
-   - otherwise → "pending" cookie, ask for the code: `POST /api/auth/totp {code, remember}` (or a backup code). On success create the session; if `remember` (checkbox, **default checked**, label «این دستگاه را یک ماه به خاطر بسپار») also issue the 30-day device cookie.
-3. After 24 h the session expires: the user retypes only the password; the trusted device skips the code. After 30 days the code is asked again.
+   - 2FA off → create the session immediately.
+   - 2FA on → short-lived (10 min) HttpOnly "pending" cookie, ask for the code on **every** login: `POST /api/auth/totp {code}` (or a backup code), then create the session.
+   - `remember` (login checkbox, shown on phones only, server re-checks the User-Agent) → persistent session; desktop always gets 24 h.
+   - Enrolment/disable live in the account page: `POST /api/auth/totp/setup` (secret + QR as inline SVG) → `POST /api/auth/totp/enable {code}` → backup codes shown **once**; `POST /api/auth/totp/disable {password, code}`.
+3. After 24 h a non-remembered session expires and the user logs in again.
 4. If `must_change_password=1`, force a password change before anything else.
 
-**Hardening:** 5 wrong codes → 15-minute lock for that user+IP; TOTP replay protection (reject a time-step already used); password min length 10, not equal to username; scrypt with per-user salt; TOTP secrets AES-256-GCM encrypted with a key derived from `APP_SECRET`; on password change / 2FA reset / deactivation → revoke **all** sessions and trusted devices of that user; profile page lists trusted devices with "log out everywhere". CSRF: SameSite cookies + require `Content-Type: application/json` and a same-origin `Origin`/`Sec-Fetch-Site` check on every state-changing request.
+**Hardening:** 5 wrong codes → 15-minute lock for that user+IP; TOTP replay protection (reject a time-step already used); password min length 10, not equal to username; scrypt with per-user salt; TOTP secrets AES-256-GCM encrypted with a key derived from `APP_SECRET`; on password change / 2FA reset / deactivation → revoke **all** sessions of that user; profile page lists active sessions with "log out everywhere". CSRF: SameSite cookies + require `Content-Type: application/json` and a same-origin `Origin`/`Sec-Fetch-Site` check on every state-changing request.
 
 `scripts/create-super-admin.js`: interactive prompt for username/full name/password (no defaults, never printed). The first login enrolls 2FA like everyone else. Also provide `scripts/reset-2fa.js <username>` for the case where a super admin loses their phone.
 
@@ -199,7 +198,7 @@ Both: `HttpOnly; Secure; SameSite=Lax; Path=/`, random 256-bit opaque tokens, **
 
 One codebase, two layouts chosen by viewport, with **intentionally different capabilities**:
 
-**Mobile (≤ 767 px) — "fast publishing":** login + 2FA; **quick-compose** (title, short text, take/choose photos via `<input type=file accept=image/* capture>`, pick scope, publish now); my recent news (edit/unpublish/delete within policy); read the feed; profile & trusted devices. Large touch targets, one-handed layout.
+**Mobile (≤ 767 px) — "fast publishing":** login (+ remember-me) + optional 2FA; **quick-compose** (title, short text, take/choose photos via `<input type=file accept=image/* capture>`, pick scope, publish now); my recent news (edit/unpublish/delete within policy); read the feed; profile, 2FA setting & active sessions. Large touch targets, one-handed layout.
 
 **Desktop — "full management":** dashboard (counts, latest, views); news table with filters/search; full editor (small built-in rich-text toolbar: bold/italic/headings/lists/links; multiple images; file attachments; category; pin/urgent; **schedule publishing and expiry with a Jalali date-time picker**, Iran time); **user management** as a tree (province → cities) with create / deactivate / reset password / reset 2FA; region management (super_admin); settings (**radio on/off switch, title, stream URL, optional now-playing URL**; byline option; `max_city_admins`; `peer_edit_enabled`); audit log; stats.
 
@@ -351,7 +350,7 @@ In Nginx Proxy Manager → Proxy Hosts → Add:
 
 - **M0** Scaffold, config validation, `.autostart.example`, `.env.dev.example`, `docker-compose.dev.yml`, docs skeleton, `.gitignore`; git init (Persian commit messages); local MariaDB up and migrated. → report.
 - **M1** Migrations, seed (regions/categories/settings), CLI scripts. Tests for normalization.
-- **M2** Auth: password, TOTP, backup codes, sessions, trusted device, throttling, must-change-password, devices page. Tests incl. RFC 6238 vectors and the cookie/lifetime logic.
+- **M2** Auth: password, TOTP, backup codes, sessions (24 h / mobile remember-me), optional per-user 2FA, throttling, must-change-password, sessions page. Tests incl. RFC 6238 vectors and the cookie/lifetime logic.
 - **M3** Policy module + user management API + region visibility + audit. Exhaustive policy tests (every role × action × region combination class).
 - **M4** News CRUD, targets, scheduling/expiry scheduler, uploads/image pipeline/files, sanitization.
 - **M5** Public API (feed, news, config, radio proxy, OG pages), micro-cache, keyset pagination tests.
@@ -368,7 +367,7 @@ In Nginx Proxy Manager → Proxy Hosts → Add:
 
 - All tests green locally (`npm test`, Node's built-in runner against the dev DB).
 - A province admin created by the super admin can create a city admin; that city appears in the public picker; a news item targeted at the province shows for readers of its cities; a city admin sees other cities' news read-only and cannot edit them; a second active city admin for the same city is rejected while `max_city_admins=1`; the radio bar disappears when `radio_enabled=0`; all verified by tests.
-- 2FA flow verified: first-login enrollment; daily password re-entry with the device cookie skipping the code; code required again after 30 days (test with injected clock).
+- 2FA flow verified: optional per-user enrolment/disable from the account page; code asked on every login when on; 24 h session on desktop; remember-me session only on phones (test with injected clock).
 - Uploads: oversize/forbidden/spoofed-extension files rejected; images come out as WebP in three sizes with no EXIF/GPS.
 - Reader page meets the performance budget and works in light and dark on a 360 px-wide viewport and on desktop.
 - Every news item permanently shows and stores its publisher.

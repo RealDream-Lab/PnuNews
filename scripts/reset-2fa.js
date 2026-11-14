@@ -29,7 +29,6 @@ try {
     );
     await connection.execute('DELETE FROM backup_codes WHERE user_id = ?', [user.id]);
     await connection.execute('DELETE FROM sessions WHERE user_id = ?', [user.id]);
-    await connection.execute('DELETE FROM trusted_devices WHERE user_id = ?', [user.id]);
     await connection.execute(
       `INSERT INTO audit_log (user_id, action, entity, entity_id, meta)
        VALUES (NULL, 'auth.totp_reset_cli', 'user', ?, JSON_OBJECT('target_user_id', ?))`,
@@ -43,7 +42,7 @@ try {
     connection.release();
   }
 
-  console.info('احراز هویت دومرحله‌ای بازنشانی شد؛ کاربر باید در ورود بعدی دوباره ثبت‌نام کند.');
+  console.info('احراز هویت دومرحله‌ای بازنشانی شد؛ کاربر می‌تواند از صفحهٔ حساب کاربری دوباره آن را روشن کند.');
 } catch (error) {
   console.error(`بازنشانی دومرحله‌ای ناموفق بود.\n2FA reset failed: ${error.message}`);
   process.exitCode = 1;

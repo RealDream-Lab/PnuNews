@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.80.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.81.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3144,6 +3144,9 @@ function auditAction(action) {
     "auth.login": "ورود",
     "auth.logout": "خروج",
     "auth.login_failed": "ورود ناموفق",
+    "auth.totp_enabled": "روشن‌شدن رمز دومرحله‌ای",
+    "auth.totp_disabled": "خاموش‌شدن رمز دومرحله‌ای",
+    "auth.sessions_revoked": "خروج از همهٔ دستگاه‌ها",
     "news.create": "ساخت خبر",
     "news.update": "ویرایش خبر",
     "news.delete": "حذف خبر",
@@ -3195,26 +3198,108 @@ async function loadStats() {
   }
 }
 
+// نسخهٔ دسکتاپ همیشه نشست ۲۴ ساعته دارد؛ «به یاد سپاری» فقط روی گوشی است (سرور هم همین را از User-Agent بررسی می‌کند).
+const isMobileDevice = () =>
+  /Android.+Mobile|iPhone|iPod|Windows Phone|IEMobile|Opera Mini|BlackBerry|\bMobile\b/i.test(
+    navigator.userAgent,
+  );
+
+function resetTotpPanel() {
+  document.getElementById("profile-totp-enroll").hidden = true;
+  document.getElementById("profile-totp-disable-form").hidden = true;
+  document.getElementById("profile-totp-backup").hidden = true;
+  document.getElementById("profile-totp-enable-form")?.reset();
+  document.getElementById("profile-totp-disable-form")?.reset();
+}
+
+function renderTotpPanel(enabled) {
+  resetTotpPanel();
+  document.getElementById("profile-totp-status").textContent = enabled
+    ? "رمز دومرحله‌ای روشن است؛ در هر ورود، پس از گذرواژه کد برنامهٔ رمزساز هم پرسیده می‌شود."
+    : "رمز دومرحله‌ای خاموش است؛ ورود فقط با گذرواژه انجام می‌شود. برای امنیت بیشتر می‌توانید آن را روشن کنید.";
+  document.getElementById("profile-totp-start").hidden = enabled;
+  document.getElementById("profile-totp-disable-open").hidden = !enabled;
+}
+
 async function loadProfile() {
   document.getElementById("profile-password-form")?.reset();
   document.getElementById("profile-password-error").textContent = "";
   try {
-    const [me, deviceResponse] = await Promise.all([
+    const [me, sessionResponse] = await Promise.all([
       api("/api/auth/me"),
-      api("/api/auth/devices"),
+      api("/api/auth/sessions"),
     ]);
     state.user = me.user;
+    renderTotpPanel(Boolean(me.user.totp_enabled));
     const profile = document.getElementById("profile-details");
     profile.innerHTML = `<dt>نام</dt><dd>${escapeHtml(me.user.full_name)}</dd><dt>نام کاربری</dt><dd>${escapeHtml(me.user.username)}</dd><dt>نقش</dt><dd>${escapeHtml(roleLabel(me.user.role, me.user.domain_name))}</dd><dt>محدوده</dt><dd>${escapeHtml(regionName(me.user.region_id))}</dd>`;
-    document.getElementById("device-list").innerHTML = deviceResponse.devices
+    document.getElementById("device-list").innerHTML = sessionResponse.sessions
       .length
-      ? deviceResponse.devices
+      ? sessionResponse.sessions
           .map(
-            (device) =>
-              `<div class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(device.user_agent || "دستگاه نامشخص")}</strong><small>${formatDate(device.last_used_at || device.created_at)} · پایان ${formatDate(device.expires_at)}</small></div></div>`,
+            (item) =>
+              `<div class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.user_agent || "دستگاه نامشخص")}${item.current ? " (همین دستگاه)" : ""}</strong><small>${formatDate(item.created_at)} · ${item.remember ? "به‌یادسپرده‌شده" : `پایان ${formatDate(item.expires_at)}`}</small></div></div>`,
           )
           .join("")
-      : '<p class="muted">دستگاه مورداعتمادی ثبت نشده است.</p>';
+      : '<p class="muted">نشست فعالی ثبت نشده است.</p>';
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function startTotpEnrollment() {
+  try {
+    const setup = await api("/api/auth/totp/setup", { method: "POST", body: {} });
+    const svg = new TextEncoder().encode(setup.qr_svg);
+    let binary = "";
+    for (const byte of svg) binary += String.fromCharCode(byte);
+    document.getElementById("profile-totp-qr").src =
+      `data:image/svg+xml;base64,${btoa(binary)}`;
+    document.getElementById("profile-totp-secret").textContent = setup.secret;
+    document.getElementById("profile-totp-start").hidden = true;
+    document.getElementById("profile-totp-enroll").hidden = false;
+    document.getElementById("profile-totp-enable-form").elements.code.focus();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function submitTotpEnable(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    const code = normalizeDigits(form.elements.code.value.trim());
+    const result = await api("/api/auth/totp/enable", {
+      method: "POST",
+      body: { code },
+    });
+    renderTotpPanel(true);
+    document.getElementById("profile-backup-codes").innerHTML = (
+      result.backup_codes ?? []
+    )
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("");
+    document.getElementById("profile-totp-backup").hidden = false;
+    document.getElementById("profile-totp-disable-open").hidden = true;
+    showToast("رمز دومرحله‌ای روشن شد.");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function submitTotpDisable(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await api("/api/auth/totp/disable", {
+      method: "POST",
+      body: {
+        password: form.elements.password.value,
+        code: normalizeDigits(form.elements.code.value.trim()),
+      },
+    });
+    renderTotpPanel(false);
+    showToast("رمز دومرحله‌ای خاموش شد.");
   } catch (error) {
     showToast(error.message);
   }
@@ -3303,13 +3388,6 @@ async function unpublishEditorNews() {
   }
 }
 
-function showBackupCodes(codes) {
-  document.getElementById("backup-codes").innerHTML = codes
-    .map((code) => `<li>${escapeHtml(code)}</li>`)
-    .join("");
-  showAuth("backup-card");
-}
-
 async function onLogin(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -3321,30 +3399,11 @@ async function onLogin(event) {
       body: {
         username: form.elements.username.value,
         password: form.elements.password.value,
+        remember: isMobileDevice() && form.elements.remember.checked,
       },
     });
-    if (result.next === "totp_setup") {
-      const setup = await api("/api/auth/totp/setup");
-      const svg = new TextEncoder().encode(setup.qr_svg);
-      let binary = "";
-      for (const byte of svg) binary += String.fromCharCode(byte);
-      document.getElementById("totp-qr").src =
-        `data:image/svg+xml;base64,${btoa(binary)}`;
-      document.getElementById("totp-secret").textContent = setup.secret;
-      document.getElementById("totp-title").textContent = "ثبت برنامهٔ رمزساز";
-      document.getElementById("totp-description").textContent =
-        "کد QR را با برنامهٔ رمزساز اسکن کنید و کد شش‌رقمی را وارد کنید.";
-      document.getElementById("totp-setup").hidden = false;
-      document.getElementById("remember-label").hidden = true;
-      state.setupRequired = true;
-      showAuth("totp-card");
-    } else if (result.next === "totp") {
-      document.getElementById("totp-title").textContent = "تأیید دومرحله‌ای";
-      document.getElementById("totp-description").textContent =
-        "کد شش‌رقمی یا یکی از کدهای بازیابی را وارد کنید.";
-      document.getElementById("totp-setup").hidden = true;
-      document.getElementById("remember-label").hidden = false;
-      state.setupRequired = false;
+    if (result.next === "totp") {
+      document.getElementById("totp-form").reset();
       showAuth("totp-card");
     } else if (result.ok) await finishAuthenticatedLogin(result);
   } catch (failure) {
@@ -3359,16 +3418,10 @@ async function onTotp(event) {
   error.textContent = "";
   try {
     const code = normalizeDigits(form.elements.code.value.trim());
-    const result = state.setupRequired
-      ? await api("/api/auth/totp/enable", { method: "POST", body: { code } })
-      : await api("/api/auth/totp", {
-          method: "POST",
-          body: { code, remember: form.elements.remember.checked },
-        });
-    if (result.backup_codes?.length) {
-      showBackupCodes(result.backup_codes);
-      return;
-    }
+    const result = await api("/api/auth/totp", {
+      method: "POST",
+      body: { code },
+    });
     await finishAuthenticatedLogin(result);
   } catch (failure) {
     error.textContent = failure.message;
@@ -3481,17 +3534,32 @@ function bindEvents() {
   document
     .getElementById("profile-password-form")
     .addEventListener("submit", submitProfilePasswordChange);
+  document.getElementById("login-remember-label").hidden = !isMobileDevice();
   document
-    .getElementById("backup-continue")
-    .addEventListener("click", async () => {
-      const me = await api("/api/auth/me");
-      state.user = me.user;
-      if (me.user.must_change_password) showAuth("password-card");
-      else {
-        closeAuthAndShowAdmin();
-        await prepareWorkspace();
-      }
+    .getElementById("profile-totp-start")
+    .addEventListener("click", startTotpEnrollment);
+  document
+    .getElementById("profile-totp-enable-form")
+    .addEventListener("submit", submitTotpEnable);
+  document
+    .getElementById("profile-totp-cancel")
+    .addEventListener("click", () => renderTotpPanel(false));
+  document
+    .getElementById("profile-totp-disable-open")
+    .addEventListener("click", () => {
+      document.getElementById("profile-totp-disable-open").hidden = true;
+      document.getElementById("profile-totp-disable-form").hidden = false;
+      document.getElementById("profile-totp-disable-form").elements.password.focus();
     });
+  document
+    .getElementById("profile-totp-disable-form")
+    .addEventListener("submit", submitTotpDisable);
+  document
+    .getElementById("profile-totp-disable-cancel")
+    .addEventListener("click", () => renderTotpPanel(true));
+  document
+    .getElementById("profile-backup-done")
+    .addEventListener("click", () => renderTotpPanel(true));
   document.getElementById("logout-button").addEventListener("click", logout);
   document
     .getElementById("logout-everywhere")
@@ -3499,14 +3567,14 @@ function bindEvents() {
       if (
         !(await confirmDialog({
           title: "خروج از همهٔ دستگاه‌ها؟",
-          text: "نشست‌ها و دستگاه‌های مورداعتماد همه‌جا لغو می‌شوند.",
+          text: "نشست همهٔ دستگاه‌ها (از جمله «به‌یادسپرده‌شده‌ها») لغو می‌شود و باید دوباره وارد شوید.",
           tone: "warning",
           confirmText: "بله، لغو شود",
         }))
       )
         return;
       try {
-        await api("/api/auth/devices", { method: "DELETE", body: {} });
+        await api("/api/auth/sessions", { method: "DELETE", body: {} });
       } catch (error) {
         showToast(error.message);
       }
