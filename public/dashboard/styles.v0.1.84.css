@@ -97,6 +97,7 @@
 .unit-row{display:flex;align-items:center;gap:.75rem;padding:.55rem 1rem}
 .unit-row+.unit-row{border-top:1px solid var(--border)}
 .unit-main{flex:1;min-width:0;display:grid;line-height:1.5}
+.unit-actions{display:flex;flex-wrap:wrap;gap:.35rem;flex:none}
 .unit-main small{font-size:.78rem}
 .unit-row.is-editing,.unit-province-edit{padding:.8rem 1rem;background:var(--primary-soft)}
 .unit-edit{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:.75rem;align-items:end;width:100%}
@@ -104,7 +105,7 @@
 .unit-edit input,.unit-edit select{width:100%;min-height:42px;border:1px solid var(--border);border-radius:9px;padding:.35rem .7rem;background:var(--surface);color:var(--text);font:inherit}
 .unit-edit-actions{display:flex;gap:.5rem}
 .unit-edit-actions .button{min-height:42px}
-@media(max-width:767px){.unit-edit{grid-template-columns:1fr}.unit-meta{display:none}.unit-province>summary .status-badge{margin-inline-start:auto}.units-toolbar .seg{flex:1 1 100%}}
+@media(max-width:767px){.unit-row:not(.is-editing){flex-wrap:wrap}.unit-row .unit-actions{flex:1 1 100%}.unit-edit{grid-template-columns:1fr}.unit-meta{display:none}.unit-province>summary .status-badge{margin-inline-start:auto}.units-toolbar .seg{flex:1 1 100%}}
 
 .mini-button.danger{color:var(--danger);border-color:var(--danger)}
 
@@ -412,3 +413,7 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .install-banner .button{min-height:38px;padding:.2rem 1.1rem;flex:1 1 auto;white-space:nowrap}
 .install-banner .icon-button{width:34px;height:34px;border-radius:10px;flex:none}
 @media(min-width:560px){.install-banner{flex-wrap:nowrap}.install-text{flex:1 1 0}.install-banner .button{flex:none}}
+.security-panel .button{justify-self:start;min-width:170px}.security-panel .qr-code{margin-inline:0}.security-panel .backup-codes{margin-bottom:.8rem}@media(max-width:560px){.security-panel .button{width:100%}}
+.heading-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}@media(max-width:767px){.heading-actions .button{min-height:39px;padding:.3rem .65rem;font-size:.78rem}}
+.tree-city.is-city{padding-inline-start:1.8rem;border-inline-start:3px solid var(--primary-soft)}.tree-city:not(.is-city) strong{color:var(--primary)}
+.mini-button:disabled{opacity:.45;cursor:not-allowed}

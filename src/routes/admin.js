@@ -1,5 +1,7 @@
 import { describeNowPlayingError, fetchNowPlaying, makeRadioResolver, resolveNowPlayingUrl } from '../lib/nowplaying.js';
 import { randomBytes } from 'node:crypto';
+import { rm } from 'node:fs/promises';
+import path from 'node:path';
 import express from 'express';
 import { hashPassword } from '../auth/crypto.js';
 import { canCreateUser, canManageRegion, canManageUser, allowedPublishTargets, newsVisibilitySql, auditRegionIds } from '../auth/policy.js';
@@ -125,6 +127,15 @@ function bulkUsername(region) {
   const prefix = region.type === 'province' ? 'p' : 'c';
   const digits = String(region.code ?? '').match(/\d+/)?.[0];
   return `${prefix}-${digits ?? `r${region.id}`}`;
+}
+
+// Files on disk that belong to one attachment row: images are stored as three webp sizes, other files as one blob.
+function attachmentFilePaths(root, row) {
+  const name = path.basename(String(row.stored_name ?? ''));
+  if (!name) return [];
+  return row.kind === 'file'
+    ? [path.join(root, name)]
+    : [400, 800, 1280].map((width) => path.join(root, `${name}-${width}.webp`));
 }
 
 function writeAudit(connection, actorId, action, entity, entityId, request, meta = null) {
@@ -708,11 +719,16 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       const [rows] = await pool.query(
         `SELECT r.id, r.parent_id, r.type, r.name, r.visibility_override,
                 (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user') AS active_admins,
-                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user' ORDER BY u.id LIMIT 1) AS admin_name
+                (SELECT u.full_name FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.role <> 'domain_user' ORDER BY u.id LIMIT 1) AS admin_name,
+                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id) AS users_total,
+                (SELECT COUNT(*) FROM news n WHERE n.origin_region_id = r.id) AS news_total
          FROM regions r WHERE r.type IN ('province', 'city') ORDER BY r.sort_order, r.id`,
       );
       return response.json({
-        units: rows.map((row) => ({ ...row, id: Number(row.id), parent_id: Number(row.parent_id), active_admins: Number(row.active_admins) })),
+        units: rows.map((row) => ({
+          ...row, id: Number(row.id), parent_id: Number(row.parent_id), active_admins: Number(row.active_admins),
+          users_total: Number(row.users_total), news_total: Number(row.news_total),
+        })),
       });
     } catch (error) {
       return next(error);
@@ -799,6 +815,135 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
       return response.json({ ok: true });
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'نام منطقه در این شاخه تکراری است.' });
+      return next(error);
+    }
+  });
+
+  // Instant password reset for the active admin of a university centre (main admin only). Same effect as
+  // /users/:id/reset-password: new temporary password, forced change at next login, sessions closed.
+  router.post('/regions/:id/reset-admin-password', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند گذرواژهٔ مدیر مرکز را بازنشانی کند.' });
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ مرکز معتبر نیست.' });
+    try {
+      const connection = await pool.getConnection();
+      let admin;
+      let generatedPassword;
+      try {
+        await connection.beginTransaction();
+        const [units] = await connection.execute("SELECT id, name FROM regions WHERE id = ? AND type = 'city' FOR UPDATE", [id]);
+        if (!units[0]) {
+          await connection.rollback();
+          return response.status(404).json({ error: 'مرکز دانشگاهی پیدا نشد.' });
+        }
+        const [admins] = await connection.execute(
+          `SELECT id, username, full_name FROM users
+           WHERE region_id = ? AND role = 'city_admin' AND is_active = 1 AND is_system = 0
+           ORDER BY id LIMIT 1 FOR UPDATE`,
+          [id],
+        );
+        admin = admins[0];
+        if (!admin) {
+          await connection.rollback();
+          return response.status(404).json({ error: 'این مرکز مدیر فعال ندارد.' });
+        }
+        generatedPassword = temporaryPassword();
+        const passwordHash = await hashPassword(generatedPassword);
+        await connection.execute(
+          `UPDATE users SET password_hash = ?, must_change_password = 1, password_changed_at = NULL WHERE id = ?`,
+          [passwordHash, admin.id],
+        );
+        await connection.execute('DELETE FROM sessions WHERE user_id = ?', [admin.id]);
+        await writeAudit(connection, request.user.id, 'user.reset_password', 'user', admin.id, request, { via: 'region', region_id: id });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      return response.json({ ok: true, temporary_password: generatedPassword, username: admin.username, full_name: admin.full_name });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // Permanently delete a university centre with everything that belongs to it: its users, the news it published
+  // (and their attachments, also on disk) and its place in other news' targets. Main admin only; cities only.
+  router.delete('/regions/:id', async (request, response, next) => {
+    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند مرکز دانشگاهی را حذف کند.' });
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ مرکز معتبر نیست.' });
+    try {
+      const connection = await pool.getConnection();
+      let region;
+      let removedFiles = [];
+      let usersDeleted = 0;
+      let newsDeleted = 0;
+      try {
+        await connection.beginTransaction();
+        const [regionRows] = await connection.execute('SELECT id, parent_id, type, name FROM regions WHERE id = ? FOR UPDATE', [id]);
+        region = regionRows[0];
+        if (!region) {
+          await connection.rollback();
+          return response.status(404).json({ error: 'مرکز دانشگاهی پیدا نشد.' });
+        }
+        if (region.type !== 'city') {
+          await connection.rollback();
+          return response.status(400).json({ error: 'فقط مرکز دانشگاهی قابل حذف است؛ استان و کشور حذف نمی‌شوند.' });
+        }
+        const [children] = await connection.execute('SELECT COUNT(*) AS total FROM regions WHERE parent_id = ?', [id]);
+        if (Number(children[0].total) > 0) {
+          await connection.rollback();
+          return response.status(409).json({ error: 'این مرکز زیرمجموعه دارد و حذف نمی‌شود.' });
+        }
+        const [users] = await connection.execute('SELECT id, role, is_system FROM users WHERE region_id = ? FOR UPDATE', [id]);
+        if (users.some((user) => user.role === 'super_admin' || Number(user.is_system) === 1)) {
+          await connection.rollback();
+          return response.status(409).json({ error: 'کاربر سیستمی یا مدیر ارشد به این مرکز وابسته است و حذف انجام نشد.' });
+        }
+        const userIds = users.map((user) => Number(user.id));
+
+        // Files first (the rows are gone after the delete); removed from disk only after the commit.
+        const [attachmentRows] = await connection.execute(
+          `SELECT a.stored_name, a.kind FROM attachments a JOIN news n ON n.id = a.news_id WHERE n.origin_region_id = ?`,
+          [id],
+        );
+        removedFiles = attachmentRows;
+        // Attachments and news_targets of these news go with them (ON DELETE CASCADE).
+        const [deletedNews] = await connection.execute('DELETE FROM news WHERE origin_region_id = ?', [id]);
+        newsDeleted = Number(deletedNews.affectedRows);
+        await connection.execute('DELETE FROM news_targets WHERE region_id = ?', [id]);
+
+        if (userIds.length) {
+          const marks = userIds.map(() => '?').join(', ');
+          // News of other units that one of these users wrote or touched stay and pass to the main admin doing the delete.
+          await connection.execute(`UPDATE news SET created_by = ? WHERE created_by IN (${marks})`, [request.user.id, ...userIds]);
+          await connection.execute(`UPDATE news SET updated_by = ? WHERE updated_by IN (${marks})`, [request.user.id, ...userIds]);
+          await connection.execute(`UPDATE news SET published_by_user_id = ? WHERE published_by_user_id IN (${marks})`, [request.user.id, ...userIds]);
+          const [deletedUsers] = await connection.execute('DELETE FROM users WHERE region_id = ?', [id]);
+          usersDeleted = Number(deletedUsers.affectedRows);
+        }
+        await connection.execute('DELETE FROM regions WHERE id = ?', [id]);
+        await writeAudit(connection, request.user.id, 'region.delete', 'region', id, request, {
+          name: region.name, type: region.type, parent_id: region.parent_id, users_deleted: usersDeleted, news_deleted: newsDeleted,
+        });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      if (uploadRoot) {
+        const root = path.resolve(uploadRoot);
+        const paths = removedFiles.flatMap((row) => attachmentFilePaths(root, row));
+        await Promise.allSettled(paths.map((filePath) => rm(filePath, { force: true })));
+      }
+      appEvents.emit('regions.changed');
+      appEvents.emit('news.changed', { id: null });
+      return response.json({ ok: true, users_deleted: usersDeleted, news_deleted: newsDeleted });
+    } catch (error) {
       return next(error);
     }
   });

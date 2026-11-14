@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.79.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.84.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -31,6 +31,7 @@ const state = {
   busy: false,
   units: { items: [], open: new Set(), editing: null },
   categoryAdmin: { items: [], editing: null },
+  domainAdmin: { items: [], editing: null },
   uploads: { cover: [], images: [], files: [] },
   uploadSeq: 0,
 };
@@ -425,7 +426,9 @@ function closeAuthAndShowAdmin() {
   adminShell.hidden = false;
 }
 
-function roleLabel(role) {
+function roleLabel(role, domainName = "") {
+  if (role === "domain_user")
+    return domainName ? `کاربر حوزه ${domainName}` : "کاربر حوزه";
   return (
     {
       super_admin: "مدیر ارشد",
@@ -436,6 +439,19 @@ function roleLabel(role) {
   );
 }
 
+// A domain user works at the level of its unit (country / province / city) and publishes like the admin of that level.
+function levelRole(user) {
+  if (user?.role !== "domain_user") return user?.role;
+  return (
+    { country: "country_admin", province: "province_admin", city: "city_admin" }[
+      user.level
+    ] || "city_admin"
+  );
+}
+
+const UNIT_ADMIN_ROLES = ["country_admin", "province_admin", "city_admin"];
+const USERS_VIEW_ROLES = ["super_admin", ...UNIT_ADMIN_ROLES];
+
 function regionName(regionId) {
   return (
     state.regions.find((region) => Number(region.id) === Number(regionId))
@@ -445,15 +461,21 @@ function regionName(regionId) {
 
 // The line under the user's name in the sidebar: the unit they belong to (e.g. "دانشگاه پیام‌نور شهر ری").
 function userUnitText() {
-  const role = state.user?.role;
-  if (role === "super_admin" || role === "country_admin") return roleLabel(role);
+  const role = levelRole(state.user);
+  const domain = state.user?.domain_name
+    ? ` · حوزه ${state.user.domain_name}`
+    : "";
+  if (role === "super_admin" || role === "country_admin")
+    return `${roleLabel(role)}${domain}`;
   const region = state.regions.find(
     (item) => Number(item.id) === Number(state.user?.region_id),
   );
-  if (!region) return roleLabel(role);
-  return region.type === "province"
-    ? `دانشگاه پیام‌نور استان ${region.name}`
-    : `دانشگاه پیام‌نور ${region.name}`;
+  if (!region) return `${roleLabel(role)}${domain}`;
+  return `${
+    region.type === "province"
+      ? `دانشگاه پیام‌نور استان ${region.name}`
+      : `دانشگاه پیام‌نور ${region.name}`
+  }${domain}`;
 }
 
 function setScopeBanner() {
@@ -640,8 +662,12 @@ function applyCalendarDate() {
 const FEED_ROLES = ["super_admin", "country_admin"];
 
 function goToView(view) {
-  // A city-level admin has no subordinates, so there is nothing to manage on the users page.
-  if (view === "users" && state.user?.role === "city_admin") view = "dashboard";
+  // Domain users manage nobody and have no event log.
+  if (
+    (view === "users" || view === "audit") &&
+    !USERS_VIEW_ROLES.includes(state.user?.role)
+  )
+    view = "dashboard";
   // The news feed is only for the main admin and the central organisation's public relations.
   const mobile = matchMedia("(max-width: 767px)").matches;
   if (view === "mobile-feed" && !FEED_ROLES.includes(state.user?.role))
@@ -675,6 +701,7 @@ function goToView(view) {
   else if (actualView === "users") loadUsers(1);
   else if (actualView === "regions") loadRegions();
   else if (actualView === "categories") loadCategories();
+  else if (actualView === "domains") loadDomains();
   else if (actualView === "settings") loadSettings();
   else if (actualView === "audit") loadAudit(1);
   else if (actualView === "stats") loadStats();
@@ -714,8 +741,6 @@ async function prepareWorkspace() {
   document.querySelectorAll("[data-super-only]").forEach((element) => {
     element.hidden = state.user.role !== "super_admin";
   });
-  document.getElementById("new-user-button").hidden =
-    state.user.role === "city_admin";
   document.querySelectorAll("[data-show-roles]").forEach((element) => {
     element.hidden = !element.dataset.showRoles
       .split(",")
@@ -724,8 +749,27 @@ async function prepareWorkspace() {
   document.querySelectorAll("[data-hide-city]").forEach((element) => {
     element.hidden = state.user.role === "city_admin";
   });
+  if (USERS_VIEW_ROLES.includes(state.user.role)) await fillDomainFilter();
   if (matchMedia("(max-width: 767px)").matches) goToView("mobile-compose");
   else goToView("dashboard");
+}
+
+// The news list's domain filter: every admin (not domain users) can narrow the list to one work domain.
+async function fillDomainFilter() {
+  const select = document.getElementById("news-domain");
+  try {
+    const { domains } = await api("/api/admin/domains");
+    select.innerHTML =
+      '<option value="">همهٔ حوزه‌ها</option>' +
+      domains
+        .map(
+          (domain) =>
+            `<option value="${Number(domain.id)}">${escapeHtml(domain.name)}</option>`,
+        )
+        .join("");
+  } catch {
+    select.innerHTML = '<option value="">همهٔ حوزه‌ها</option>';
+  }
 }
 
 async function loadDashboard() {
@@ -762,7 +806,7 @@ function renderNewsTable(items) {
   return `<table class="table"><thead><tr><th>عنوان</th><th>مبدأ و مقصد</th><th>دسته‌بندی</th><th>وضعیت</th><th>بازدید</th><th>آخرین تغییر</th><th></th></tr></thead><tbody>${items
     .map(
       (item) => `<tr>
-    <td><strong>${escapeHtml(item.title)}</strong>${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ""}<br><small>${escapeHtml(item.summary || "")}</small></td>
+    <td><strong>${escapeHtml(item.title)}</strong>${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ""}${item.creator_domain_name ? ` <span class="auto-badge">${escapeHtml(item.creator_domain_name)}</span>` : ""}<br><small>${escapeHtml(item.summary || "")}</small></td>
     <td>${escapeHtml(item.origin_region_name)}<br><small>${escapeHtml(scopeLabel(item.targets))}</small></td>
     <td>${escapeHtml(item.category_name || "—")}</td>
     <td><span class="status-badge ${escapeHtml(item.status)}">${statusLabel(item.status)}</span>${item.is_urgent ? '<span class="urgent-label"> · فوری</span>' : ""}</td>
@@ -832,6 +876,8 @@ async function loadNewsList(page = state.newsPage) {
     page: String(page),
     source: "manual", // automatic portal news are managed from the news-feed view
   });
+  const domainFilter = document.getElementById("news-domain").value;
+  if (domainFilter) params.set("domain", domainFilter);
   const container = document.getElementById("news-table");
   const pager = document.getElementById("news-pager");
   if (!container.querySelector("table"))
@@ -859,9 +905,10 @@ function faKey(value) {
 function targetModel() {
   const user = state.user;
   if (!user) return null;
-  if (user.role === "city_admin")
+  const role = levelRole(user);
+  if (role === "city_admin")
     return { kind: "city", rootId: Number(user.region_id), options: [] };
-  if (user.role === "super_admin" || user.role === "country_admin") {
+  if (role === "super_admin" || role === "country_admin") {
     const root = state.regions.find((region) => region.type === "country");
     if (!root) return null;
     return {
@@ -2107,7 +2154,7 @@ async function loadUsers(page = state.usersPage) {
         const parent = state.regions.find(
           (region) => Number(region.id) === parentId,
         );
-        return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city"><div><strong>${escapeHtml(user.full_name)}</strong><small>${roleLabel(user.role)} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</section>`;
+        return `<section class="tree-province"><div class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></div>${entries.map((user) => `<div class="tree-city${user.region_type === "city" ? " is-city" : ""}"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</section>`;
       })
       .join("");
   } catch (error) {
@@ -2131,28 +2178,37 @@ async function provincesWithAdmin() {
 function fillUserRegions() {
   const form = document.getElementById("user-form");
   const role = form.elements.role.value;
+  const domain = role === "domain_user";
   const city = role === "city_admin";
   const country = role === "country_admin";
   const isSuper = state.user.role === "super_admin";
+  document.getElementById("user-domain-label").hidden = !domain;
   document.getElementById("user-province-label").hidden = !(isSuper && city);
   const provinceId = Number(form.elements.province_id.value);
   const regionType = city ? "city" : country ? "country" : "province";
-  const options = state.regions.filter(
-    (item) =>
-      item.type === regionType &&
-      (!isSuper || !city || Number(item.parent_id) === provinceId),
-  );
+  // A domain user always belongs to the unit of the admin who creates it.
+  const options = domain
+    ? state.regions.filter(
+        (item) => Number(item.id) === Number(state.user.region_id),
+      )
+    : state.regions.filter(
+        (item) =>
+          item.type === regionType &&
+          (!isSuper || !city || Number(item.parent_id) === provinceId),
+      );
   form.elements.region_id.innerHTML = options
     .map(
       (item) =>
         `<option value="${Number(item.id)}">${escapeHtml(item.name)}</option>`,
     )
     .join("");
-  document.getElementById("user-region-label").firstChild.textContent = city
-    ? "مرکز دانشگاهی"
-    : country
-      ? "محدوده"
-      : "استان";
+  document.getElementById("user-region-label").firstChild.textContent = domain
+    ? "واحد"
+    : city
+      ? "مرکز دانشگاهی"
+      : country
+        ? "محدوده"
+        : "استان";
 }
 
 async function openUserForm() {
@@ -2161,10 +2217,11 @@ async function openUserForm() {
   form.reset();
   document.getElementById("user-error").textContent = "";
   const role = form.elements.role;
-  const isSuper = state.user.role === "super_admin";
-  if (state.user.role === "country_admin") {
-    role.innerHTML = `<option value="province_admin">${roleLabel("province_admin")}</option>`;
-  } else if (isSuper) {
+  const actor = state.user.role;
+  const domainOption = '<option value="domain_user">کاربر حوزه</option>';
+  if (actor === "country_admin") {
+    role.innerHTML = `<option value="province_admin">${roleLabel("province_admin")}</option>${domainOption}`;
+  } else if (actor === "super_admin") {
     role.innerHTML = `<option value="country_admin">${roleLabel("country_admin")}</option><option value="province_admin">مدیر استان</option><option value="city_admin">مدیر مرکز دانشگاهی</option>`;
     try {
       const provinces = await provincesWithAdmin();
@@ -2179,11 +2236,84 @@ async function openUserForm() {
     } catch (error) {
       showToast(error.message);
     }
+  } else if (actor === "province_admin") {
+    role.innerHTML = `<option value="city_admin">${roleLabel("city_admin")}</option>${domainOption}`;
   } else {
-    role.innerHTML = `<option value="city_admin">${roleLabel("city_admin")}</option>`;
+    role.innerHTML = domainOption;
+  }
+  // The work domains the main admin defined: a unit admin picks one for the new domain user.
+  if (actor !== "super_admin") {
+    try {
+      const { domains } = await api("/api/admin/domains");
+      const active = domains.filter((domain) => domain.is_active);
+      form.elements.domain_id.innerHTML = active
+        .map(
+          (domain) =>
+            `<option value="${Number(domain.id)}">${escapeHtml(domain.name)}</option>`,
+        )
+        .join("");
+      if (!active.length)
+        role.querySelector('[value="domain_user"]').disabled = true;
+    } catch (error) {
+      showToast(error.message);
+    }
   }
   fillUserRegions();
   form.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
+}
+
+function downloadBulkAdminsCsv(created) {
+  const header = ["نام کاربری", "گذرواژهٔ موقت", "نام", "نقش", "استان", "مرکز یا واحد"];
+  const rows = created.map((user) => [
+    user.username,
+    user.temporary_password,
+    user.full_name,
+    user.role === "province_admin" ? "مدیر استان" : "مدیر مرکز",
+    user.province_name,
+    user.unit_name,
+  ]);
+  const csv = `\ufeff${[header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  link.download = `pnunews-admins-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+}
+
+async function bulkCreateAdmins() {
+  try {
+    const preview = await api("/api/admin/users/bulk-admins/preview");
+    if (!preview.provinces && !preview.cities) {
+      showToast("همهٔ استان‌ها و مراکز مدیر فعال دارند.");
+      return;
+    }
+    const ok = await confirmDialog({
+      title: "ساخت گروهی مدیران؟",
+      text: `برای ${faDigits.format(preview.provinces)} استان و ${faDigits.format(preview.cities)} مرکزی که مدیر فعال ندارند، یک مدیر با گذرواژهٔ موقت ساخته می‌شود. فهرست نام کاربری و گذرواژه‌ها فقط همین‌یک‌بار به‌صورت فایل CSV دانلود می‌شود؛ آن را امن نگه دارید. توجه: مرکزی که مدیر داشته باشد در فهرست شهرهای خواننده نمایش داده می‌شود.`,
+      tone: "warning",
+      confirmText: "بله، بساز",
+      cancelText: "انصراف",
+    });
+    if (!ok) return;
+    const result = await api("/api/admin/users/bulk-admins", {
+      method: "POST",
+      body: {},
+    });
+    if (result.created.length) downloadBulkAdminsCsv(result.created);
+    showMessage(
+      "مدیران ساخته شدند",
+      `${faDigits.format(result.created.length)} مدیر ساخته شد${result.skipped ? ` و ${faDigits.format(result.skipped)} واحد رد شد` : ""}. فایل CSV گذرواژه‌های موقت دانلود شد و دوباره قابل دریافت نیست. هر مدیر در نخستین ورود باید گذرواژه را تغییر دهد.`,
+    );
+    await loadUsers();
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 async function submitUser(event) {
@@ -2199,6 +2329,9 @@ async function submitUser(event) {
         username: form.elements.username.value,
         role: form.elements.role.value,
         region_id: Number(form.elements.region_id.value),
+        ...(form.elements.role.value === "domain_user"
+          ? { domain_id: Number(form.elements.domain_id.value) }
+          : {}),
       },
     });
     form.hidden = true;
@@ -2325,7 +2458,11 @@ function cityRow(city) {
     city.active_admins > 0
       ? `مدیر: ${escapeHtml(city.admin_name || "—")}`
       : "مدیری ثبت نشده";
-  return `<div class="unit-row"><div class="unit-main"><span class="unit-name">${escapeHtml(city.name)}</span><small class="muted">${admin}</small></div>${unitBadge(info)}<button class="mini-button" type="button" data-unit-edit="${city.id}">ویرایش</button></div>`;
+  const resetButton =
+    city.active_admins > 0
+      ? `<button class="mini-button" type="button" data-unit-reset="${city.id}">ریست فوری رمز</button>`
+      : `<button class="mini-button" type="button" disabled title="این مرکز مدیر فعال ندارد">ریست فوری رمز</button>`;
+  return `<div class="unit-row"><div class="unit-main"><span class="unit-name">${escapeHtml(city.name)}</span><small class="muted">${admin}</small></div>${unitBadge(info)}<div class="unit-actions"><button class="mini-button" type="button" data-unit-edit="${city.id}">ویرایش</button>${resetButton}<button class="mini-button danger" type="button" data-unit-delete="${city.id}">حذف</button></div></div>`;
 }
 
 function renderUnits() {
@@ -2359,6 +2496,15 @@ function renderUnits() {
     )
     .join("");
 
+  // Accordion: at most one province stays open; the one being edited always wins.
+  const editingUnit = all.find((unit) => unit.id === state.units.editing);
+  if (editingUnit)
+    state.units.open = new Set([
+      editingUnit.type === "province" ? editingUnit.id : editingUnit.parent_id,
+    ]);
+  else if (state.units.open.size > 1)
+    state.units.open = new Set([[...state.units.open].at(-1)]);
+
   const query = faKey(document.getElementById("regions-search").value);
   const filter =
     document.querySelector('input[name="regions_filter"]:checked')?.value ||
@@ -2385,11 +2531,7 @@ function renderUnits() {
       filter === "all" && provinceMatches ? cities : visibleCities;
     const activeCount = cities.filter((city) => unitState(city).active).length;
     const open =
-      state.units.open.has(province.id) ||
-      Boolean(query) ||
-      filter !== "all" ||
-      state.units.editing === province.id ||
-      cities.some((city) => city.id === state.units.editing);
+      state.units.open.has(province.id) || Boolean(query) || filter !== "all";
     const heading =
       state.units.editing === province.id
         ? `<div class="unit-province-edit">${unitEditForm(province)}</div>`
@@ -2454,7 +2596,7 @@ async function submitRegion(event) {
         parent_id: parentId,
       },
     });
-    if (!isProvince) state.units.open.add(parentId);
+    if (!isProvince) state.units.open = new Set([parentId]);
     form.hidden = true;
     form.reset();
     showToast(isProvince ? "استان افزوده شد." : "مرکز دانشگاهی افزوده شد.");
@@ -2485,6 +2627,66 @@ async function saveUnit(form) {
   }
   await loadRegions();
   setScopeBanner();
+}
+
+async function resetUnitPassword(id) {
+  const unit = state.units.items.find((item) => item.id === id);
+  if (!unit) return;
+  const confirmed = await confirmDialog({
+    title: `ریست رمز مدیر «${unit.name}»؟`,
+    text: `برای ${unit.admin_name ? `«${unit.admin_name}»، ` : ""}مدیر این مرکز یک گذرواژهٔ موقت تازه ساخته می‌شود، ورودهای فعلی او بسته می‌شود و در ورود بعدی باید گذرواژه را عوض کند.`,
+    tone: "warning",
+    confirmText: "بله، ریست شود",
+  });
+  if (!confirmed) return;
+  try {
+    const result = await api(`/api/admin/regions/${id}/reset-admin-password`, {
+      method: "POST",
+      body: {},
+    });
+    showMessage(
+      "گذرواژه بازنشانی شد",
+      `نام کاربری: ${result.username}. این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به مدیر «${unit.name}» تحویل دهید.`,
+      result.temporary_password,
+    );
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteUnit(id) {
+  const unit = state.units.items.find((item) => item.id === id);
+  if (!unit) return;
+  const users = faDigits.format(unit.users_total || 0);
+  const news = faDigits.format(unit.news_total || 0);
+  const first = await confirmDialog({
+    title: `حذف مرکز «${unit.name}»؟`,
+    text: `این مرکز با همهٔ کاربرانش (${users} کاربر) و همهٔ خبرهایی که منتشر کرده (${news} خبر، همراه تصویر و پیوست‌ها) برای همیشه پاک می‌شود.`,
+    tone: "danger",
+    confirmText: "ادامه",
+  });
+  if (!first) return;
+  const second = await confirmDialog({
+    title: "تأیید نهایی حذف",
+    text: `آخرین بار می‌پرسیم: مرکز «${unit.name}» کاملاً حذف شود؟ این کار قابل بازگشت نیست.`,
+    tone: "danger",
+    confirmText: "بله، برای همیشه حذف شود",
+  });
+  if (!second) return;
+  try {
+    const result = await api(`/api/admin/regions/${id}`, {
+      method: "DELETE",
+      body: {},
+    });
+    if (state.units.editing === id) state.units.editing = null;
+    showToast(
+      `مرکز «${unit.name}» حذف شد (${faDigits.format(result.users_deleted)} کاربر و ${faDigits.format(result.news_deleted)} خبر).`,
+    );
+    await loadRegions();
+    setScopeBanner();
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 // ---------- Categories (main admin only) ----------
@@ -2680,6 +2882,169 @@ function bindCategoryEvents() {
   });
 }
 
+// ---------- Work domains (main admin only) ----------
+function domainRow(domain) {
+  if (state.domainAdmin.editing === domain.id) {
+    return `<div class="category-row is-editing"><form class="category-edit" data-domain-form="${domain.id}"><label>نام حوزه<input name="name" maxlength="120" required autocomplete="off" value="${escapeHtml(domain.name)}"></label><button class="button primary" type="submit">ذخیره</button><button class="button outline" type="button" data-domain-cancel>انصراف</button></form></div>`;
+  }
+  const count = domain.users_count
+    ? `${faDigits.format(domain.users_count)} کاربر`
+    : "بدون کاربر";
+  return (
+    `<div class="category-row${domain.is_active ? "" : " is-inactive"}" data-domain-id="${domain.id}">` +
+    `<div class="category-main"><span class="category-name">${escapeHtml(domain.name)}</span><small>${count}</small></div>` +
+    `<span class="status-badge ${domain.is_active ? "published" : "draft"}">${domain.is_active ? "فعال" : "غیرفعال"}</span>` +
+    `<div class="category-actions">` +
+    `<button class="mini-button" type="button" data-domain-edit="${domain.id}">ویرایش</button>` +
+    `<button class="mini-button" type="button" data-domain-toggle="${domain.id}">${domain.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>` +
+    `<button class="mini-button danger" type="button" data-domain-delete="${domain.id}">حذف</button>` +
+    `</div></div>`
+  );
+}
+
+function renderDomains() {
+  const panel = document.getElementById("domains-list");
+  const items = state.domainAdmin.items;
+  panel.innerHTML = items.length
+    ? items.map(domainRow).join("")
+    : '<p class="empty-panel">هنوز حوزه‌ای ثبت نشده است. با «حوزهٔ تازه» نخستین مورد را بسازید.</p>';
+}
+
+async function loadDomains() {
+  const panel = document.getElementById("domains-list");
+  if (!state.domainAdmin.items.length)
+    panel.innerHTML = '<p class="empty-panel">در حال دریافت فهرست…</p>';
+  try {
+    const { domains } = await api("/api/admin/domains?manage=1");
+    state.domainAdmin.items = domains;
+    renderDomains();
+  } catch (error) {
+    panel.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function submitDomain(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const message = document.getElementById("domain-error");
+  message.textContent = "";
+  try {
+    await api("/api/admin/domains", {
+      method: "POST",
+      body: { name: form.elements.name.value },
+    });
+    form.hidden = true;
+    form.reset();
+    showToast("حوزه افزوده شد.");
+    await loadDomains();
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+async function saveDomainName(form) {
+  const id = Number(form.dataset.domainForm);
+  const current = state.domainAdmin.items.find((item) => item.id === id);
+  const name = form.elements.name.value.trim();
+  if (!current || name === current.name) {
+    state.domainAdmin.editing = null;
+    renderDomains();
+    return;
+  }
+  try {
+    await api(`/api/admin/domains/${id}`, { method: "PATCH", body: { name } });
+    state.domainAdmin.editing = null;
+    showToast("نام حوزه ذخیره شد.");
+    await loadDomains();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function toggleDomain(id) {
+  const current = state.domainAdmin.items.find((item) => item.id === id);
+  if (!current) return;
+  try {
+    await api(`/api/admin/domains/${id}`, {
+      method: "PATCH",
+      body: { is_active: !current.is_active },
+    });
+    showToast(current.is_active ? "حوزه غیرفعال شد." : "حوزه فعال شد.");
+    await loadDomains();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteDomain(id) {
+  const current = state.domainAdmin.items.find((item) => item.id === id);
+  if (!current) return;
+  if (current.users_count > 0) {
+    showMessage(
+      "حذف ممکن نیست",
+      `«${current.name}» ${faDigits.format(current.users_count)} کاربر دارد. در صورت نیاز آن را غیرفعال کنید تا برای کاربر تازه انتخاب نشود.`,
+    );
+    return;
+  }
+  if (
+    !(await confirmDialog({
+      title: `حذف «${current.name}»؟`,
+      text: "این حوزه کاربری ندارد و برای همیشه حذف می‌شود.",
+      tone: "danger",
+      confirmText: "بله، حذف شود",
+    }))
+  )
+    return;
+  try {
+    await api(`/api/admin/domains/${id}`, { method: "DELETE", body: {} });
+    showToast("حوزه حذف شد.");
+    await loadDomains();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+function bindDomainEvents() {
+  document.getElementById("new-domain-button").addEventListener("click", () => {
+    const form = document.getElementById("domain-form");
+    form.hidden = false;
+    form.reset();
+    document.getElementById("domain-error").textContent = "";
+    form.elements.name.focus();
+  });
+  document
+    .getElementById("domain-form")
+    .addEventListener("submit", submitDomain);
+  const list = document.getElementById("domains-list");
+  list.addEventListener("click", (event) => {
+    const edit = event.target.closest("[data-domain-edit]");
+    if (edit) {
+      state.domainAdmin.editing = Number(edit.dataset.domainEdit);
+      renderDomains();
+      list.querySelector(".category-edit input")?.focus();
+      return;
+    }
+    if (event.target.closest("[data-domain-cancel]")) {
+      state.domainAdmin.editing = null;
+      renderDomains();
+      return;
+    }
+    const toggle = event.target.closest("[data-domain-toggle]");
+    if (toggle) {
+      toggleDomain(Number(toggle.dataset.domainToggle));
+      return;
+    }
+    const remove = event.target.closest("[data-domain-delete]");
+    if (remove) deleteDomain(Number(remove.dataset.domainDelete));
+  });
+  list.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-domain-form]");
+    if (!form) return;
+    event.preventDefault();
+    saveDomainName(form);
+  });
+}
+
 // ---------- Automatic portal news ----------
 function describePortalRun(run) {
   if (!run) return "هنوز اجرایی ثبت نشده است.";
@@ -2789,15 +3154,12 @@ async function loadSettings() {
       "radio_title",
       "radio_stream_url",
       "radio_nowplaying_url",
-      "max_city_admins",
     ]) {
       form.elements[key].value = settings[key] ?? "";
     }
     form.elements.radio_enabled.checked = settings.radio_enabled === "1";
     form.elements.byline_show_person.checked =
       settings.byline_show_person === "1";
-    form.elements.peer_edit_enabled.checked =
-      settings.peer_edit_enabled === "1";
     document.getElementById("settings-error").textContent = "";
   } catch (error) {
     document.getElementById("settings-error").textContent = error.message;
@@ -2821,8 +3183,6 @@ async function saveSettings(event) {
         byline_show_person: form.elements.byline_show_person.checked
           ? "1"
           : "0",
-        max_city_admins: Number(form.elements.max_city_admins.value),
-        peer_edit_enabled: form.elements.peer_edit_enabled.checked ? "1" : "0",
       },
     });
     state.settings = result.settings;
@@ -2907,6 +3267,10 @@ function auditAction(action) {
     "auth.login": "ورود",
     "auth.logout": "خروج",
     "auth.login_failed": "ورود ناموفق",
+    "user.bulk_create": "ساخت گروهی مدیران",
+    "auth.totp_enabled": "روشن‌شدن رمز دومرحله‌ای",
+    "auth.totp_disabled": "خاموش‌شدن رمز دومرحله‌ای",
+    "auth.sessions_revoked": "خروج از همهٔ دستگاه‌ها",
     "news.create": "ساخت خبر",
     "news.update": "ویرایش خبر",
     "news.delete": "حذف خبر",
@@ -2958,26 +3322,108 @@ async function loadStats() {
   }
 }
 
+// نسخهٔ دسکتاپ همیشه نشست ۲۴ ساعته دارد؛ «به یاد سپاری» فقط روی گوشی است (سرور هم همین را از User-Agent بررسی می‌کند).
+const isMobileDevice = () =>
+  /Android.+Mobile|iPhone|iPod|Windows Phone|IEMobile|Opera Mini|BlackBerry|\bMobile\b/i.test(
+    navigator.userAgent,
+  );
+
+function resetTotpPanel() {
+  document.getElementById("profile-totp-enroll").hidden = true;
+  document.getElementById("profile-totp-disable-form").hidden = true;
+  document.getElementById("profile-totp-backup").hidden = true;
+  document.getElementById("profile-totp-enable-form")?.reset();
+  document.getElementById("profile-totp-disable-form")?.reset();
+}
+
+function renderTotpPanel(enabled) {
+  resetTotpPanel();
+  document.getElementById("profile-totp-status").textContent = enabled
+    ? "رمز دومرحله‌ای روشن است؛ در هر ورود، پس از گذرواژه کد برنامهٔ رمزساز هم پرسیده می‌شود."
+    : "رمز دومرحله‌ای خاموش است؛ ورود فقط با گذرواژه انجام می‌شود. برای امنیت بیشتر می‌توانید آن را روشن کنید.";
+  document.getElementById("profile-totp-start").hidden = enabled;
+  document.getElementById("profile-totp-disable-open").hidden = !enabled;
+}
+
 async function loadProfile() {
   document.getElementById("profile-password-form")?.reset();
   document.getElementById("profile-password-error").textContent = "";
   try {
-    const [me, deviceResponse] = await Promise.all([
+    const [me, sessionResponse] = await Promise.all([
       api("/api/auth/me"),
-      api("/api/auth/devices"),
+      api("/api/auth/sessions"),
     ]);
     state.user = me.user;
+    renderTotpPanel(Boolean(me.user.totp_enabled));
     const profile = document.getElementById("profile-details");
-    profile.innerHTML = `<dt>نام</dt><dd>${escapeHtml(me.user.full_name)}</dd><dt>نام کاربری</dt><dd>${escapeHtml(me.user.username)}</dd><dt>نقش</dt><dd>${roleLabel(me.user.role)}</dd><dt>محدوده</dt><dd>${escapeHtml(regionName(me.user.region_id))}</dd>`;
-    document.getElementById("device-list").innerHTML = deviceResponse.devices
+    profile.innerHTML = `<dt>نام</dt><dd>${escapeHtml(me.user.full_name)}</dd><dt>نام کاربری</dt><dd>${escapeHtml(me.user.username)}</dd><dt>نقش</dt><dd>${escapeHtml(roleLabel(me.user.role, me.user.domain_name))}</dd><dt>محدوده</dt><dd>${escapeHtml(regionName(me.user.region_id))}</dd>`;
+    document.getElementById("device-list").innerHTML = sessionResponse.sessions
       .length
-      ? deviceResponse.devices
+      ? sessionResponse.sessions
           .map(
-            (device) =>
-              `<div class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(device.user_agent || "دستگاه نامشخص")}</strong><small>${formatDate(device.last_used_at || device.created_at)} · پایان ${formatDate(device.expires_at)}</small></div></div>`,
+            (item) =>
+              `<div class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.user_agent || "دستگاه نامشخص")}${item.current ? " (همین دستگاه)" : ""}</strong><small>${formatDate(item.created_at)} · ${item.remember ? "به‌یادسپرده‌شده" : `پایان ${formatDate(item.expires_at)}`}</small></div></div>`,
           )
           .join("")
-      : '<p class="muted">دستگاه مورداعتمادی ثبت نشده است.</p>';
+      : '<p class="muted">نشست فعالی ثبت نشده است.</p>';
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function startTotpEnrollment() {
+  try {
+    const setup = await api("/api/auth/totp/setup", { method: "POST", body: {} });
+    const svg = new TextEncoder().encode(setup.qr_svg);
+    let binary = "";
+    for (const byte of svg) binary += String.fromCharCode(byte);
+    document.getElementById("profile-totp-qr").src =
+      `data:image/svg+xml;base64,${btoa(binary)}`;
+    document.getElementById("profile-totp-secret").textContent = setup.secret;
+    document.getElementById("profile-totp-start").hidden = true;
+    document.getElementById("profile-totp-enroll").hidden = false;
+    document.getElementById("profile-totp-enable-form").elements.code.focus();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function submitTotpEnable(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    const code = normalizeDigits(form.elements.code.value.trim());
+    const result = await api("/api/auth/totp/enable", {
+      method: "POST",
+      body: { code },
+    });
+    renderTotpPanel(true);
+    document.getElementById("profile-backup-codes").innerHTML = (
+      result.backup_codes ?? []
+    )
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join("");
+    document.getElementById("profile-totp-backup").hidden = false;
+    document.getElementById("profile-totp-disable-open").hidden = true;
+    showToast("رمز دومرحله‌ای روشن شد.");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function submitTotpDisable(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await api("/api/auth/totp/disable", {
+      method: "POST",
+      body: {
+        password: form.elements.password.value,
+        code: normalizeDigits(form.elements.code.value.trim()),
+      },
+    });
+    renderTotpPanel(false);
+    showToast("رمز دومرحله‌ای خاموش شد.");
   } catch (error) {
     showToast(error.message);
   }
@@ -3066,13 +3512,6 @@ async function unpublishEditorNews() {
   }
 }
 
-function showBackupCodes(codes) {
-  document.getElementById("backup-codes").innerHTML = codes
-    .map((code) => `<li>${escapeHtml(code)}</li>`)
-    .join("");
-  showAuth("backup-card");
-}
-
 async function onLogin(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -3084,30 +3523,11 @@ async function onLogin(event) {
       body: {
         username: form.elements.username.value,
         password: form.elements.password.value,
+        remember: isMobileDevice() && form.elements.remember.checked,
       },
     });
-    if (result.next === "totp_setup") {
-      const setup = await api("/api/auth/totp/setup");
-      const svg = new TextEncoder().encode(setup.qr_svg);
-      let binary = "";
-      for (const byte of svg) binary += String.fromCharCode(byte);
-      document.getElementById("totp-qr").src =
-        `data:image/svg+xml;base64,${btoa(binary)}`;
-      document.getElementById("totp-secret").textContent = setup.secret;
-      document.getElementById("totp-title").textContent = "ثبت برنامهٔ رمزساز";
-      document.getElementById("totp-description").textContent =
-        "کد QR را با برنامهٔ رمزساز اسکن کنید و کد شش‌رقمی را وارد کنید.";
-      document.getElementById("totp-setup").hidden = false;
-      document.getElementById("remember-label").hidden = true;
-      state.setupRequired = true;
-      showAuth("totp-card");
-    } else if (result.next === "totp") {
-      document.getElementById("totp-title").textContent = "تأیید دومرحله‌ای";
-      document.getElementById("totp-description").textContent =
-        "کد شش‌رقمی یا یکی از کدهای بازیابی را وارد کنید.";
-      document.getElementById("totp-setup").hidden = true;
-      document.getElementById("remember-label").hidden = false;
-      state.setupRequired = false;
+    if (result.next === "totp") {
+      document.getElementById("totp-form").reset();
       showAuth("totp-card");
     } else if (result.ok) await finishAuthenticatedLogin(result);
   } catch (failure) {
@@ -3122,16 +3542,10 @@ async function onTotp(event) {
   error.textContent = "";
   try {
     const code = normalizeDigits(form.elements.code.value.trim());
-    const result = state.setupRequired
-      ? await api("/api/auth/totp/enable", { method: "POST", body: { code } })
-      : await api("/api/auth/totp", {
-          method: "POST",
-          body: { code, remember: form.elements.remember.checked },
-        });
-    if (result.backup_codes?.length) {
-      showBackupCodes(result.backup_codes);
-      return;
-    }
+    const result = await api("/api/auth/totp", {
+      method: "POST",
+      body: { code },
+    });
     await finishAuthenticatedLogin(result);
   } catch (failure) {
     error.textContent = failure.message;
@@ -3244,17 +3658,32 @@ function bindEvents() {
   document
     .getElementById("profile-password-form")
     .addEventListener("submit", submitProfilePasswordChange);
+  document.getElementById("login-remember-label").hidden = !isMobileDevice();
   document
-    .getElementById("backup-continue")
-    .addEventListener("click", async () => {
-      const me = await api("/api/auth/me");
-      state.user = me.user;
-      if (me.user.must_change_password) showAuth("password-card");
-      else {
-        closeAuthAndShowAdmin();
-        await prepareWorkspace();
-      }
+    .getElementById("profile-totp-start")
+    .addEventListener("click", startTotpEnrollment);
+  document
+    .getElementById("profile-totp-enable-form")
+    .addEventListener("submit", submitTotpEnable);
+  document
+    .getElementById("profile-totp-cancel")
+    .addEventListener("click", () => renderTotpPanel(false));
+  document
+    .getElementById("profile-totp-disable-open")
+    .addEventListener("click", () => {
+      document.getElementById("profile-totp-disable-open").hidden = true;
+      document.getElementById("profile-totp-disable-form").hidden = false;
+      document.getElementById("profile-totp-disable-form").elements.password.focus();
     });
+  document
+    .getElementById("profile-totp-disable-form")
+    .addEventListener("submit", submitTotpDisable);
+  document
+    .getElementById("profile-totp-disable-cancel")
+    .addEventListener("click", () => renderTotpPanel(true));
+  document
+    .getElementById("profile-backup-done")
+    .addEventListener("click", () => renderTotpPanel(true));
   document.getElementById("logout-button").addEventListener("click", logout);
   document
     .getElementById("logout-everywhere")
@@ -3262,14 +3691,14 @@ function bindEvents() {
       if (
         !(await confirmDialog({
           title: "خروج از همهٔ دستگاه‌ها؟",
-          text: "نشست‌ها و دستگاه‌های مورداعتماد همه‌جا لغو می‌شوند.",
+          text: "نشست همهٔ دستگاه‌ها (از جمله «به‌یادسپرده‌شده‌ها») لغو می‌شود و باید دوباره وارد شوید.",
           tone: "warning",
           confirmText: "بله، لغو شود",
         }))
       )
         return;
       try {
-        await api("/api/auth/devices", { method: "DELETE", body: {} });
+        await api("/api/auth/sessions", { method: "DELETE", body: {} });
       } catch (error) {
         showToast(error.message);
       }
@@ -3304,12 +3733,16 @@ function bindEvents() {
     });
   document.getElementById("user-form").addEventListener("submit", submitUser);
   document
+    .getElementById("bulk-admins-button")
+    .addEventListener("click", bulkCreateAdmins);
+  document
     .getElementById("region-form")
     .addEventListener("submit", submitRegion);
   document
     .getElementById("settings-form")
     .addEventListener("submit", saveSettings);
   bindCategoryEvents();
+  bindDomainEvents();
   bindUploadZones();
   document
     .getElementById("portal-enabled")
@@ -3512,6 +3945,8 @@ function bindEvents() {
         document.getElementById("region-form").hidden = true;
       if (event.target.closest('[data-action="cancel-category"]'))
         document.getElementById("category-form").hidden = true;
+      if (event.target.closest('[data-action="cancel-domain"]'))
+        document.getElementById("domain-form").hidden = true;
     });
   const regionsTree = document.getElementById("regions-tree");
   regionsTree.addEventListener("click", (event) => {
@@ -3527,6 +3962,18 @@ function bindEvents() {
       event.preventDefault();
       state.units.editing = null;
       renderUnits();
+      return;
+    }
+    const reset = event.target.closest("[data-unit-reset]");
+    if (reset) {
+      event.preventDefault();
+      resetUnitPassword(Number(reset.dataset.unitReset));
+      return;
+    }
+    const remove = event.target.closest("[data-unit-delete]");
+    if (remove) {
+      event.preventDefault();
+      deleteUnit(Number(remove.dataset.unitDelete));
     }
   });
   regionsTree.addEventListener("submit", (event) => {
@@ -3543,8 +3990,14 @@ function bindEvents() {
     if (!province) return;
     const id = Number(province.dataset.province);
     // the browser toggles `open` after this handler, so the new state is the opposite of the current one
-    if (province.open) state.units.open.delete(id);
-    else state.units.open.add(id);
+    if (province.open) {
+      state.units.open.delete(id);
+      return;
+    }
+    // accordion: opening one province closes the one that was open
+    for (const other of regionsTree.querySelectorAll("details[data-province][open]"))
+      if (other !== province) other.open = false;
+    state.units.open = new Set([id]);
   });
   document
     .getElementById("regions-search")
