@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.86.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.87.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2653,14 +2653,13 @@ async function resetUnitPassword(id) {
       method: "POST",
       body: {},
     });
-    const province = state.units.items.find((item) => item.id === unit.parent_id);
     showMessage(
       "گذرواژه بازنشانی شد",
       "این گذرواژهٔ موقت فقط همین‌بار نمایش داده می‌شود؛ آن را از مسیر امن به مدیر تحویل دهید. مدیر در ورود بعدی باید آن را عوض کند.",
       result.temporary_password,
       [
-        ["مرکز", province ? `${unit.name} (${province.name})` : unit.name],
-        ["مدیر", result.full_name],
+        ["دانشگاه", `دانشگاه پیام‌نور ${unit.name}`],
+        ["نام کاربر", result.full_name],
         ["نام کاربری", result.username, true],
       ],
     );
