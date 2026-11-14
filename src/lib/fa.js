@@ -54,3 +54,11 @@ export function normalizeBrandDeep(value, skipKeys = ['body_html']) {
   }
   return value;
 }
+
+// The key under which two usernames count as the same name: case, Arabic/Persian letter variants (ي ك), Persian vs
+// Latin digits, half-spaces and look-alike (compatibility) forms are all folded together. Used for uniqueness only;
+// the username itself is stored exactly as typed.
+export function usernameKey(value) {
+  return normalizeFa(String(value ?? '').normalize('NFKC').replace(/[\u200c\u200d]/g, ''))
+    .toLocaleLowerCase('en');
+}

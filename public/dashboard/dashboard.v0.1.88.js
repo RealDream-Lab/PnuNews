@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.87.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.88.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -362,7 +362,7 @@ function askDialog({
       `<h2 id="swal-title" class="swal-title">${escapeHtml(title)}</h2>` +
       (text ? `<p class="swal-text">${escapeHtml(text)}</p>` : "") +
       (input
-        ? `<input class="swal-input" type="${input.type || "text"}" dir="${input.dir || "rtl"}" placeholder="${escapeHtml(input.placeholder || "")}" autocomplete="off">`
+        ? `<input class="swal-input" type="${input.type || "text"}" dir="${input.dir || "rtl"}" placeholder="${escapeHtml(input.placeholder || "")}" value="${escapeHtml(input.value || "")}" autocomplete="off">`
         : "") +
       `<div class="swal-actions"><button type="button" class="button ${tone === "danger" ? "danger" : "primary"}" data-swal="confirm">${escapeHtml(confirmText)}</button>` +
       `<button type="button" class="button outline" data-swal="cancel">${escapeHtml(cancelText)}</button></div></div>`;
@@ -2163,7 +2163,7 @@ async function loadUsers(page = state.usersPage) {
         const parent = state.regions.find(
           (region) => Number(region.id) === parentId,
         );
-        return `<details class="tree-province" data-user-group="${parentId}"${state.usersOpen.has(parentId) ? " open" : ""}><summary class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></summary>${entries.map((user) => `<div class="tree-city${user.region_type === "city" ? " is-city" : ""}"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</details>`;
+        return `<details class="tree-province" data-user-group="${parentId}"${state.usersOpen.has(parentId) ? " open" : ""}><summary class="tree-province-heading"><span>${escapeHtml(parent?.name || entries[0].region_name)}</span><span>${faDigits.format(entries.length)} کاربر</span></summary>${entries.map((user) => `<div class="tree-city${user.region_type === "city" ? " is-city" : ""}"><div><strong>${escapeHtml(user.full_name)}</strong><small>${escapeHtml(roleLabel(user.role, user.domain_name))} · ${escapeHtml(user.region_name)} · ${escapeHtml(user.username)}</small></div><div class="compact-actions"><button class="mini-button" data-user-action="rename" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-username="${escapeHtml(user.username)}">تغییر نام کاربری</button><button class="mini-button" data-user-action="reset-password" data-user-id="${Number(user.id)}">بازنشانی گذرواژه</button><button class="mini-button" data-user-action="reset-2fa" data-user-id="${Number(user.id)}">بازنشانی ۲مرحله‌ای</button><button class="mini-button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${Number(user.id)}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>${user.role !== "super_admin" && Number(user.id) !== Number(state.user?.id) ? `<button class="mini-button danger" data-user-action="delete" data-user-id="${Number(user.id)}" data-user-name="${escapeHtml(user.full_name)}" data-subordinates="${subordinateCount(user)}">حذف کاربر</button>` : ""}</div></div>`).join("")}</details>`;
       })
       .join("");
   } catch (error) {
@@ -2355,10 +2355,50 @@ async function submitUser(event) {
   }
 }
 
+const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
+
+// Asks for a new username in a dialog; a refused name (taken, invalid) reopens the dialog with the reason.
+async function renameUser(button) {
+  const id = Number(button.dataset.userId);
+  const current = button.dataset.username || "";
+  const person = button.dataset.userName || "کاربر";
+  const hint =
+    "نام کاربری باید در کل کشور یکتا باشد. فقط حرف، رقم و _ . - ؛ ۳ تا ۸۰ نویسه.";
+  let value = current;
+  let problem = "";
+  for (;;) {
+    const answer = await promptDialog({
+      title: `تغییر نام کاربری «${person}»`,
+      text: problem ? `${problem}\n${hint}` : hint,
+      confirmText: "ذخیره",
+      input: { dir: "ltr", placeholder: "username", value },
+    });
+    if (answer === null || answer === false) return;
+    value = String(answer).trim();
+    if (value === current) return;
+    if (!USERNAME_PATTERN.test(value)) {
+      problem = "نام کاربری معتبر نیست.";
+      continue;
+    }
+    try {
+      await api(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        body: { username: value },
+      });
+      showToast(`نام کاربری به «${value}» تغییر کرد.`);
+      await loadUsers();
+      return;
+    } catch (error) {
+      problem = error.message;
+    }
+  }
+}
+
 async function handleUserAction(button) {
   const id = Number(button.dataset.userId);
   const action = button.dataset.userAction;
   if (!id || !action) return;
+  if (action === "rename") return renameUser(button);
   const isDelete = action === "delete";
   if (isDelete && Number(button.dataset.subordinates) > 0) {
     showMessage(
