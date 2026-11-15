@@ -380,3 +380,13 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-meta-overlay{padding-inline-end:2.6rem}
 .card-meta-overlay .card-share{position:absolute;left:.45rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
 @media(hover:hover){.card-meta-overlay .card-share:hover{color:#8fb8ff}}
+
+/* خبرهای مهم: دکمه‌های پیمایش برای ماوس (لمسی با کشیدن انگشت پیمایش می‌شود) */
+.pinned-wrap{position:relative}
+.pinned-nav{display:none}
+@media(hover:hover) and (pointer:fine){
+.pinned-nav:not([hidden]){display:grid;place-items:center;position:absolute;top:calc(50% - .55rem);transform:translateY(-50%);z-index:3;width:2.4rem;height:2.4rem;padding:0 0 .15rem;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);font:inherit;font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.pinned-nav:hover{background:var(--primary-soft);color:var(--primary)}
+.pinned-prev{inset-inline-start:.35rem}
+.pinned-next{inset-inline-end:.35rem}
+}
