@@ -77,7 +77,7 @@ test('portal-imported news is shared by the main admin and the central PR, hidde
   assert.equal(canViewNews(cityA1, imported, opts), false);
   assert.equal(canViewNews(provA, imported, opts), false);
   assert.equal(canViewNews(country, imported, opts), true);
-  assert.equal(canEditNews(country, imported, opts), false);
+  assert.equal(canEditNews(country, imported, opts), true, 'the central PR edits the portal feed too (v0.1.95)');
   assert.equal(canDeleteNews(country, imported, opts), true);
   assert.equal(canDeleteNews(provA, imported, opts), false);
   assert.equal(canEditNews(sup, imported, opts), true);
@@ -173,4 +173,18 @@ test('«ساختار و کاربران» shows each admin only the units of thei
   assert.deepEqual(ids(cityA1), [100], 'a centre admin sees only their own centre');
   assert.deepEqual(ids(domCity), [], 'domain users manage no structure');
   assert.deepEqual(ids(null), []);
+});
+
+test('the automatic portal news: the main admin and the central PR edit them; nobody else even sees them', () => {
+  const portal = { ...news({ id: 99, role: 'super_admin', region_id: 1 }), source_url: 'https://pnu.ac.ir/fa-IR/DouranPortal/6021/news/view/1/2/x' };
+  for (const editor of [sup, country]) {
+    assert.equal(canViewNews(editor, portal, opts), true);
+    assert.equal(canEditNews(editor, portal, opts), true);
+    assert.equal(canDeleteNews(editor, portal, opts), true);
+  }
+  for (const other of [provA, cityA1, domCountry, domCity]) {
+    assert.equal(canViewNews(other, portal, opts), false);
+    assert.equal(canEditNews(other, portal, opts), false);
+    assert.equal(canDeleteNews(other, portal, opts), false);
+  }
 });

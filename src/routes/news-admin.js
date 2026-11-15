@@ -98,7 +98,7 @@ async function getPolicyNews(pool, user, id) {
   if (!news) return null;
   news._regions = regions;
   const canView = canViewNews(user, news, { regions });
-  return { news, regions, canView, canEdit: canView && !news.source_url && canEditNews(user, news, { regions }) };
+  return { news, regions, canView, canEdit: canView && canEditNews(user, news, { regions }) };
 }
 
 function publisherUnit(creatorRole, region) {

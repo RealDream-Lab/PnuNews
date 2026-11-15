@@ -67,3 +67,13 @@ test('an unchanged cover is not rewritten, and a news without a stored address g
   const missing = await runWith(null, NEW);
   assert.deepEqual(missing.pool.updates, [{ id: 155, image: NEW }]);
 });
+
+test('the routes leave the edit decision of portal news to the policy (main admin and central PR)', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+  const [news, attachments] = [await read('src/routes/news-admin.js'), await read('src/routes/news-attachments.js')];
+  assert.match(news, /canEdit: canView && canEditNews\(user, news, \{ regions \}\)/);
+  assert.match(attachments, /canEdit: canEditNews\(user, news, \{ regions \}\)/);
+  assert.match(attachments, /const canEdit = canEditNews\(request\.user, attachment, \{ regions \}\)/);
+  assert.ok(!/!(news|attachment)\.source_url &&/.test(news + attachments), 'no route blocks portal news on its own');
+});

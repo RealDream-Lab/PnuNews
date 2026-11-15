@@ -29,7 +29,7 @@ async function accessNews(pool, user, newsId) {
   return {
     news,
     canView: canViewNews(user, news, { regions }),
-    canEdit: !news.source_url && canEditNews(user, news, { regions }),
+    canEdit: canEditNews(user, news, { regions }),
   };
 }
 
@@ -210,7 +210,7 @@ export function createAttachmentDeleteRouter({ pool, uploadRoot }) {
       if (!attachment) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       const [regions] = await pool.query('SELECT id, parent_id, type FROM regions');
       const canView = canViewNews(request.user, attachment, { regions });
-      const canEdit = !attachment.source_url && canEditNews(request.user, attachment, { regions });
+      const canEdit = canEditNews(request.user, attachment, { regions });
       if (!canView) return response.status(404).json({ error: 'پیوست پیدا نشد.' });
       if (!canEdit) return response.status(403).json({ error: 'اجازهٔ حذف این پیوست را ندارید.' });
 

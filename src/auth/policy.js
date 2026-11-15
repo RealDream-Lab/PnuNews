@@ -95,7 +95,7 @@ export function canViewNews(user, news, optionsOrRegions) {
   const regions = policyRegions(optionsOrRegions);
   if (!regions) return false;
   if (Number(news.created_by) === Number(user.id)) return true;
-  // The automatic portal feed is shared with the central organisation's PR (read-only; see canDeleteNews).
+  // The automatic portal feed is shared with the central organisation's PR (see canEditNews).
   if (news.source_url && user.role === ROLE.COUNTRY_ADMIN) return true;
   if (!isUnitAdmin(user)) return false;
 
@@ -114,13 +114,12 @@ export function canViewNews(user, news, optionsOrRegions) {
 export function canEditNews(user, news, { regions } = {}) {
   if (!user || !news || !regions) return false;
   if (user.role === ROLE.SUPER_ADMIN) return true;
-  if (news.source_url) return false;
+  // The automatic portal feed is edited by the main admin and the central PR only (canViewNews shows it to nobody else).
+  if (news.source_url) return user.role === ROLE.COUNTRY_ADMIN && canViewNews(user, news, { regions });
   return canViewNews(user, news, { regions });
 }
 
 export function canDeleteNews(user, news, options) {
-  // Like the main admin, the central PR may remove items of the automatic portal feed (they cannot be edited).
-  if (user?.role === ROLE.COUNTRY_ADMIN && news?.source_url) return canViewNews(user, news, options);
   return canEditNews(user, news, options);
 }
 
