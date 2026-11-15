@@ -505,6 +505,11 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         const regions = await getRegions(pool);
         const target = await loadManagedUser(pool, id, request.user, regions, action === 'reset-password' ? 'reset_password' : action === 'reset-2fa' ? 'reset_2fa' : action,);
         if (!target) return response.status(404).json({ error: 'کاربر پیدا نشد یا در محدودهٔ مدیریت شما نیست.' });
+        // Activation may carry a new username: both changes happen in one transaction or neither does.
+        const newUsername = action === 'activate' && request.body?.username !== undefined ? String(request.body.username).trim() : undefined;
+        if (newUsername !== undefined && !USERNAME_PATTERN.test(newUsername)) {
+          return response.status(400).json({ error: 'نام کاربری معتبر نیست.', field: 'username' });
+        }
         const connection = await pool.getConnection();
         let generatedPassword;
         try {
@@ -519,7 +524,25 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
               await connection.rollback();
               return response.status(409).json({ error: conflict });
             }
-            await connection.execute('UPDATE users SET is_active = 1 WHERE id = ?', [id]);
+            const renamed = newUsername !== undefined && newUsername !== target.username;
+            if (renamed) {
+              if (!(await lockUsernames(connection))) {
+                await connection.rollback();
+                return response.status(503).json({ error: USERNAME_BUSY, field: 'username' });
+              }
+              if (await usernameTaken(connection, newUsername, id)) {
+                await connection.rollback();
+                return response.status(409).json({ error: USERNAME_TAKEN, field: 'username' });
+              }
+              await connection.execute('UPDATE users SET is_active = 1, username = ? WHERE id = ?', [newUsername, id]);
+              await connection.execute(
+                `INSERT INTO audit_log (user_id, action, entity, entity_id, meta, ip)
+                 VALUES (?, 'user.update', 'user', ?, ?, ?)`,
+                [request.user.id, id, JSON.stringify({ fields: ['username'], username_from: target.username, username_to: newUsername }), request.ip ?? null],
+              );
+            } else {
+              await connection.execute('UPDATE users SET is_active = 1 WHERE id = ?', [id]);
+            }
           } else if (action === 'reset-password') {
             generatedPassword = temporaryPassword();
             const passwordHash = await hashPassword(generatedPassword);
@@ -542,10 +565,12 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           await connection.rollback();
           throw error;
         } finally {
+          await unlockUsernames(connection);
           connection.release();
         }
         return response.json({ ok: true, ...(generatedPassword ? { temporary_password: generatedPassword } : {}) });
       } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: USERNAME_TAKEN, field: 'username' });
         return next(error);
       }
     });

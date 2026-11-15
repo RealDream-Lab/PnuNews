@@ -70,3 +70,16 @@ test('region routes: changing units is main-admin-only; the overview is scoped t
   assert.match(overview, /unitsInScope\(request\.user/, 'and only the units in their scope');
   assert.match(overview, /isSuper \? \{ \.\.\.unit, users_total/, 'the counts for the delete confirmation are main-admin-only');
 });
+
+test('activating a user can rename them in the same transaction; the dashboard asks a second question first', async () => {
+  const source = await read('src/routes/admin.js');
+  const script = await dashboardScript();
+  const activate = source.slice(source.indexOf("} else if (action === 'activate') {"), source.indexOf("} else if (action === 'reset-password') {"));
+  assert.match(activate, /usernameTaken\(connection, newUsername, id\)/, 'the new name is checked for uniqueness under the same lock');
+  assert.match(activate, /UPDATE users SET is_active = 1, username = \? WHERE id = \?/, 'activation and rename are one UPDATE');
+  assert.match(activate, /field: 'username'/, 'a refused name is marked so the dialog can reopen');
+  assert.match(source, /action === 'activate' && request\.body\?\.username !== undefined/);
+  assert.match(script, /async function activateWithUsernameChoice/);
+  assert.match(script, /action === "activate" && \(await activateWithUsernameChoice\(button\)\)/);
+  assert.match(script, /data-user-action="\$\{user\.is_active \? "deactivate" : "activate"\}" data-user-id="\$\{id\}" data-user-name="\$\{name\}" data-username="\$\{username\}"/, 'the button carries the current username');
+});
