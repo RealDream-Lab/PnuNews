@@ -647,6 +647,8 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         `SELECT r.id, r.parent_id, r.type, r.name, r.visibility_override,
                 (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_active = 1 AND u.is_system = 0
                    AND u.role IN ('country_admin', 'province_admin', 'city_admin')) AS active_admins,
+                (SELECT COUNT(*) FROM users u WHERE u.region_id = r.id AND u.is_system = 0
+                   AND u.role IN ('country_admin', 'province_admin', 'city_admin')) AS admins_total,
                 (SELECT COUNT(*) FROM regions c WHERE c.parent_id = r.id AND c.type = 'city') AS cities_total,
                 (SELECT COUNT(*) FROM regions c WHERE c.parent_id = r.id AND c.type = 'city' AND c.visibility_override <> 'hide'
                    AND (c.visibility_override = 'show' OR EXISTS (
@@ -662,7 +664,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         units: rows.filter((row) => visible.has(Number(row.id))).map((row) => {
           const unit = {
             id: Number(row.id), parent_id: row.parent_id === null ? null : Number(row.parent_id), type: row.type, name: row.name,
-            visibility_override: row.visibility_override, active_admins: Number(row.active_admins),
+            visibility_override: row.visibility_override, active_admins: Number(row.active_admins), admins_total: Number(row.admins_total),
             cities_total: Number(row.cities_total), active_cities: Number(row.active_cities),
           };
           return isSuper ? { ...unit, users_total: Number(row.users_total), news_total: Number(row.news_total) } : unit;

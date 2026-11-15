@@ -66,6 +66,7 @@ test('region routes: changing units is main-admin-only; the overview is scoped t
   assert.match(source, /region\.type !== 'city'/);
   const overview = source.slice(source.indexOf("router.get('/regions/overview'"), source.indexOf("router.post('/regions',"));
   assert.match(overview, /isUnitAdmin\(request\.user\)/, 'unit admins may read their structure');
+  assert.match(overview, /AS admins_total/, 'a unit whose admin is only inactive is told apart from one with no admin');
   assert.match(overview, /unitsInScope\(request\.user/, 'and only the units in their scope');
   assert.match(overview, /isSuper \? \{ \.\.\.unit, users_total/, 'the counts for the delete confirmation are main-admin-only');
 });
