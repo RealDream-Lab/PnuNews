@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.90.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.91.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -1812,13 +1812,12 @@ async function publishEditor() {
         "برای زمان‌بندی، ابتدا تاریخ و ساعت انتشار را انتخاب کنید.",
       );
     const id = await saveEditor();
-    const publishedAt = scheduled
-      ? state.newsDates.published_at
-      : new Date().toISOString();
+    // "Publish now" sends no time at all: the server stamps its own clock. This browser's clock can run a few seconds
+    // ahead of the server's, and a time even slightly in the future turns the news into a scheduled one.
     await api(`/api/admin/news/${id}/publish`, {
       method: "POST",
       body: {
-        published_at: publishedAt,
+        ...(scheduled ? { published_at: state.newsDates.published_at } : {}),
         expires_at: state.newsDates.expires_at,
       },
     });

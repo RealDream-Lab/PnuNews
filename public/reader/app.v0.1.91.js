@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.90.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.90.js';
+import { initDock } from '/shared/dock.v0.1.91.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.91.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1498,6 +1498,37 @@ feed.addEventListener('click', (event) => {
   const card = event.target.closest('[data-news-id]');
   if (card) openCard(card);
 });
+// The strip scrolls sideways, but scrollbars are hidden app-wide and a mouse wheel only scrolls up and down, so on a
+// desktop it could not be moved at all. Arrow buttons (shown for a mouse only, see the CSS) and the wheel fix that;
+// a touch screen keeps swiping. scrollLeft is negative in right-to-left pages, hence the absolute values.
+const pinnedPrev = document.querySelector('.pinned-prev');
+const pinnedNext = document.querySelector('.pinned-next');
+const pinnedDirection = () => (getComputedStyle(pinnedStrip).direction === 'rtl' ? -1 : 1);
+const pinnedRange = () => ({ max: pinnedStrip.scrollWidth - pinnedStrip.clientWidth, position: Math.abs(pinnedStrip.scrollLeft) });
+function updatePinnedNav() {
+  const { max, position } = pinnedRange();
+  const overflowing = !pinnedStrip.hidden && max > 2;
+  pinnedPrev.hidden = !overflowing || position <= 2;
+  pinnedNext.hidden = !overflowing || position >= max - 2;
+}
+function scrollPinned(step) {
+  pinnedStrip.scrollBy({ left: step * pinnedDirection() * Math.max(pinnedStrip.clientWidth * 0.8, 200), behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+}
+pinnedPrev.addEventListener('click', () => scrollPinned(-1));
+pinnedNext.addEventListener('click', () => scrollPinned(1));
+pinnedStrip.addEventListener('scroll', updatePinnedNav, { passive: true });
+addEventListener('resize', updatePinnedNav);
+new MutationObserver(updatePinnedNav).observe(pinnedStrip, { childList: true, attributes: true, attributeFilter: ['hidden'] });
+pinnedStrip.addEventListener('wheel', (event) => {
+  if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+  const { max, position } = pinnedRange();
+  // at either end (or with nothing to scroll) the wheel keeps scrolling the page
+  if (max <= 2 || (event.deltaY > 0 && position >= max - 1) || (event.deltaY < 0 && position <= 1)) return;
+  event.preventDefault();
+  pinnedStrip.scrollLeft += (event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY) * pinnedDirection();
+}, { passive: false });
+updatePinnedNav();
+
 pinnedStrip.addEventListener('click', (event) => {
   const card = event.target.closest('[data-news-id]');
   if (card) openCard(card);
