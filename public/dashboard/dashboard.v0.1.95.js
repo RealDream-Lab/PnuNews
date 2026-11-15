@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.94.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.95.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -825,7 +825,7 @@ function renderNewsTable(items) {
     <td>${escapeHtml(item.category_name || "—")}</td>
     <td><span class="status-badge ${escapeHtml(item.status)}">${statusLabel(item.status)}</span>${item.is_urgent ? '<span class="urgent-label"> · فوری</span>' : ""}</td>
     <td>${faDigits.format(item.view_count)}</td><td>${formatDate(item.updated_at)}</td>
-    <td><button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">${item.source_url ? "مشاهده" : "بازکردن"}</button></td>
+    <td><button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">${item.source_url && !FEED_ROLES.includes(state.user.role) ? "مشاهده" : "بازکردن"}</button></td>
   </tr>`,
     )
     .join("")}</tbody></table>`;
@@ -1211,8 +1211,11 @@ async function openEditor(id) {
     form.elements.is_pinned.checked = Boolean(item.is_pinned);
     form.elements.is_urgent.checked = Boolean(item.is_urgent);
     document.getElementById("editor-body").innerHTML = item.body_html || "";
+    // The automatic portal news are edited by the main admin and the central PR only (policy.js canEditNews).
     document.getElementById("editor-heading").textContent = item.source_url
-      ? "خبر خودکار پورتال (فقط خواندنی)"
+      ? item.can_edit
+        ? "ویرایش خبر خودکار پورتال"
+        : "خبر خودکار پورتال (فقط خواندنی)"
       : item.can_edit
         ? "ویرایش خبر"
         : "مشاهدهٔ خبر (فقط خواندنی)";
@@ -1236,8 +1239,9 @@ async function openEditor(id) {
     document.getElementById("editor-more").open = Boolean(
       item.is_pinned || item.is_urgent || item.expires_at,
     );
+    // For a portal news the media section opens: a cover uploaded here replaces the portal's own picture.
     document.getElementById("editor-media").open = Boolean(
-      (item.attachments || []).length,
+      (item.attachments || []).length || (item.source_url && item.can_edit),
     );
     state.editorFromFeed = Boolean(item.source_url);
     const canDeleteImported =
