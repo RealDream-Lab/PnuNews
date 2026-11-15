@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.92.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.93.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -419,7 +419,9 @@ async function api(path, { method = "GET", body, formData } = {}) {
   }
   if (!response.ok) {
     if (response.status === 401 && !authRoot.hidden) showAuth("login-card");
-    throw new Error(payload.error || "انجام درخواست ناموفق بود.");
+    const failure = new Error(payload.error || "انجام درخواست ناموفق بود.");
+    failure.field = payload.field;
+    throw failure;
   }
   return payload;
 }
@@ -2275,6 +2277,59 @@ async function renameUser(button) {
   }
 }
 
+// Second question when activating a user: keep the current username or change it too. Returns true when this helper
+// finished the job (renamed and activated, or the person gave up) and false when the plain activation should go on.
+// The new name travels with the activation request, so both are saved together or neither is: a name the server
+// refuses (taken, invalid) reopens the dialog with the reason and the account stays inactive.
+async function activateWithUsernameChoice(button) {
+  const id = Number(button.dataset.userId);
+  const current = button.dataset.username || "";
+  const person = button.dataset.userName || "کاربر";
+  const wantsChange = await confirmDialog({
+    title: "نام کاربری را هم تغییر بدهید؟",
+    text: `نام کاربری فعلی «${person}»: ${current}\nاگر «بله» را بزنید، تغییر نام کاربری و فعال‌سازی هم‌زمان انجام می‌شود.`,
+    tone: "question",
+    confirmText: "بله، تغییر می‌دهم",
+    cancelText: "خیر، همین بماند",
+  });
+  if (!wantsChange) return false;
+  const hint =
+    "نام کاربری باید در کل کشور یکتا باشد. فقط حرف، رقم و _ . - ؛ ۳ تا ۸۰ نویسه.";
+  let value = current;
+  let problem = "";
+  for (;;) {
+    const answer = await promptDialog({
+      title: `نام کاربری تازهٔ «${person}»`,
+      text: problem ? `${problem}\n${hint}` : hint,
+      confirmText: "تغییر و فعال‌سازی",
+      input: { dir: "ltr", placeholder: "username", value },
+    });
+    if (answer === null || answer === false) return true;
+    value = String(answer).trim();
+    if (value === current) return false;
+    if (!USERNAME_PATTERN.test(value)) {
+      problem = "نام کاربری معتبر نیست.";
+      continue;
+    }
+    try {
+      await api(`/api/admin/users/${id}/activate`, {
+        method: "POST",
+        body: { username: value },
+      });
+    } catch (error) {
+      if (error.field === "username") {
+        problem = error.message;
+        continue;
+      }
+      showToast(error.message);
+      return true;
+    }
+    showToast(`کاربر فعال شد و نام کاربری به «${value}» تغییر کرد.`);
+    await loadStructure();
+    return true;
+  }
+}
+
 async function handleUserAction(button) {
   const id = Number(button.dataset.userId);
   const action = button.dataset.userAction;
@@ -2306,6 +2361,10 @@ async function handleUserAction(button) {
         confirmText: "بله، انجام شود",
       });
   if (!confirmed) return;
+  // Activating asks a second question: change the username too? When the answer is yes the helper does both in one
+  // request and we are done; otherwise the plain activation below runs.
+  if (action === "activate" && (await activateWithUsernameChoice(button)))
+    return;
   try {
     const result = await api(
       isDelete ? `/api/admin/users/${id}` : `/api/admin/users/${id}/${action}`,
@@ -2409,7 +2468,7 @@ function userRow(user, unit) {
     : `<button class="mini-button" type="button" data-user-action="rename" data-user-id="${id}" data-user-name="${name}" data-username="${username}">تغییر نام کاربری</button>` +
       `<button class="mini-button" type="button" data-user-action="reset-password" data-user-id="${id}" data-user-name="${name}" data-username="${username}" data-unit-name="${escapeHtml(unit.name)}" data-unit-type="${unit.type}">${admin ? "ریست فوری رمز" : "بازنشانی گذرواژه"}</button>` +
       `<button class="mini-button" type="button" data-user-action="reset-2fa" data-user-id="${id}">بازنشانی ۲مرحله‌ای</button>` +
-      `<button class="mini-button" type="button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${id}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>` +
+      `<button class="mini-button" type="button" data-user-action="${user.is_active ? "deactivate" : "activate"}" data-user-id="${id}" data-user-name="${name}" data-username="${username}">${user.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</button>` +
       (user.role !== "super_admin"
         ? `<button class="mini-button danger" type="button" data-user-action="delete" data-user-id="${id}" data-user-name="${name}" data-subordinates="${Number(user.subordinate_count) || 0}">حذف کاربر</button>`
         : "");
