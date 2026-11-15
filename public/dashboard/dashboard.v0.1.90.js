@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.89.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.90.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -2358,7 +2358,11 @@ function unitState(unit) {
       return { key: "active", label: "فعال", active: true };
     if (unit.visibility_override === "show")
       return { key: "forced", label: "نمایش اجباری", active: true };
-    return { key: "inactive", label: "بدون مدیر", active: false };
+    return {
+      key: "inactive",
+      label: unit.admins_total > 0 ? "مدیر غیرفعال" : "بدون مدیر",
+      active: false,
+    };
   }
   return unit.active_cities > 0
     ? { key: "active", label: "فعال", active: true }
@@ -2433,7 +2437,9 @@ function cityRow(city, users) {
   const note =
     city.active_admins > 0
       ? ""
-      : isSuper && (parent?.active_admins ?? 0) === 0
+      : city.admins_total > 0
+        ? "مدیر این مرکز غیرفعال است"
+        : isSuper && (parent?.active_admins ?? 0) === 0
         ? "مدیری ثبت نشده؛ ابتدا مدیر استان را بسازید"
         : "مدیری ثبت نشده";
   const actions =
