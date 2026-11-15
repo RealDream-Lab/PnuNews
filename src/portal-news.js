@@ -181,11 +181,13 @@ export function createPortalImporter({
       [sourceHash],
     );
     if (existing.length) {
-      // News imported before the image address was stored get it now.
+      // The portal's editors sometimes replace a news cover after it was published, and the old file is deleted then.
+      // So a news that is still in the portal's list always takes the address the portal shows now (this also fills
+      // news imported before the address was stored). An address we already have is left alone.
       if (item.image)
         await pool.execute(
-          "UPDATE news SET source_image_url = ? WHERE id = ? AND source_image_url IS NULL",
-          [item.image, Number(existing[0].id)],
+          "UPDATE news SET source_image_url = ? WHERE id = ? AND (source_image_url IS NULL OR source_image_url <> ?)",
+          [item.image, Number(existing[0].id), item.image],
         );
       return false;
     }
