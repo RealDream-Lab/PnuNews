@@ -381,12 +381,14 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-meta-overlay .card-share{position:absolute;left:.45rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
 @media(hover:hover){.card-meta-overlay .card-share:hover{color:#8fb8ff}}
 
-/* خبرهای مهم: دکمه‌های پیمایش برای ماوس (لمسی با کشیدن انگشت پیمایش می‌شود) */
+/* خبرهای مهم: دکمه‌های پیمایش برای ماوس (لمسی با کشیدن انگشت پیمایش می‌شود). پیکان‌ها SVG هستند، چون نویسه‌های ‹ و › در صفحهٔ راست‌به‌چپ آینه می‌شوند. */
 .pinned-wrap{position:relative}
 .pinned-nav{display:none}
 @media(hover:hover) and (pointer:fine){
-.pinned-nav:not([hidden]){display:grid;place-items:center;position:absolute;top:calc(50% - .55rem);transform:translateY(-50%);z-index:3;width:2.4rem;height:2.4rem;padding:0 0 .15rem;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);font:inherit;font-size:1.5rem;line-height:1;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-.pinned-nav:hover{background:var(--primary-soft);color:var(--primary)}
+.pinned-nav:not([hidden]){display:grid;place-items:center;position:absolute;top:calc(50% - .55rem);transform:translateY(-50%);z-index:3;width:2.6rem;height:2.6rem;padding:0;border:2px solid #b9fff1;border-radius:50%;background:#00e5c3;color:#031a17;cursor:pointer;box-shadow:0 0 0 4px rgba(0,229,195,.25),0 0 18px rgba(0,229,195,.75);transition:transform .15s ease,box-shadow .15s ease}
+.pinned-nav svg{display:block;width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.pinned-nav:hover{transform:translateY(-50%) scale(1.1);box-shadow:0 0 0 5px rgba(0,229,195,.35),0 0 26px rgba(0,229,195,.95)}
+.pinned-nav:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .pinned-prev{inset-inline-start:.35rem}
 .pinned-next{inset-inline-end:.35rem}
 }
