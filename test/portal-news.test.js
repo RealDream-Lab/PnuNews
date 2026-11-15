@@ -1,0 +1,69 @@
+import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import test from 'node:test';
+import { createPortalImporter } from '../src/portal-news.js';
+
+const LINK = 'https://pnu.ac.ir/fa-IR/DouranPortal/6021/news/view/14591/50005750/Staging/x';
+const OLD = 'https://pnu.ac.ir/_DouranPortal/Album/News/13b2c628-d574-417e-9885-5ccf0fe4231b_14050824_115351.jpg';
+const NEW = 'https://pnu.ac.ir/_DouranPortal/Album/News/84db0197-973c-4202-90a7-f53200a0b2f2_14050824_161857.jpg';
+
+function portalHtml(image) {
+  return `<div id="dnn_NewsContentPanel1"><a class="DPNewsItemTitle" href="${LINK}">عنوان خبر</a>
+    <img alt="x" src="${image}"><span id="a_DetailsDatePanel" unix="1794730800000"></span>
+    <span id="a_NewsAbstract">چکیده</span></div>`;
+}
+
+// A pool that knows one imported news (id 155) and records every UPDATE of its cover address.
+function fakePool(storedImage) {
+  const updates = [];
+  const answer = (sql, params) => {
+    if (sql.startsWith('SELECT v FROM settings')) return [params[0] === 'portal_news_category_id' ? { v: '5' } : undefined].filter(Boolean);
+    if (sql.startsWith('SELECT id FROM categories')) return [{ id: 5 }];
+    if (sql.startsWith("SELECT id, is_system FROM users")) return [{ id: 9, is_system: 1 }];
+    if (sql.startsWith("SELECT id FROM regions")) return [{ id: 1 }];
+    if (sql.startsWith('SELECT id FROM news WHERE source_hash')) return [{ id: 155 }];
+    if (sql.startsWith('UPDATE news SET source_image_url')) {
+      const [image, id, current] = params;
+      if (storedImage === null || storedImage !== current) {
+        storedImage = image;
+        updates.push({ id, image });
+      }
+      return [];
+    }
+    return [];
+  };
+  return {
+    updates,
+    stored: () => storedImage,
+    execute: async (sql, params) => [answer(sql, params)],
+    query: async (sql, params) => [answer(sql, params)],
+  };
+}
+
+async function runWith(storedImage, portalImage) {
+  const pool = fakePool(storedImage);
+  const importer = createPortalImporter({
+    pool,
+    uploadRoot: '/tmp',
+    events: new EventEmitter(),
+    logger: { info() {}, warn() {}, error() {} },
+    fetchHtml: async () => portalHtml(portalImage),
+  });
+  const result = await importer.runOnce({ force: true });
+  return { pool, result };
+}
+
+test('a cover the portal replaced after publishing is picked up again (the old file is gone)', async () => {
+  const { pool, result } = await runWith(OLD, NEW);
+  assert.equal(result.error, null);
+  assert.equal(result.created, 0, 'the news itself is not imported twice');
+  assert.deepEqual(pool.updates, [{ id: 155, image: NEW }]);
+  assert.equal(pool.stored(), NEW);
+});
+
+test('an unchanged cover is not rewritten, and a news without a stored address gets one', async () => {
+  const same = await runWith(NEW, NEW);
+  assert.deepEqual(same.pool.updates, []);
+  const missing = await runWith(null, NEW);
+  assert.deepEqual(missing.pool.updates, [{ id: 155, image: NEW }]);
+});
