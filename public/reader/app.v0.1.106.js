@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.105.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.105.js';
+import { initDock } from '/shared/dock.v0.1.106.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.106.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -514,6 +514,7 @@ function recycleFeed() {
 // The other direction: cards recycled off the top are only a blank spacer. When the reader scrolls back up towards it
 // (fast scrolling included) a few of them are rebuilt, newest first, well before the blank comes on screen, and the spacer
 // shrinks by what they take up. A visible card is used as the anchor so the page never jumps while this happens.
+let glideShiftHook = null;
 const RESTORE_AHEAD = 2000;
 const RESTORE_BATCH = 9;
 let restoreFrame = 0;
@@ -545,7 +546,10 @@ function restoreRecycled() {
   layoutMasonry();
   if (anchor) {
     const shift = anchor.node.getBoundingClientRect().top - anchorTop;
-    if (Math.abs(shift) > 1) window.scrollTo({ top: window.scrollY + shift, behavior: 'instant' });
+    if (Math.abs(shift) > 1) {
+      window.scrollTo({ top: window.scrollY + shift, behavior: 'instant' });
+      glideShiftHook?.(shift); // a running glide-to-top must not mistake this correction for the reader grabbing the page
+    }
   }
   scheduleRestore(); // keep going while the blank is still close
 }
@@ -1627,25 +1631,41 @@ function glideToTop() {
     root.style.scrollBehavior = 'auto';
     let startTime = 0;
     let lastY = startY;
-    const stop = () => { cleanup(); resolve(); };
-    const cleanup = () => {
+    // Cards rebuilt above the reader (see restoreRecycled) move the page by a few pixels while we glide; the glide
+    // follows those corrections instead of treating them as the reader scrolling somewhere else and giving up.
+    let offset = 0;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      glideShiftHook = null;
       root.style.scrollBehavior = previous;
-      removeEventListener('wheel', stop);
+      removeEventListener('wheel', onWheel);
       removeEventListener('touchstart', stop);
       removeEventListener('keydown', stop);
+      resolve();
     };
-    addEventListener('wheel', stop, { passive: true, once: true });
-    addEventListener('touchstart', stop, { passive: true, once: true });
-    addEventListener('keydown', stop, { once: true });
+    const stop = () => finish();
+    // Desktop: trackpad momentum and a resting wheel keep sending small wheel events for a while after the click.
+    // Only a downward wheel turn means "I want to go elsewhere"; upward ones agree with the glide.
+    const onWheel = (event) => { if (event.deltaY > 0) finish(); };
+    glideShiftHook = (shift) => { offset += shift; lastY += shift; };
+    addEventListener('wheel', onWheel, { passive: true });
+    addEventListener('touchstart', stop, { passive: true });
+    addEventListener('keydown', stop);
     const step = (now) => {
+      if (done) return;
       if (!startTime) startTime = now;
       const t = Math.min(1, (now - startTime) / duration);
       // The reader grabbed the page (scrolled somewhere else themselves): stop animating.
-      if (Math.abs(window.scrollY - lastY) > 40) { stop(); return; }
-      lastY = Math.round(startY * (1 - ease(t)));
+      if (Math.abs(window.scrollY - lastY) > 40) { finish(); return; }
+      lastY = Math.max(0, Math.round(startY * (1 - ease(t)) + offset * (1 - t)));
       window.scrollTo(0, lastY);
       if (t < 1) requestAnimationFrame(step);
-      else { cleanup(); resolve(); }
+      else {
+        window.scrollTo(0, 0);
+        finish();
+      }
     };
     requestAnimationFrame(step);
   });
