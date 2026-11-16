@@ -65,7 +65,9 @@ export async function processImage(inputPath, uploadRoot, { kind = 'image', now 
         const outputPath = path.join(directory, fileName);
         const pipeline = sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: 'error' }).rotate();
         if (kind === 'cover') {
-          pipeline.resize(width, Math.round(width * 9 / 16), { fit: 'cover', position: 'centre' });
+          // The whole picture is kept: a cover is never cropped here. The reader frames it (a picture that is not 16:9
+          // is shown whole over a blurred copy of itself). A very tall picture is limited to twice the width of its 400/800/1280 px box.
+          pipeline.resize({ width, height: width * 2, fit: 'inside', withoutEnlargement: true });
         } else {
           pipeline.resize({ width, fit: 'inside' });
         }
