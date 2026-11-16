@@ -37,6 +37,7 @@ test('a cover whose shape differs from its frame is shown whole over a blurred c
   const css = await versioned('public/reader/', /^styles\.v[\d.]+\.css$/);
   assert.match(script, /const COVER_SHAPE_TOLERANCE = 0\.06;/);
   assert.match(script, /Math\.abs\(image\.naturalWidth \/ image\.naturalHeight \/ frameRatio - 1\) > COVER_SHAPE_TOLERANCE/);
+  assert.match(script, /frame\.classList\.contains\('card-cover-frame'\)\s*\? image\.naturalWidth < image\.naturalHeight/, 'on feed cards only a portrait picture is shown whole');
   assert.match(script, /frame\.offsetWidth \/ frame\.offsetHeight : 16 \/ 9/, 'the frame\'s own shape is the reference');
   assert.match(script, /frame\.style\.setProperty\('--cover-bg'/);
   // cards, the pinned strip, the news page and its gallery all go through it
