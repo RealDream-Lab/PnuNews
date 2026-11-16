@@ -73,6 +73,18 @@ test('the main admin hands a news to a province admin: owner and origin change, 
   assert.equal(pool.log.at(-1).sql, 'COMMIT');
 });
 
+test('a published news also gets the new author\'s name and unit as its publisher line', async () => {
+  const pool = fakePool({ published_by_user_id: 4, publisher_name: 'مدیر نجف‌آباد', publisher_unit: 'دانشگاه پیام نور نجف‌آباد' });
+  const result = await withServer(pool, USERS[1], (call) => call('/7/assign', { user_id: 3 }));
+  assert.equal(result.status, 200);
+  const update = pool.log.find((entry) => entry.sql.startsWith('UPDATE news SET created_by'));
+  assert.ok(update.sql.includes('publisher_name = ?') && update.sql.includes('publisher_unit = ?'));
+  assert.deepEqual(update.params, [3, 10, 3, 'مدیر اصفهان', 'دانشگاه پیام نور استان اصفهان', 1, 7]);
+  const toCountry = fakePool({ published_by_user_id: 4, publisher_name: 'x', publisher_unit: 'y' });
+  await withServer(toCountry, USERS[1], (call) => call('/7/assign', { user_id: 2 }));
+  assert.deepEqual(toCountry.log.find((entry) => entry.sql.startsWith('UPDATE news SET created_by')).params, [2, 1, 2, 'روابط عمومی', 'روابط عمومی سازمان مرکزی', 1, 7]);
+});
+
 test('a news is handed only to an active country- or province-level user, never twice to the same one', async () => {
   for (const [userId, status] of [[4, 400], [5, 400], [1, 400], [99, 400]]) {
     const pool = fakePool({ created_by: 2, origin_region_id: 1, created_by_role: 'country_admin', created_by_region_id: 1 });
