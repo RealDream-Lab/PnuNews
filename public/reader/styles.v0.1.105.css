@@ -397,3 +397,9 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-cover-frame.is-contained::before,.pinned-cover-frame.is-contained::before,.news-page-cover-frame.is-contained::before,.gallery-image-frame.is-contained::before{content:"";position:absolute;inset:-12%;z-index:0;background:var(--cover-bg) center/cover no-repeat;filter:blur(16px) brightness(.72) saturate(1.15);pointer-events:none}
 .is-contained>.cover-placeholder{display:none}
 .card-cover-frame.is-contained img.card-cover,.pinned-cover-frame.is-contained>img:not(.cover-placeholder),.news-page-cover-frame.is-contained .news-page-cover,.gallery-image-frame.is-contained>img:not(.cover-placeholder){object-fit:contain}
+
+/* ---------- Scroll-to-top button (home feed only) ---------- */
+.scroll-top{position:fixed;z-index:24;inset-inline-end:max(1rem,env(safe-area-inset-left,0px),env(safe-area-inset-right,0px));bottom:calc(max(var(--dock-height,0px),var(--safe-bottom,0px)) + .75rem);width:44px;height:44px;padding:0;display:grid;place-items:center;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--primary);cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.22);animation:banner-in .22s cubic-bezier(.22,.8,.26,1)}
+.scroll-top .icon{width:1.35rem;height:1.35rem;stroke-width:2.2}
+@media(hover:hover){.scroll-top:hover{border-color:var(--primary);background:var(--primary-soft)}}
+.scroll-top:active{transform:scale(.94)}

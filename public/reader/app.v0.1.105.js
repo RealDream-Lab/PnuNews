@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.104.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.104.js';
+import { initDock } from '/shared/dock.v0.1.105.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.105.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1721,6 +1721,25 @@ function initTitleBar() {
   update();
 }
 initTitleBar();
+
+// Scroll-to-top arrow: only on the home feed, once the reader has scrolled a good way down. It glides back to the top
+// the same way the "new items" banner does (instant when the system asks for reduced motion).
+function initScrollTop() {
+  const button = document.getElementById('scroll-top');
+  if (!button) return;
+  const SHOW_AFTER = 480;
+  let frame = 0;
+  const update = () => {
+    frame = 0;
+    button.hidden = app.hidden || window.scrollY < SHOW_AFTER;
+  };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+  window.addEventListener('scroll', schedule, { passive: true });
+  new MutationObserver(schedule).observe(app, { attributes: true, attributeFilter: ['hidden'] });
+  button.addEventListener('click', () => { glideToTop(); });
+  update();
+}
+initScrollTop();
 
 const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
 if (initialNewsMatch) {
