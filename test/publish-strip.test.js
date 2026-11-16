@@ -31,3 +31,20 @@ test('the important-news strip can be moved with a mouse: arrow buttons and the 
   assert.match(script, /scrollBy\(\{ left: step \* pinnedDirection\(\)/);
   assert.match(css, /@media\(hover:hover\) and \(pointer:fine\)\{\s*\.pinned-nav:not\(\[hidden\]\)/, 'buttons are for a mouse only');
 });
+
+test('a portrait cover is shown whole over a blurred copy of itself instead of being cropped', async () => {
+  const script = await versioned('public/reader/', /^app\.v[\d.]+\.js$/);
+  const css = await versioned('public/reader/', /^styles\.v[\d.]+\.css$/);
+  assert.match(script, /const TALL_COVER_RATIO = 1\.5;/);
+  assert.match(script, /image\.naturalWidth \/ image\.naturalHeight < TALL_COVER_RATIO/);
+  assert.match(script, /frame\.style\.setProperty\('--cover-bg'/);
+  // cards, the pinned strip, the news page and its gallery all go through it
+  assert.match(script, /closest\('\.card-cover-frame, \.pinned-cover-frame, \.news-page-cover-frame, \.gallery-image-frame'\)/);
+  assert.match(script, /settleCover\(image\) \{[\s\S]*?fitCoverFrame\(image\);/);
+  assert.match(script, /img\.news-page-cover, \.gallery-image-frame img'\)\) fitCoverFrame/);
+  for (const frame of ['card-cover-frame', 'pinned-cover-frame', 'news-page-cover-frame', 'gallery-image-frame']) {
+    assert.ok(css.includes(`.${frame}.is-tall::before`), `${frame} gets the blurred backdrop`);
+  }
+  assert.match(css, /\.is-tall>\.cover-placeholder\{display:none\}/);
+  assert.match(css, /object-fit:contain\}/);
+});

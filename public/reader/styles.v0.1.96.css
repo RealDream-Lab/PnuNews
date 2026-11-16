@@ -392,3 +392,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .pinned-prev{inset-inline-start:.35rem}
 .pinned-next{inset-inline-end:.35rem}
 }
+
+/* عکس عمودی (یا باریک‌تر از ۳:۲): کامل دیده می‌شود، روی نسخهٔ محوِ خودش؛ به‌جای بریده‌شدن بالا و پایین */
+.card-cover-frame.is-tall::before,.pinned-cover-frame.is-tall::before,.news-page-cover-frame.is-tall::before,.gallery-image-frame.is-tall::before{content:"";position:absolute;inset:-12%;z-index:0;background:var(--cover-bg) center/cover no-repeat;filter:blur(16px) brightness(.72) saturate(1.15);pointer-events:none}
+.is-tall>.cover-placeholder{display:none}
+.card-cover-frame.is-tall img.card-cover,.pinned-cover-frame.is-tall>img:not(.cover-placeholder),.news-page-cover-frame.is-tall .news-page-cover,.gallery-image-frame.is-tall>img:not(.cover-placeholder){object-fit:contain}
