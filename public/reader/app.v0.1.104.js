@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.103.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.103.js';
+import { initDock } from '/shared/dock.v0.1.104.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.104.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -935,10 +935,12 @@ async function refreshConfig() {
     document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام‌نور'}` : nextConfig.site_title || 'اخبار پیام‌نور';
     document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام‌نور';
     const selected = state.city ? findCity(state.city.id) : null;
-    if (state.city && !selected) {
+    // An empty list means the server is not ready yet (restart, deploy), not that every center vanished.
+    const listReady = Array.isArray(nextConfig.provinces) && nextConfig.provinces.length > 0;
+    if (state.city && !selected && listReady) {
       state.city = null;
       state.province = null;
-      try { localStorage.removeItem('pnu.city'); } catch {}
+      // the saved choice stays in the browser: if the center becomes visible again it is picked up on the next visit
       updateSelectedCity();
       resetFeed();
       feedMessage.textContent = 'مرکز دانشگاهی قبلی دیگر در دسترس نیست؛ لطفاً مرکز دانشگاهی دیگری انتخاب کنید.';
@@ -986,12 +988,13 @@ async function initializeReader({ newsOnly = false } = {}) {
         updateSelectedCity();
         resetFeed();
       } else {
-        if (savedCityId) {
-          try { localStorage.removeItem('pnu.city'); } catch {}
-        }
+        // The saved center is kept even when it is not in the list now: the list can be empty for a moment while the
+        // server restarts after an update, and erasing the choice would send every reader back to the picker for good.
+        // Picking a center overwrites it (setCity).
         updateSelectedCity();
         resetFeed();
-        openPicker();
+        if (savedCityId && !config.provinces?.length) feedMessage.textContent = 'فهرست مراکز دانشگاهی هنوز آماده نیست؛ چند لحظهٔ دیگر صفحه را دوباره بارگذاری کنید.';
+        else openPicker();
       }
     }
     dock.renderRadio(config.radio);
