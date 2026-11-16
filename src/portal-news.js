@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { appEvents, emitNewsPublished } from "./events.js";
 import { normalizeNewsInput } from "./news/content.js";
 import { parseProxyNews, portalUrl } from "./portal-parse.js";
+import { attachCover, localizeCover, removeCoverFiles } from "./lib/portal-cover.js";
 import {
   PORTAL_CACHE_TTL_MS,
   PORTAL_SOURCE_URL,
@@ -38,6 +39,8 @@ export function createPortalImporter({
   sourceUrl = process.env.PORTAL_NEWS_URL || null,
   fallbackUrl = process.env.PORTAL_NEWS_FALLBACK_URL || null,
   fetchHtml = fetchPortalHtml,
+  // Downloads a news cover from the portal and turns it into our own WebP set (src/lib/portal-cover.js). Replaceable in tests.
+  fetchCover = (url) => localizeCover({ url, uploadRoot, now: new Date(clock()) }),
 }) {
   let running = false;
   let timer = null;
@@ -202,6 +205,17 @@ export function createPortalImporter({
       body_html: `${item.abstract ? `<p>${escapeHtml(item.abstract)}</p>` : ""}<p><a href="${escapeHtml(item.link)}" rel="noopener noreferrer">مشاهدهٔ متن کامل در پورتال دانشگاه</a></p>`,
     });
     if (!text.title) return false;
+    // The cover is fetched now, before the news is saved, and kept on our server. If the portal does not give it (down,
+    // deleted, not a picture) the news is still saved with the portal's address as before; scripts/localize-portal-covers.js
+    // can fetch it later.
+    let cover = null;
+    if (item.image) {
+      try {
+        cover = await fetchCover(item.image);
+      } catch (error) {
+        logger.warn?.(`[portal-news] عکس «${text.title.slice(0, 60)}» دریافت نشد و فعلاً از پورتال نمایش داده می‌شود: ${error.message}`);
+      }
+    }
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -236,12 +250,14 @@ export function createPortalImporter({
         "INSERT INTO audit_log (user_id, action, entity, entity_id, meta) VALUES (?, 'news.import', 'news', ?, ?)",
         [setup.botId, newsId, JSON.stringify({ source: item.link })],
       );
+      if (cover) await attachCover(connection, newsId, cover, item.image);
       await connection.commit();
       emitNewsPublished(events, newsId);
       events.emit("news.changed", { id: newsId });
       return true;
     } catch (error) {
       await connection.rollback();
+      if (cover) await removeCoverFiles(cover).catch(() => {});
       if (error.code === "ER_DUP_ENTRY") return false;
       throw error;
     } finally {
