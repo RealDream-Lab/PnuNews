@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.95.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.95.js';
+import { initDock } from '/shared/dock.v0.1.96.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.96.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -390,8 +390,25 @@ const masonryObserver = 'ResizeObserver' in window ? new ResizeObserver(schedule
 // Cover frames show a shimmer until their image has loaded (or failed).
 function settleCover(image) {
   image.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add(image.complete && !image.naturalWidth ? 'is-failed' : 'is-loaded');
+  fitCoverFrame(image);
 }
-document.addEventListener('load', (event) => { if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) settleCover(event.target); }, true);
+
+// The frames are 16:9 and crop their picture, so a portrait one (or anything much narrower than 3:2) would lose its top
+// and bottom. Those are shown whole instead, centred over a blurred copy of themselves (the `.is-tall` CSS).
+const TALL_COVER_RATIO = 1.5;
+function fitCoverFrame(image) {
+  const frame = image.closest('.card-cover-frame, .pinned-cover-frame, .news-page-cover-frame, .gallery-image-frame');
+  if (!frame || image.classList.contains('cover-placeholder') || !image.naturalWidth || !image.naturalHeight) return;
+  const tall = image.naturalWidth / image.naturalHeight < TALL_COVER_RATIO;
+  frame.classList.toggle('is-tall', tall);
+  if (tall) frame.style.setProperty('--cover-bg', `url("${image.currentSrc || image.src}")`);
+  else frame.style.removeProperty('--cover-bg');
+}
+document.addEventListener('load', (event) => {
+  const target = event.target;
+  if (target.matches?.('img.card-cover, .pinned-cover-frame img')) settleCover(target);
+  else if (target.matches?.('img.news-page-cover, .gallery-image-frame img')) fitCoverFrame(target);
+}, true);
 document.addEventListener('error', (event) => {
   if (event.target.matches?.('img.card-cover, .pinned-cover-frame img')) event.target.closest('.card-cover-frame, .pinned-cover-frame')?.classList.add('is-failed');
 }, true);
