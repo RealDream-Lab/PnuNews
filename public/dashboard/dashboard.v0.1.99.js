@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.98.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.99.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -341,6 +341,26 @@ document.getElementById("about-telegram").addEventListener("click", (event) => {
   }, 1600);
 });
 
+// A drop-down for askDialog: options [{ value, label, group? }]; options with the same group share an <optgroup>.
+function selectMarkup({ placeholder = "انتخاب کنید…", options = [] }) {
+  const groups = new Map();
+  for (const option of options) {
+    const key = option.group ?? "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(option);
+  }
+  const optionHtml = (option) =>
+    `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`;
+  const body = [...groups]
+    .map(([group, items]) =>
+      group
+        ? `<optgroup label="${escapeHtml(group)}">${items.map(optionHtml).join("")}</optgroup>`
+        : items.map(optionHtml).join(""),
+    )
+    .join("");
+  return `<select class="swal-input" aria-label="${escapeHtml(placeholder)}"><option value="" selected disabled>${escapeHtml(placeholder)}</option>${body}</select>`;
+}
+
 // SweetAlert-style dialogs (no external library; the CSP only allows our own files).
 function askDialog({
   title,
@@ -349,6 +369,7 @@ function askDialog({
   confirmText = "تأیید",
   cancelText = "انصراف",
   input = null,
+  select = null,
 }) {
   return new Promise((resolve) => {
     const dialog = document.createElement("dialog");
@@ -362,9 +383,11 @@ function askDialog({
       (input
         ? `<input class="swal-input" type="${input.type || "text"}" dir="${input.dir || "rtl"}" placeholder="${escapeHtml(input.placeholder || "")}" value="${escapeHtml(input.value || "")}" autocomplete="off">`
         : "") +
+      (select ? selectMarkup(select) : "") +
       `<div class="swal-actions"><button type="button" class="button ${tone === "danger" ? "danger" : "primary"}" data-swal="confirm">${escapeHtml(confirmText)}</button>` +
       `<button type="button" class="button outline" data-swal="cancel">${escapeHtml(cancelText)}</button></div></div>`;
     const field = dialog.querySelector(".swal-input");
+    const isSelect = field?.tagName === "SELECT";
     let result = null;
     const finish = (value) => {
       result = value;
@@ -372,7 +395,11 @@ function askDialog({
     };
     dialog.addEventListener("click", (event) => {
       const action = event.target.closest("[data-swal]")?.dataset.swal;
-      if (action === "confirm") finish(field ? field.value.trim() : true);
+      if (action === "confirm") {
+        // a list without a choice does not confirm
+        if (isSelect && !field.value) field.focus();
+        else finish(field ? field.value.trim() : true);
+      }
       else if (action === "cancel" || event.target === dialog)
         finish(field ? null : false);
     });
@@ -1177,6 +1204,7 @@ function resetEditor() {
   document.getElementById("editor-heading").textContent = "خبر تازه";
   document.getElementById("editor-delete").hidden = true;
   document.getElementById("editor-unpublish").hidden = true;
+  document.getElementById("editor-assign").hidden = true;
   document.getElementById("editor-attachments").hidden = true;
   document.getElementById("editor-error").textContent = "";
   state.newsDates = { published_at: null, expires_at: null };
@@ -1257,6 +1285,10 @@ async function openEditor(id) {
         element.disabled = !item.can_edit;
     });
     document.getElementById("editor-publish").disabled = !item.can_edit;
+    // Only the main admin hands a news to another author; the automatic portal news have none.
+    const assign = document.getElementById("editor-assign");
+    assign.hidden = !(state.user.role === "super_admin" && !item.source_url);
+    assign.disabled = false;
     if (canDeleteImported)
       document.getElementById("editor-delete").disabled = false;
     setEditorMode(item.status);
@@ -1801,6 +1833,47 @@ async function handleEditorSubmit(event) {
     error.textContent = failure.message;
   } finally {
     setEditorBusy(false);
+  }
+}
+
+// Hand the open news to another author. Targets: active users of the country level and of the province level.
+async function assignEditorNews() {
+  const id = Number(state.currentNews?.id);
+  if (!id || state.busy) return;
+  try {
+    const { users } = await api("/api/admin/news/assignees");
+    const current = Number(state.currentNews.created_by);
+    const options = users
+      .filter((user) => user.id !== current)
+      .map((user) => ({
+        value: String(user.id),
+        label: `${user.full_name} · ${roleLabel(user.role, user.domain_name)}`,
+        group:
+          user.region_type === "country"
+            ? "سطح کشور"
+            : `استان ${user.region_name}`,
+      }));
+    if (!options.length) {
+      showToast("کاربر فعال دیگری در سطح کشور یا استان پیدا نشد.");
+      return;
+    }
+    const choice = await askDialog({
+      title: "اختصاص خبر به کاربر دیگر",
+      text: `نویسندهٔ فعلی: ${state.currentNews.created_by_name || "—"}. خبر و دسترسی ویرایش آن به کاربر انتخاب‌شده منتقل می‌شود؛ مقصدها و متن خبر تغییری نمی‌کند.`,
+      tone: "question",
+      confirmText: "اختصاص",
+      select: { placeholder: "انتخاب کاربر…", options },
+    });
+    if (!choice) return;
+    const result = await api(`/api/admin/news/${id}/assign`, {
+      method: "POST",
+      body: { user_id: Number(choice) },
+    });
+    state.currentNews.created_by = result.user_id;
+    state.currentNews.created_by_name = result.full_name;
+    showToast(`خبر به «${result.full_name}» اختصاص داده شد.`);
+  } catch (error) {
+    showToast(error.message);
   }
 }
 
@@ -3343,6 +3416,7 @@ function auditAction(action) {
     "news.publish": "انتشار خبر",
     "news.schedule": "زمان‌بندی خبر",
     "news.unpublish": "لغو انتشار",
+    "news.assign": "اختصاص خبر به کاربر دیگر",
     "user.create": "ساخت کاربر",
     "user.deactivate": "غیرفعال‌سازی کاربر",
     "user.activate": "فعال‌سازی کاربر",
@@ -3861,6 +3935,9 @@ function bindEvents() {
   document
     .getElementById("editor-unpublish")
     .addEventListener("click", unpublishEditorNews);
+  document
+    .getElementById("editor-assign")
+    .addEventListener("click", assignEditorNews);
   document
     .querySelector('#user-form [name="role"]')
     .addEventListener("change", syncUserFormRole);

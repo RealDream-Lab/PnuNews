@@ -1,7 +1,7 @@
 import express from 'express';
 import { appEvents, emitNewsPublished } from '../events.js';
 import { ensureDefaultCategory } from '../news/default-category.js';
-import { canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
+import { canAssignNews, canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
 import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
@@ -51,7 +51,7 @@ async function loadRegions(pool) {
 
 async function loadNews(pool, id) {
   const [rows] = await pool.execute(
-    `SELECT n.*, creator.role AS created_by_role,
+    `SELECT n.*, creator.role AS created_by_role, creator.full_name AS created_by_name,
             creator.region_id AS created_by_region_id,
             creator.is_active AS created_by_is_active,
             cover.stored_name AS cover_stored_name,
@@ -279,6 +279,79 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       }
       appEvents.emit('news.changed', { id: Number(newsId) });
       return response.status(201).json({ id: newsId, status: 'draft', category_id: categoryId, category_created: categoryCreated });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // Who a news may be handed to: active users of the country level (central PR and its domain users) and of the
+  // province level (province admins and their domain users). The main admin and system accounts are never offered.
+  router.get('/assignees', async (request, response, next) => {
+    if (!canAssignNews(request.user, {})) return response.status(403).json({ error: 'اختصاص خبر فقط برای مدیر ارشد است.' });
+    try {
+      const [rows] = await pool.query(
+        `SELECT u.id, u.full_name, u.username, u.role, u.region_id, r.type AS region_type, r.name AS region_name,
+                d.name AS domain_name
+         FROM users u JOIN regions r ON r.id = u.region_id
+         LEFT JOIN work_domains d ON d.id = u.domain_id
+         WHERE u.is_active = 1 AND u.is_system = 0 AND u.role <> 'super_admin' AND r.type IN ('country', 'province')
+         ORDER BY r.type = 'country' DESC, r.sort_order, r.name, u.role = 'domain_user', u.full_name`,
+      );
+      return response.json({
+        users: rows.map((row) => ({
+          id: Number(row.id), full_name: row.full_name, username: row.username, role: row.role,
+          region_id: Number(row.region_id), region_type: row.region_type, region_name: row.region_name,
+          domain_name: row.domain_name ?? null,
+        })),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // Hand a news to another author: the news (and its edit rights) become theirs, with their unit as its origin.
+  // Targets, the publisher line printed at publication and the attachments stay as they were.
+  router.post('/:id/assign', async (request, response, next) => {
+    const id = idValue(request.params.id);
+    const userId = idValue(request.body?.user_id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ خبر معتبر نیست.' });
+    if (!userId) return response.status(400).json({ error: 'کاربر مقصد را انتخاب کنید.' });
+    try {
+      const context = await getPolicyNews(pool, request.user, id);
+      if (!context?.canView) return response.status(404).json({ error: 'خبر پیدا نشد.' });
+      if (!canAssignNews(request.user, context.news)) {
+        return response.status(403).json({ error: context.news.source_url ? 'خبر خودکار پورتال نویسنده ندارد و قابل اختصاص نیست.' : 'اختصاص خبر فقط برای مدیر ارشد است.' });
+      }
+      if (Number(context.news.created_by) === userId) return response.status(409).json({ error: 'این کاربر هم‌اکنون نویسندهٔ خبر است.' });
+      const [targets] = await pool.execute(
+        `SELECT u.id, u.full_name, u.region_id, u.is_active, u.is_system, u.role, r.type AS region_type
+         FROM users u JOIN regions r ON r.id = u.region_id WHERE u.id = ? LIMIT 1`,
+        [userId],
+      );
+      const target = targets[0];
+      if (!target || !target.is_active || target.is_system || target.role === 'super_admin' || !['country', 'province'].includes(target.region_type)) {
+        return response.status(400).json({ error: 'خبر فقط به کاربران فعال سطح کشور یا استان اختصاص داده می‌شود.' });
+      }
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        await connection.execute(
+          'UPDATE news SET created_by = ?, origin_region_id = ?, updated_by = ? WHERE id = ? AND deleted_at IS NULL',
+          [target.id, target.region_id, request.user.id, id],
+        );
+        await auditNews(connection, request.user.id, 'news.assign', id, request, {
+          from_user_id: Number(context.news.created_by), to_user_id: Number(target.id),
+          from_region_id: Number(context.news.origin_region_id), to_region_id: Number(target.region_id),
+        });
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+      appEvents.emit('news.changed', { id: Number(id) });
+      return response.json({ ok: true, user_id: Number(target.id), full_name: target.full_name });
     } catch (error) {
       return next(error);
     }
