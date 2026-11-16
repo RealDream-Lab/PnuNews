@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.102.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.102.js';
+import { initDock } from '/shared/dock.v0.1.103.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.103.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -33,6 +33,7 @@ const state = {
   entries: [],
   spacer: null,
   spacerHeight: 0,
+  recycled: [], // cards taken off the top (their data only), brought back when the reader scrolls up to them
   pinnedIds: new Set(),
   pinnedSig: '',
   firstId: null,
@@ -462,6 +463,7 @@ function clearFeed() {
   state.entries = [];
   state.spacer = null;
   state.spacerHeight = 0;
+  state.recycled = [];
   state.pinnedIds = new Set();
   state.pinnedSig = '';
   state.cursor = null;
@@ -494,6 +496,7 @@ function recycleFeed() {
   const excess = state.entries.length - 60;
   if (excess <= 0) return;
   const removed = state.entries.splice(0, excess);
+  state.recycled.push(...removed.map((entry) => ({ id: entry.id, item: entry.item, featured: entry.node.classList.contains('is-featured') })));
   const before = feed.getBoundingClientRect().height;
   for (const entry of removed) entry.node.remove();
   if (!state.spacer) {
@@ -506,6 +509,45 @@ function recycleFeed() {
   state.spacerHeight += before - feed.getBoundingClientRect().height;
   state.spacer.style.height = `${Math.max(0, state.spacerHeight)}px`;
   layoutMasonry();
+}
+
+// The other direction: cards recycled off the top are only a blank spacer. When the reader scrolls back up towards it
+// (fast scrolling included) a few of them are rebuilt, newest first, well before the blank comes on screen, and the spacer
+// shrinks by what they take up. A visible card is used as the anchor so the page never jumps while this happens.
+const RESTORE_AHEAD = 2000;
+const RESTORE_BATCH = 9;
+let restoreFrame = 0;
+function scheduleRestore() {
+  if (restoreFrame || !state.spacer) return;
+  restoreFrame = requestAnimationFrame(restoreRecycled);
+}
+
+function restoreRecycled() {
+  restoreFrame = 0;
+  if (!state.spacer || !state.recycled.length) return;
+  if (state.spacer.getBoundingClientRect().bottom < -RESTORE_AHEAD) return;
+  const batch = state.recycled.splice(-Math.min(state.recycled.length, RESTORE_BATCH));
+  const anchor = state.entries.find((entry) => entry.node.getBoundingClientRect().bottom > 0) ?? null;
+  const anchorTop = anchor?.node.getBoundingClientRect().top ?? 0;
+  const before = feed.getBoundingClientRect().height;
+  const restored = batch.map(({ id, item, featured }) => ({ id, node: createCardNode(item, featured), item, sig: itemSignature(item) }));
+  state.spacer.after(...restored.map((entry) => entry.node));
+  state.entries.unshift(...restored);
+  layoutMasonry();
+  state.spacerHeight = Math.max(0, state.spacerHeight - (feed.getBoundingClientRect().height - before));
+  if (state.recycled.length) {
+    state.spacer.style.height = `${state.spacerHeight}px`;
+  } else {
+    state.spacer.remove();
+    state.spacer = null;
+    state.spacerHeight = 0;
+  }
+  layoutMasonry();
+  if (anchor) {
+    const shift = anchor.node.getBoundingClientRect().top - anchorTop;
+    if (Math.abs(shift) > 1) window.scrollTo({ top: window.scrollY + shift, behavior: 'instant' });
+  }
+  scheduleRestore(); // keep going while the blank is still close
 }
 
 // An IntersectionObserver only reports *changes*. If the sentinel was already inside the preload zone while a page was
@@ -922,8 +964,9 @@ async function initializeReader({ newsOnly = false } = {}) {
   initFontScale();
   intersectionObserver = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) loadMore();
-  }, { rootMargin: '700px 0px' });
+  }, { rootMargin: '2200px 0px' }); // a fast fling outruns a short preload zone and shows an empty, dark page
   intersectionObserver.observe(sentinel);
+  window.addEventListener('scroll', scheduleRestore, { passive: true });
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
