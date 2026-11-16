@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canViewNews, canEditNews, canDeleteNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql, auditRegionIds, unitsInScope } from '../src/auth/policy.js';
+import { canViewNews, canEditNews, canDeleteNews, canPublishTo, canCreateUser, canManageUser, newsVisibilitySql, auditRegionIds, unitsInScope, canAssignNews } from '../src/auth/policy.js';
 
 const regions = [
   { id: 1, parent_id: null, type: 'country' },
@@ -187,4 +187,13 @@ test('the automatic portal news: the main admin and the central PR edit them; no
     assert.equal(canEditNews(other, portal, opts), false);
     assert.equal(canDeleteNews(other, portal, opts), false);
   }
+});
+
+test('only the main admin may hand a manual news to another author', () => {
+  const manual = news(domCountry);
+  const portal = { ...news(sup), source_url: 'https://pnu.ac.ir/x' };
+  assert.equal(canAssignNews(sup, manual), true);
+  assert.equal(canAssignNews(sup, portal), false, 'the portal feed has no author');
+  for (const other of [country, provA, cityA1, domCountry, null]) assert.equal(canAssignNews(other, manual), false);
+  assert.equal(canAssignNews(sup, null), false);
 });

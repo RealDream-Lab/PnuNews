@@ -119,6 +119,11 @@ export function canEditNews(user, news, { regions } = {}) {
   return canViewNews(user, news, { regions });
 }
 
+// Handing a news to another author is for the main admin only, and never for the automatic portal feed (it has no author).
+export function canAssignNews(user, news) {
+  return user?.role === ROLE.SUPER_ADMIN && Boolean(news) && !news.source_url;
+}
+
 export function canDeleteNews(user, news, options) {
   return canEditNews(user, news, options);
 }
