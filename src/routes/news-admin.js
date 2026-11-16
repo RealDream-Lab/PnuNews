@@ -310,7 +310,7 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
   });
 
   // Hand a news to another author: the news (and its edit rights) become theirs, with their unit as its origin.
-  // Targets, the publisher line printed at publication and the attachments stay as they were.
+  // Targets and attachments stay as they were; a published news also gets the new author's name and unit as its publisher line.
   router.post('/:id/assign', async (request, response, next) => {
     const id = idValue(request.params.id);
     const userId = idValue(request.body?.user_id);
@@ -335,10 +335,22 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        await connection.execute(
-          'UPDATE news SET created_by = ?, origin_region_id = ?, updated_by = ? WHERE id = ? AND deleted_at IS NULL',
-          [target.id, target.region_id, request.user.id, id],
-        );
+        if (context.news.published_by_user_id == null) {
+          // Never published yet: the publisher line is written at the first publication, by whoever publishes.
+          await connection.execute(
+            'UPDATE news SET created_by = ?, origin_region_id = ?, updated_by = ? WHERE id = ? AND deleted_at IS NULL',
+            [target.id, target.region_id, request.user.id, id],
+          );
+        } else {
+          // Already published: the printed publisher line (feed card and news page) becomes the new author's name and unit too.
+          const targetRegion = context.regions.find((region) => Number(region.id) === Number(target.region_id));
+          await connection.execute(
+            `UPDATE news SET created_by = ?, origin_region_id = ?, published_by_user_id = ?,
+               publisher_name = ?, publisher_unit = ?, updated_by = ?
+             WHERE id = ? AND deleted_at IS NULL`,
+            [target.id, target.region_id, target.id, target.full_name, publisherUnit(target.role, targetRegion), request.user.id, id],
+          );
+        }
         await auditNews(connection, request.user.id, 'news.assign', id, request, {
           from_user_id: Number(context.news.created_by), to_user_id: Number(target.id),
           from_region_id: Number(context.news.origin_region_id), to_region_id: Number(target.region_id),
