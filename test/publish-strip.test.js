@@ -32,19 +32,20 @@ test('the important-news strip can be moved with a mouse: arrow buttons and the 
   assert.match(css, /@media\(hover:hover\) and \(pointer:fine\)\{\s*\.pinned-nav:not\(\[hidden\]\)/, 'buttons are for a mouse only');
 });
 
-test('a portrait cover is shown whole over a blurred copy of itself instead of being cropped', async () => {
+test('a cover whose shape differs from its frame is shown whole over a blurred copy of itself instead of being cropped', async () => {
   const script = await versioned('public/reader/', /^app\.v[\d.]+\.js$/);
   const css = await versioned('public/reader/', /^styles\.v[\d.]+\.css$/);
-  assert.match(script, /const TALL_COVER_RATIO = 1\.5;/);
-  assert.match(script, /image\.naturalWidth \/ image\.naturalHeight < TALL_COVER_RATIO/);
+  assert.match(script, /const COVER_SHAPE_TOLERANCE = 0\.06;/);
+  assert.match(script, /Math\.abs\(image\.naturalWidth \/ image\.naturalHeight \/ frameRatio - 1\) > COVER_SHAPE_TOLERANCE/);
+  assert.match(script, /frame\.offsetWidth \/ frame\.offsetHeight : 16 \/ 9/, 'the frame\'s own shape is the reference');
   assert.match(script, /frame\.style\.setProperty\('--cover-bg'/);
   // cards, the pinned strip, the news page and its gallery all go through it
   assert.match(script, /closest\('\.card-cover-frame, \.pinned-cover-frame, \.news-page-cover-frame, \.gallery-image-frame'\)/);
   assert.match(script, /settleCover\(image\) \{[\s\S]*?fitCoverFrame\(image\);/);
   assert.match(script, /img\.news-page-cover, \.gallery-image-frame img'\)\) fitCoverFrame/);
   for (const frame of ['card-cover-frame', 'pinned-cover-frame', 'news-page-cover-frame', 'gallery-image-frame']) {
-    assert.ok(css.includes(`.${frame}.is-tall::before`), `${frame} gets the blurred backdrop`);
+    assert.ok(css.includes(`.${frame}.is-contained::before`), `${frame} gets the blurred backdrop`);
   }
-  assert.match(css, /\.is-tall>\.cover-placeholder\{display:none\}/);
+  assert.match(css, /\.is-contained>\.cover-placeholder\{display:none\}/);
   assert.match(css, /object-fit:contain\}/);
 });

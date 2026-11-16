@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.96.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.96.js';
+import { initDock } from '/shared/dock.v0.1.97.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.97.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -393,15 +393,17 @@ function settleCover(image) {
   fitCoverFrame(image);
 }
 
-// The frames are 16:9 and crop their picture, so a portrait one (or anything much narrower than 3:2) would lose its top
-// and bottom. Those are shown whole instead, centred over a blurred copy of themselves (the `.is-tall` CSS).
-const TALL_COVER_RATIO = 1.5;
+// The frames crop their picture (`object-fit: cover`), so a portrait one, a poster that is only a little off 16:9, or a
+// very wide banner would lose its edges. A picture whose shape differs from its frame's by more than this share is shown
+// whole instead, centred over a blurred copy of itself (the `.is-contained` CSS). Raise it to crop more, lower it to crop less.
+const COVER_SHAPE_TOLERANCE = 0.06;
 function fitCoverFrame(image) {
   const frame = image.closest('.card-cover-frame, .pinned-cover-frame, .news-page-cover-frame, .gallery-image-frame');
   if (!frame || image.classList.contains('cover-placeholder') || !image.naturalWidth || !image.naturalHeight) return;
-  const tall = image.naturalWidth / image.naturalHeight < TALL_COVER_RATIO;
-  frame.classList.toggle('is-tall', tall);
-  if (tall) frame.style.setProperty('--cover-bg', `url("${image.currentSrc || image.src}")`);
+  const frameRatio = frame.offsetWidth && frame.offsetHeight ? frame.offsetWidth / frame.offsetHeight : 16 / 9;
+  const contained = Math.abs(image.naturalWidth / image.naturalHeight / frameRatio - 1) > COVER_SHAPE_TOLERANCE;
+  frame.classList.toggle('is-contained', contained);
+  if (contained) frame.style.setProperty('--cover-bg', `url("${image.currentSrc || image.src}")`);
   else frame.style.removeProperty('--cover-bg');
 }
 document.addEventListener('load', (event) => {
