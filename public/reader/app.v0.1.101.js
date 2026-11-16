@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.100.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.100.js';
+import { initDock } from '/shared/dock.v0.1.101.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.101.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -396,12 +396,16 @@ function settleCover(image) {
 // The frames crop their picture (`object-fit: cover`), so a portrait one, a poster that is only a little off 16:9, or a
 // very wide banner would lose its edges. A picture whose shape differs from its frame's by more than this share is shown
 // whole instead, centred over a blurred copy of itself (the `.is-contained` CSS). Raise it to crop more, lower it to crop less.
+// Feed cards are the exception: there only a portrait picture (narrower than it is tall) is shown whole; every
+// landscape one fills the whole card frame, however far its shape is from the frame's.
 const COVER_SHAPE_TOLERANCE = 0.06;
 function fitCoverFrame(image) {
   const frame = image.closest('.card-cover-frame, .pinned-cover-frame, .news-page-cover-frame, .gallery-image-frame');
   if (!frame || image.classList.contains('cover-placeholder') || !image.naturalWidth || !image.naturalHeight) return;
   const frameRatio = frame.offsetWidth && frame.offsetHeight ? frame.offsetWidth / frame.offsetHeight : 16 / 9;
-  const contained = Math.abs(image.naturalWidth / image.naturalHeight / frameRatio - 1) > COVER_SHAPE_TOLERANCE;
+  const contained = frame.classList.contains('card-cover-frame')
+    ? image.naturalWidth < image.naturalHeight
+    : Math.abs(image.naturalWidth / image.naturalHeight / frameRatio - 1) > COVER_SHAPE_TOLERANCE;
   frame.classList.toggle('is-contained', contained);
   if (contained) frame.style.setProperty('--cover-bg', `url("${image.currentSrc || image.src}")`);
   else frame.style.removeProperty('--cover-bg');
