@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.106.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.106.js';
+import { initDock } from '/shared/dock.v0.1.107.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.107.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -856,8 +856,13 @@ async function syncFeed() {
     if (!state.city || String(state.city.id) !== cityId || state.category !== categoryId || state.newsId || state.loading) { liveDirty = true; return; }
     if (window.scrollY > LIVE_NEAR_TOP) {
       // The reader is down the page: never move the content under their finger; just offer the banner.
-      const plan = planLiveUpdate(state.entries, data);
-      if (state.entries.length && (plan.inserts.length || plan.resync)) newItemsBanner.hidden = false;
+      // Cards recycled off the top of a long feed are still known to the reader: without them the newest cards would
+      // look "new" to the comparison and the banner would appear although nothing was published.
+      const known = state.recycled.length
+        ? [...state.recycled.map(({ id, item }) => ({ id, item, sig: itemSignature(item) })), ...state.entries]
+        : state.entries;
+      const plan = planLiveUpdate(known, data);
+      if (known.length && (plan.inserts.length || plan.resync)) newItemsBanner.hidden = false;
       liveDirty = true;
       return;
     }

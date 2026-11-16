@@ -26,3 +26,18 @@ test('the feed preloads far enough ahead that a fast scroll does not outrun it',
   const recycleAt = Number(/const excess = state\.entries\.length - (\d+)/.exec(script)[1]);
   assert.ok(recycleAt >= 60, 'the live window stays large enough that restoring never re-recycles at once');
 });
+
+test('the "new items" banner does not appear because cards were recycled off the top of a long feed', async () => {
+  const { planLiveUpdate, itemSignature } = await import(`${root}public/shared/live-plan.v${version}.js`);
+  const mk = (id) => ({ id, title: `t${id}`, summary: '', published_at: new Date(2026, 0, 100 - id).toISOString() });
+  const firstPage = { items: [mk(1), mk(2), mk(3)], pinned: [], next_cursor: 'x' };
+  const onScreen = [mk(4), mk(5)].map((item) => ({ id: item.id, item, sig: itemSignature(item) }));
+  const recycled = [mk(1), mk(2), mk(3)].map((item) => ({ id: item.id, item, sig: itemSignature(item) }));
+  assert.ok(planLiveUpdate(onScreen, firstPage).resync, 'without the recycled cards the comparison wrongly sees everything as new');
+  const plan = planLiveUpdate([...recycled, ...onScreen], firstPage);
+  assert.equal(plan.inserts.length, 0);
+  assert.equal(plan.resync, false);
+  const sync = script.slice(script.indexOf('async function syncFeed'), script.indexOf('function startLive'));
+  assert.match(sync, /state\.recycled\.map\(\(\{ id, item \}\) => \(\{ id, item, sig: itemSignature\(item\) \}\)\)/, 'syncFeed counts the recycled cards as known');
+  assert.match(sync, /planLiveUpdate\(known, data\)/);
+});
