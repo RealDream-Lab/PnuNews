@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام‌نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.104.css">
-  <script src="/shared/theme.v0.1.104.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.105.css">
+  <script src="/shared/theme.v0.1.105.js"></script>
   <title>اخبار پیام‌نور</title>
 </head>
 <body>
@@ -39,6 +39,7 @@
     <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.2"/></symbol>
     <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M5 9h15M4 15h15M10 3 8 21m8-18-2 18"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m-6.5 6.5L12 5l6.5 6.5"/></symbol>
   </svg>
   <header class="site-header">
     <div class="header-inner">
@@ -76,6 +77,7 @@
     <main id="news-view" class="reader-main" hidden></main>
   </div>
   <div class="floating-banners" aria-live="polite"><div id="update-root"></div><div id="install-root"></div></div>
+  <button type="button" id="scroll-top" class="scroll-top" aria-label="رفتن به ابتدای صفحه" title="رفتن به ابتدای صفحه" hidden><svg class="icon"><use href="#icon-arrow-up"/></svg></button>
   <footer class="site-dock" hidden><div class="dock-inner"><div id="radio-root"></div></div></footer>
   <dialog id="city-picker" class="city-dialog" aria-labelledby="picker-title">
     <div class="picker-panel" tabindex="-1" autofocus>
@@ -121,6 +123,6 @@
     <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.104.js"></script>
+  <script type="module" src="/reader/app.v0.1.105.js"></script>
 </body>
 </html>
