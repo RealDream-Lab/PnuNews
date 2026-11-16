@@ -1,5 +1,5 @@
-import { initDock } from '/shared/dock.v0.1.107.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.107.js';
+import { initDock } from '/shared/dock.v0.1.108.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.108.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1629,15 +1629,16 @@ function glideToTop() {
   const startY = window.scrollY;
   if (startY < 2 || reducedMotion.matches) { window.scrollTo(0, 0); return Promise.resolve(); }
   const duration = Math.min(1500, Math.max(650, 450 + startY * 0.12));
+  const SETTLE_MS = 450;
   const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
   return new Promise((resolve) => {
     const root = document.documentElement;
     const previous = root.style.scrollBehavior;
     root.style.scrollBehavior = 'auto';
     let startTime = 0;
-    let lastY = startY;
+    let endTime = 0;
     // Cards rebuilt above the reader (see restoreRecycled) move the page by a few pixels while we glide; the glide
-    // follows those corrections instead of treating them as the reader scrolling somewhere else and giving up.
+    // follows those corrections.
     let offset = 0;
     let done = false;
     const finish = () => {
@@ -1646,31 +1647,34 @@ function glideToTop() {
       glideShiftHook = null;
       root.style.scrollBehavior = previous;
       removeEventListener('wheel', onWheel);
-      removeEventListener('touchstart', stop);
-      removeEventListener('keydown', stop);
+      removeEventListener('touchstart', finish);
+      removeEventListener('keydown', finish);
       resolve();
     };
-    const stop = () => finish();
-    // Desktop: trackpad momentum and a resting wheel keep sending small wheel events for a while after the click.
-    // Only a downward wheel turn means "I want to go elsewhere"; upward ones agree with the glide.
-    const onWheel = (event) => { if (event.deltaY > 0) finish(); };
-    glideShiftHook = (shift) => { offset += shift; lastY += shift; };
-    addEventListener('wheel', onWheel, { passive: true });
-    addEventListener('touchstart', stop, { passive: true });
-    addEventListener('keydown', stop);
+    // Mac trackpads (and free-spinning wheels) keep sending momentum wheel events for a second or more after the
+    // fingers lifted. They would push the page back down against the glide, and after it ends. So downward wheel
+    // events are swallowed while the glide runs and briefly after it; a touch or a key press still cancels it.
+    const onWheel = (event) => { if (event.deltaY > 0) event.preventDefault(); };
+    glideShiftHook = (shift) => { offset += shift; };
+    addEventListener('wheel', onWheel, { passive: false });
+    addEventListener('touchstart', finish, { passive: true });
+    addEventListener('keydown', finish);
     const step = (now) => {
       if (done) return;
       if (!startTime) startTime = now;
-      const t = Math.min(1, (now - startTime) / duration);
-      // The reader grabbed the page (scrolled somewhere else themselves): stop animating.
-      if (Math.abs(window.scrollY - lastY) > 40) { finish(); return; }
-      lastY = Math.max(0, Math.round(startY * (1 - ease(t)) + offset * (1 - t)));
-      window.scrollTo(0, lastY);
-      if (t < 1) requestAnimationFrame(step);
-      else {
-        window.scrollTo(0, 0);
-        finish();
+      if (endTime) {
+        // Settling: hold the top until the momentum has died down.
+        if (window.scrollY > 0) window.scrollTo(0, 0);
+        if (now - endTime >= SETTLE_MS) finish(); else requestAnimationFrame(step);
+        return;
       }
+      const t = Math.min(1, (now - startTime) / duration);
+      const y = Math.max(0, Math.round(startY * (1 - ease(t)) + offset * (1 - t)));
+      window.scrollTo(0, y);
+      if (t < 1) { requestAnimationFrame(step); return; }
+      window.scrollTo(0, 0);
+      endTime = now;
+      requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   });

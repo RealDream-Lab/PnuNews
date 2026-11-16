@@ -26,12 +26,13 @@ test('the button floats above the radio dock on the reader\'s end side', () => {
   assert.match(styles, /\.scroll-top\{position:fixed;[^}]*inset-inline-end:[^}]*bottom:calc\(max\(var\(--dock-height,0px\),var\(--safe-bottom,0px\)\) \+ \.75rem\)/);
 });
 
-test('the glide survives cards being rebuilt above the reader and desktop wheel inertia', () => {
+test('the glide survives cards being rebuilt above the reader and trackpad momentum', () => {
   const restore = script.slice(script.indexOf('function restoreRecycled'), script.indexOf('An IntersectionObserver only reports'));
   assert.match(restore, /glideShiftHook\?\.\(shift\)/, 'scroll corrections made by the card restore are reported to a running glide');
   const glide = script.slice(script.indexOf('function glideToTop'), script.indexOf("newItemsBanner.addEventListener('click'"));
-  assert.match(glide, /glideShiftHook = \(shift\) => \{ offset \+= shift; lastY \+= shift; \}/);
-  assert.match(glide, /const onWheel = \(event\) => \{ if \(event\.deltaY > 0\) finish\(\); \}/, 'only a downward wheel turn cancels the glide');
-  assert.doesNotMatch(glide, /addEventListener\('wheel', stop/, 'small inertia wheel events must not cancel it');
-  assert.match(glide, /window\.scrollTo\(0, 0\);\s*finish\(\);/, 'the glide always ends exactly at the top');
+  assert.match(glide, /glideShiftHook = \(shift\) => \{ offset \+= shift; \}/);
+  assert.match(glide, /const onWheel = \(event\) => \{ if \(event\.deltaY > 0\) event\.preventDefault\(\); \}/, 'momentum wheel events are swallowed instead of cancelling the glide');
+  assert.match(glide, /addEventListener\('wheel', onWheel, \{ passive: false \}\)/);
+  assert.doesNotMatch(glide, /Math\.abs\(window\.scrollY - lastY\)/, 'a position difference is never read as the reader grabbing the page');
+  assert.match(glide, /SETTLE_MS/, 'the top is held for a moment after arriving');
 });
