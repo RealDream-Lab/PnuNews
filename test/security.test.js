@@ -208,6 +208,36 @@ test('feed honours the reader\'s news-source choices and validates them', async 
   }
 });
 
+test('the feed has its own request budget, so a search that pages through it cannot lock out the rest of the public API', async () => {
+  const city = { id: 11, name: 'بیجار', province_id: 5, province_name: 'کردستان', country_id: 1 };
+  const pool = { execute: async (sql) => (/FROM regions city/.test(sql) ? [[city]] : [[]]) };
+  const app = express();
+  app.use(createPublicRouter({ pool, config: { publicUrl: 'https://news.example.ir' } }));
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    // More than the 120 requests per minute that the other public routes share: a long search needs this many pages.
+    for (let index = 0; index < 150; index += 1) {
+      const page = await request(server, '/api/public/feed?city=11');
+      assert.equal(page.status, 200, `feed request ${index + 1}`);
+    }
+    // The shared budget is untouched by feed traffic.
+    assert.notEqual((await request(server, '/api/public/config')).status, 429);
+    // The feed itself is still limited, and says when to come back.
+    let limited = null;
+    for (let index = 150; index < 320 && !limited; index += 1) {
+      const page = await request(server, '/api/public/feed?city=11');
+      if (page.status === 429) limited = page;
+    }
+    assert.ok(limited, 'the feed is limited after 300 requests in a minute');
+    assert.ok(Number(limited.headers['retry-after']) >= 1);
+    assert.match(limited.body, /تعداد درخواست/);
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+  }
+});
+
 test('the radio origin is added to connect-src only when given', () => {
   assert.doesNotMatch(contentSecurityPolicy('https://news.example.ir'), /connect-src/);
   assert.match(contentSecurityPolicy('https://news.example.ir', ['https://radiostream.pnu.ac.ir']), /connect-src 'self' https:\/\/radiostream\.pnu\.ac\.ir;/);

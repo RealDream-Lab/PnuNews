@@ -80,3 +80,12 @@ test('while a search reads more pages no placeholder cards flash and no unmatche
   assert.match(styles, /prefers-reduced-motion:reduce\)\{\.quick-search\.is-loading/);
 });
 
+test('a search spaces its page requests and a "too many requests" answer is retried quietly, not shown', () => {
+  const load = script.slice(script.indexOf('const SEARCH_PAGE_GAP'), script.indexOf('// ---------- Quick search'));
+  assert.match(load, /const SEARCH_PAGE_GAP = \d{3,}/, 'there is a gap between the pages a search reads');
+  assert.match(load, /if \(state\.searchTokens\.length && state\.cursor\) \{\s*const wait = lastPageAt \+ SEARCH_PAGE_GAP - Date\.now\(\)/);
+  assert.match(script, /error\.status = response\.status;[\s\S]*error\.retryAfter = Number\(response\.headers\.get\('retry-after'\)\)/, 'getJson reports the status and Retry-After');
+  assert.match(load, /const throttled = error\.status === 429;/);
+  assert.match(load, /throttled && state\.searchTokens\.length \? ''/, 'no error text while a search is waiting for the server');
+  assert.match(load, /error\.retryAfter \|\| 5/, 'the retry waits as long as the server asked');
+});
