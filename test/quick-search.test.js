@@ -70,3 +70,13 @@ test('the search is hidden inside an article and the shared module is cached by 
   assert.match(script, /observe\(app, \{ attributes: true, attributeFilter: \['hidden'\] \}\)/);
   assert.ok(worker.includes(`'/shared/quick-search.v${version}.js'`));
 });
+
+test('while a search reads more pages no placeholder cards flash and no unmatched card is ever painted', () => {
+  const load = script.slice(script.indexOf('async function loadMore'), script.indexOf('// ---------- Quick search'));
+  assert.match(load, /if \(!state\.cursor \|\| !state\.searchTokens\.length\) showSkeletons\(/, 'later pages are read without skeleton cards while searching');
+  assert.match(load, /if \(state\.searchTokens\.length && !cardMatchesSearch\(node, state\.searchTokens\)\) node\.classList\.add\('is-search-hidden'\);\s*feed\.append\(node\)/, 'a card that does not match is hidden before it enters the page');
+  assert.match(script, /quickSearch\.classList\.toggle\('is-loading', searching && !settled\)/, 'a progress line shows that more pages are still being read');
+  assert.match(styles, /\.quick-search\.is-loading \.quick-search-field::after\{[^}]*animation:quick-search-progress/);
+  assert.match(styles, /prefers-reduced-motion:reduce\)\{\.quick-search\.is-loading/);
+});
+

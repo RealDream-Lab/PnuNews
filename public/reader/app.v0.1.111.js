@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.110.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.110.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.110.js';
+import { initDock } from '/shared/dock.v0.1.111.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.111.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.111.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -550,7 +550,9 @@ async function loadMore() {
   if (!state.city || state.loading || state.ended) return;
   state.loading = true;
   feed.setAttribute('aria-busy', 'true');
-  showSkeletons(skeletonCount(!state.cursor));
+  // While a search pages through the feed in the background no placeholder cards are shown: they flashed on and off
+  // with every page and made the page height jump. The search bar shows a progress line instead (applySearchFilter).
+  if (!state.cursor || !state.searchTokens.length) showSkeletons(skeletonCount(!state.cursor));
   const params = new URLSearchParams({ city: state.city.id, scope: state.scope, limit: '12', ...feedPreferenceParams(), ...categoryParams() });
   if (state.cursor) params.set('cursor', state.cursor);
   try {
@@ -570,6 +572,7 @@ async function loadMore() {
       const template = document.createElement('template');
       template.innerHTML = cardMarkup(item, { featured: isFirstPage && state.entries.length === 0 && Boolean(item.cover?.src) });
       const node = template.content.firstElementChild;
+      if (state.searchTokens.length && !cardMatchesSearch(node, state.searchTokens)) node.classList.add('is-search-hidden');
       feed.append(node);
       state.entries.push({ id: item.id, node, item, sig: itemSignature(item) });
     }
@@ -648,6 +651,7 @@ function applySearchFilter() {
   const settled = state.ended && !state.loading;
   const none = searching && total === 0 && settled;
   root.classList.toggle('is-searching', searching);
+  quickSearch.classList.toggle('is-loading', searching && !settled);
   root.classList.toggle('search-no-results', none);
   pinnedWrap.classList.toggle('is-search-empty', searching && pinnedShown === 0);
   searchEmpty.hidden = !none;
