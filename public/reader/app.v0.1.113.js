@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.112.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.112.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.112.js';
+import { initDock } from '/shared/dock.v0.1.113.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.113.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.113.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
