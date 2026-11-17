@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.111.css">
-<script src="/shared/theme.v0.1.111.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.112.css">
+<script src="/shared/theme.v0.1.112.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.111.js"></script>
+<script type="module" src="/reader/app.v0.1.112.js"></script>
 </body>
 </html>`;
 }
@@ -289,6 +289,10 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   const router = express.Router();
   const cache = createMicroCache({ ttlMs: 15_000, maxEntries: 1000, clock });
   const rateLimit = createRateLimiter({ limit: 120, windowMs: 60_000, clock });
+  // The feed has a budget of its own: the reader's quick search pages through it (12 news per request) and must not
+  // use up the 120 requests the rest of the public API (config, news, categories) shares, and its answers are cached.
+  const feedRateLimit = createRateLimiter({ limit: 300, windowMs: 60_000, clock });
+  const isFeedRequest = (request) => request.method === 'GET' && request.originalUrl.split('?')[0] === '/api/public/feed';
   const viewDedupe = new Map();
   let radioCache = { url: '', expiresAt: 0, value: null };
   const clearCaches = () => {
@@ -299,7 +303,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   events.on('news.published', clearCaches);
   events.on('settings.changed', clearCaches);
   events.on('regions.changed', clearCaches);
-  router.use(['/api/public', '/n'], rateLimit);
+  router.use(['/api/public', '/n'], (request, response, next) => (isFeedRequest(request) ? next() : rateLimit(request, response, next)));
 
   // Live channel: tells open readers that the feed changed so they can refetch the first page and animate it in.
   // The event carries no news data (readers refetch through the normal, cached feed endpoint).
@@ -413,7 +417,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     }
   });
 
-  router.get('/api/public/feed', async (request, response, next) => {
+  router.get('/api/public/feed', feedRateLimit, async (request, response, next) => {
     const cityId = idValue(request.query.city);
     const scope = String(request.query.scope ?? 'all');
     const requestedLimit = Number(request.query.limit ?? 12);

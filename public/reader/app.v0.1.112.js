@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.111.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.111.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.111.js';
+import { initDock } from '/shared/dock.v0.1.112.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.112.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.112.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -125,7 +125,12 @@ async function getJson(url) {
   const response = await fetch(url, { headers: { accept: 'application/json' } });
   let body;
   try { body = await response.json(); } catch { body = {}; }
-  if (!response.ok) throw new Error(body.error || 'دریافت اطلاعات ناموفق بود.');
+  if (!response.ok) {
+    const error = new Error(body.error || 'دریافت اطلاعات ناموفق بود.');
+    error.status = response.status;
+    error.retryAfter = Number(response.headers.get('retry-after')) || 0; // seconds, sent with HTTP 429
+    throw error;
+  }
   return body;
 }
 
@@ -546,9 +551,24 @@ function rearmSentinel() {
   intersectionObserver.observe(sentinel);
 }
 
+// A search pages through the whole feed in the background. Pages are spaced out so that it never comes close to the
+// server's request limit (an unpaced search sent a request the moment the previous page arrived and hit HTTP 429).
+const SEARCH_PAGE_GAP = 450;
+let lastPageAt = 0;
+let paceTimer = 0;
+
 async function loadMore() {
   if (!state.city || state.loading || state.ended) return;
+  if (state.searchTokens.length && state.cursor) {
+    const wait = lastPageAt + SEARCH_PAGE_GAP - Date.now();
+    if (wait > 0) {
+      // Let the sentinel decide again when the gap is over (the search may have been closed meanwhile).
+      if (!paceTimer) paceTimer = setTimeout(() => { paceTimer = 0; rearmSentinel(); }, wait);
+      return;
+    }
+  }
   state.loading = true;
+  lastPageAt = Date.now();
   feed.setAttribute('aria-busy', 'true');
   // While a search pages through the feed in the background no placeholder cards are shown: they flashed on and off
   // with every page and made the page height jump. The search bar shows a progress line instead (applySearchFilter).
@@ -598,10 +618,14 @@ async function loadMore() {
     feed.querySelectorAll('.news-skeleton').forEach((node) => node.remove());
     state.loading = false;
     feed.setAttribute('aria-busy', 'false');
-    feedMessage.textContent = error.message || 'بارگذاری خبرها ناموفق بود.';
+    // "Too many requests" is not an error the reader can do anything about: while searching it is silent (the progress
+    // line keeps running) and the page is requested again after the time the server asked for.
+    const throttled = error.status === 429;
+    feedMessage.textContent = throttled && state.searchTokens.length ? '' : (error.message || 'بارگذاری خبرها ناموفق بود.');
     // Transient failure (weak connection): try again by itself instead of leaving the feed stuck.
     clearTimeout(loadRetryTimer);
-    loadRetryTimer = setTimeout(() => { if (!state.loading && !state.ended && state.city && !state.newsId) rearmSentinel(); }, 4000);
+    const retryDelay = throttled ? Math.min(30, Math.max(2, error.retryAfter || 5)) * 1000 : 4000;
+    loadRetryTimer = setTimeout(() => { if (!state.loading && !state.ended && state.city && !state.newsId) rearmSentinel(); }, retryDelay);
     skipNextFreshCheck = false;
     maybeRunFreshCheck();
   }
