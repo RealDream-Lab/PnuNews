@@ -54,6 +54,20 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .category-button.is-filtered{color:var(--primary);background:var(--primary-soft);border-color:var(--primary)}
 
 
+/* ---------- Quick search: button before the font buttons, bar under the header row ---------- */
+.search-button[aria-expanded="true"]{color:var(--primary);background:var(--primary-soft);border-color:var(--primary)}
+.quick-search{max-width:1120px;margin-inline:auto;padding:0 max(var(--pad),env(safe-area-inset-right,0px)) .55rem max(var(--pad),env(safe-area-inset-left,0px))}
+.quick-search-inner{display:flex;align-items:center;gap:.5rem}
+.quick-search-field{flex:1;min-width:0;height:42px;display:flex;align-items:center;gap:.6rem;padding:0 .8rem;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--muted)}
+.quick-search-field:focus-within{border-color:var(--primary)}
+.quick-search-field input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;-webkit-appearance:none;appearance:none}
+.quick-search-field input::-webkit-search-cancel-button,.quick-search-field input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+.quick-search-count{flex:none;font-size:.75rem;color:var(--muted);white-space:nowrap}
+.is-search-hidden{display:none!important}
+.pinned-wrap.is-search-empty{display:none}
+.search-empty{max-width:30rem;margin-inline:auto;line-height:1.8}
+.search-no-results #feed-message{display:none}
+
 /* ---------- Page ---------- */
 .page-shell{max-width:1120px;margin-inline:auto;padding:0 max(var(--pad),env(safe-area-inset-right,0px)) 2rem max(var(--pad),env(safe-area-inset-left,0px));width:100%;flex:1 0 auto}
 .feed-intro{padding:1.4rem 0 1rem}
@@ -131,7 +145,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .sk-line.sk-tiny{width:48%;height:.65rem;margin-top:.25rem}
 @keyframes sk-pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .card-cover-frame:not(.is-loaded):not(.is-failed)::after,.pinned-cover-frame:not(.is-loaded):not(.is-failed)::after{content:"";position:absolute;inset:0;z-index:1;background:var(--surface-soft);animation:sk-pulse 1.3s ease-in-out infinite;pointer-events:none}
-.feed-spacer{grid-column:1/-1;display:block;width:100%;pointer-events:none}
+.feed-ghost{display:block;width:100%;min-width:0;pointer-events:none;visibility:hidden}
 .empty-state{grid-column:1/-1;padding:2.5rem 1rem;text-align:center;border:1px dashed var(--border);border-radius:var(--radius);color:var(--muted);display:grid;gap:1rem;justify-items:center}
 .empty-state p{margin:0}
 
@@ -140,7 +154,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .news-feed{grid-template-columns:repeat(3,minmax(0,1fr))}
   .news-feed.is-masonry{grid-auto-rows:8px;grid-auto-flow:row dense;row-gap:0;column-gap:1.15rem}
   .news-feed.is-masonry>*{align-self:start}
-  .news-card.is-featured{grid-column:1/-1;flex-direction:row}
+  .news-card.is-featured,.feed-ghost.is-featured{grid-column:1/-1}
+  .news-card.is-featured{flex-direction:row}
   .news-card.is-featured .card-cover-frame{width:50%;flex:none;aspect-ratio:16/9}
   .news-card.is-featured .card-content{justify-content:center;padding:1.6rem 1.8rem;gap:.6rem}
   .news-card.is-featured h2{font-size:1.65rem;-webkit-line-clamp:3;line-clamp:3}
@@ -324,7 +339,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
 .site-dock:not(:has(.radio-bar)){display:none}
 /* Whenever the cards are a single column (under 640px) the top bar always has two rows, whatever the width.
-   Row 1: site name + the small icon buttons (category, day/night, settings, about). Row 2: city picker + font size.
+   Row 1: site name + the small icon buttons (category, day/night, settings, about). Row 2: city picker + quick search + font size.
    The ::after is a zero-height full-width item that forces the line break. Without it everything could fit
    on one line and the site name would shrink to nothing under the icon buttons. */
 @media(max-width:639px){
@@ -335,7 +350,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .brand-name{overflow:visible;text-overflow:clip}
   .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0;margin-top:.4rem}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .font-controls{order:11;flex:none;margin-top:.4rem}
+  .search-button{order:11;margin-top:.4rem}
+  .font-controls{order:12;flex:none;margin-top:.4rem}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */

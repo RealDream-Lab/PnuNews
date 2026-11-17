@@ -1,5 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.108.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.108.js';
+import { initDock } from '/shared/dock.v0.1.110.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.110.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.110.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -18,6 +19,13 @@ const updateRoot = document.getElementById('update-root');
 const categoryDialog = document.getElementById('category-dialog');
 const categoryButton = document.getElementById('category-button');
 const categoryList = document.getElementById('category-list');
+const searchButton = document.getElementById('search-button');
+const quickSearch = document.getElementById('quick-search');
+const quickSearchInput = document.getElementById('quick-search-input');
+const quickSearchCount = document.getElementById('quick-search-count');
+const quickSearchClose = document.getElementById('quick-search-close');
+const searchEmpty = document.getElementById('search-empty');
+const pinnedWrap = document.querySelector('.pinned-wrap');
 
 const state = {
   config: null,
@@ -31,9 +39,7 @@ const state = {
   loading: false,
   ended: false,
   entries: [],
-  spacer: null,
-  spacerHeight: 0,
-  recycled: [], // cards taken off the top (their data only), brought back when the reader scrolls up to them
+  recycled: [], // cards taken off the top (their data + an empty same-size ghost in their place), brought back when the reader scrolls up to them
   pinnedIds: new Set(),
   pinnedSig: '',
   firstId: null,
@@ -41,6 +47,7 @@ const state = {
   refreshTimer: null,
   toastTimer: null,
   fontScale: 1,
+  searchTokens: [], // words of the quick search; empty = every card is shown
 };
 let intersectionObserver = null;
 let loadRetryTimer = 0;
@@ -58,21 +65,6 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[character]);
-}
-
-function normalizeSearch(value) {
-  return String(value ?? '').toLowerCase()
-    .replace(/[\u064b-\u065f\u0670]/g, '')
-    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')
-    .replace(/[أإآٱ]/g, 'ا').replace(/ة/g, 'ه')
-    .replace(/[٠-٩]/g, (digit) => String(digit.charCodeAt(0) - 0x660))
-    .replace(/[۰-۹]/g, (digit) => String(digit.charCodeAt(0) - 0x6f0))
-    .replace(/ـ/g, '').replace(/[\u200c\u200e\u200f]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-}
-
-function searchKey(value) {
-  return normalizeSearch(value).replace(/ /g, '');
 }
 
 function showToast(message) {
@@ -311,7 +303,7 @@ function pinnedMarkup(item) {
     ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
-  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
+  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}" data-search-summary="${escapeHtml(item.summary ?? '')}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
 }
 
 const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
@@ -367,12 +359,9 @@ function layoutMasonry() {
     return;
   }
   const gap = Number.parseFloat(getComputedStyle(feed).columnGap) || 16;
-  const heights = nodes.map((node) => (node.classList.contains('feed-spacer')
-    ? Number.parseFloat(node.style.height) || 0
-    : node.getBoundingClientRect().height));
+  const heights = nodes.map((node) => node.getBoundingClientRect().height);
   nodes.forEach((node, index) => {
-    const extra = node.classList.contains('feed-spacer') ? 0 : gap;
-    node.style.gridRowEnd = `span ${Math.max(1, Math.ceil((heights[index] + extra) / MASONRY_ROW))}`;
+    node.style.gridRowEnd = `span ${Math.max(1, Math.ceil((heights[index] + gap) / MASONRY_ROW))}`;
   });
 }
 
@@ -422,7 +411,7 @@ document.addEventListener('error', (event) => {
 
 function watchFeedNode(node) {
   if (node.nodeType !== 1) return;
-  if (!node.classList.contains('feed-spacer') && !node.classList.contains('news-skeleton')) masonryObserver?.observe(node);
+  if (!node.classList.contains('feed-ghost') && !node.classList.contains('news-skeleton')) masonryObserver?.observe(node);
   node.querySelectorAll?.('img.card-cover').forEach((image) => { if (image.complete && image.naturalWidth) settleCover(image); });
 }
 new MutationObserver((records) => {
@@ -461,8 +450,6 @@ function clearFeed() {
   intersectionObserver?.unobserve(sentinel);
   feed.replaceChildren();
   state.entries = [];
-  state.spacer = null;
-  state.spacerHeight = 0;
   state.recycled = [];
   state.pinnedIds = new Set();
   state.pinnedSig = '';
@@ -492,23 +479,24 @@ function resetFeed({ scroll = false } = {}) {
   loadMore();
 }
 
+// Cards far above the viewport are turned into ghosts: the card's DOM (image, text) goes, an empty box of exactly the
+// same size and the same grid placement stays. Every other card therefore keeps its column and position; a single
+// stretched spacer would make the masonry pack the remaining cards again from a flat line and they would jump.
 function recycleFeed() {
+  if (state.searchTokens.length) return; // a search needs every loaded card in the page
   const excess = state.entries.length - 60;
   if (excess <= 0) return;
   const removed = state.entries.splice(0, excess);
-  state.recycled.push(...removed.map((entry) => ({ id: entry.id, item: entry.item, featured: entry.node.classList.contains('is-featured') })));
-  const before = feed.getBoundingClientRect().height;
-  for (const entry of removed) entry.node.remove();
-  if (!state.spacer) {
-    state.spacer = document.createElement('div');
-    state.spacer.className = 'feed-spacer';
-    state.spacer.setAttribute('aria-hidden', 'true');
-    feed.prepend(state.spacer);
+  for (const entry of removed) {
+    const featured = entry.node.classList.contains('is-featured');
+    const ghost = document.createElement('div');
+    ghost.className = `feed-ghost${featured ? ' is-featured' : ''}`;
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.style.height = `${entry.node.getBoundingClientRect().height}px`;
+    ghost.style.gridRowEnd = entry.node.style.gridRowEnd;
+    entry.node.replaceWith(ghost);
+    state.recycled.push({ id: entry.id, item: entry.item, featured, ghost });
   }
-  state.spacer.style.height = `${state.spacerHeight}px`;
-  state.spacerHeight += before - feed.getBoundingClientRect().height;
-  state.spacer.style.height = `${Math.max(0, state.spacerHeight)}px`;
-  layoutMasonry();
 }
 
 // The other direction: cards recycled off the top are only a blank spacer. When the reader scrolls back up towards it
@@ -519,30 +507,25 @@ const RESTORE_AHEAD = 2000;
 const RESTORE_BATCH = 9;
 let restoreFrame = 0;
 function scheduleRestore() {
-  if (restoreFrame || !state.spacer) return;
+  if (restoreFrame || !state.recycled.length) return;
   restoreFrame = requestAnimationFrame(restoreRecycled);
 }
 
 function restoreRecycled() {
   restoreFrame = 0;
-  if (!state.spacer || !state.recycled.length) return;
-  if (state.spacer.getBoundingClientRect().bottom < -RESTORE_AHEAD) return;
+  if (!state.recycled.length) return;
+  const nearest = state.recycled.at(-1).ghost;
+  if (nearest.getBoundingClientRect().bottom < -RESTORE_AHEAD) return;
   const batch = state.recycled.splice(-Math.min(state.recycled.length, RESTORE_BATCH));
   const anchor = state.entries.find((entry) => entry.node.getBoundingClientRect().bottom > 0) ?? null;
   const anchorTop = anchor?.node.getBoundingClientRect().top ?? 0;
-  const before = feed.getBoundingClientRect().height;
-  const restored = batch.map(({ id, item, featured }) => ({ id, node: createCardNode(item, featured), item, sig: itemSignature(item) }));
-  state.spacer.after(...restored.map((entry) => entry.node));
+  const restored = batch.map(({ id, item, featured, ghost }) => {
+    const node = createCardNode(item, featured);
+    node.style.gridRowEnd = ghost.style.gridRowEnd; // same place until the real height is measured
+    ghost.replaceWith(node);
+    return { id, node, item, sig: itemSignature(item) };
+  });
   state.entries.unshift(...restored);
-  layoutMasonry();
-  state.spacerHeight = Math.max(0, state.spacerHeight - (feed.getBoundingClientRect().height - before));
-  if (state.recycled.length) {
-    state.spacer.style.height = `${state.spacerHeight}px`;
-  } else {
-    state.spacer.remove();
-    state.spacer = null;
-    state.spacerHeight = 0;
-  }
   layoutMasonry();
   if (anchor) {
     const shift = anchor.node.getBoundingClientRect().top - anchorTop;
@@ -602,6 +585,7 @@ async function loadMore() {
     }
     layoutMasonry();
     recycleFeed();
+    scheduleSearchFilter();
     if (state.ended) intersectionObserver?.unobserve(sentinel);
     else rearmSentinel();
     // First page painted (possibly from cache): once the screen is filled, check the server for anything newer.
@@ -619,6 +603,122 @@ async function loadMore() {
     maybeRunFreshCheck();
   }
 }
+
+// ---------- Quick search ----------
+// The search button in the header opens a bar under it. Typing hides every card whose title and summary do not contain
+// all the typed words (the pinned strip is filtered the same way). Nothing is sent to the server: it works on the
+// cards the page already holds. The full text of an article is not part of the feed, so it is deliberately not searched.
+// While a query is active the feed keeps loading pages by itself as long as the screen is not full of matches, so a
+// match further back in time is found without scrolling through hidden cards.
+let searchOpen = false;
+let searchTimer = 0;
+let searchFrame = 0;
+
+function cardMatchesSearch(node, tokens) {
+  const summary = node.querySelector('.card-summary')?.textContent ?? node.dataset.searchSummary ?? '';
+  return matchesQuery(tokens, node.getAttribute('aria-label'), summary);
+}
+
+function scheduleSearchFilter() {
+  if (searchFrame || (!state.searchTokens.length && !document.documentElement.classList.contains('is-searching'))) return;
+  searchFrame = requestAnimationFrame(applySearchFilter);
+}
+
+function applySearchFilter() {
+  searchFrame = 0;
+  const tokens = state.searchTokens;
+  const searching = tokens.length > 0;
+  const root = document.documentElement;
+  let shown = 0;
+  let pinnedShown = 0;
+  for (const node of feed.children) {
+    if (!node.matches('article.news-card')) continue;
+    const match = cardMatchesSearch(node, tokens);
+    node.classList.toggle('is-search-hidden', !match);
+    if (match) shown += 1;
+  }
+  for (const node of pinnedStrip.children) {
+    if (!node.matches('article.pinned-card')) continue;
+    const match = cardMatchesSearch(node, tokens);
+    node.classList.toggle('is-search-hidden', !match);
+    if (match) pinnedShown += 1;
+  }
+  const total = shown + pinnedShown;
+  // "Settled" = nothing more will be loaded, so the count is final and an empty result really is empty.
+  const settled = state.ended && !state.loading;
+  const none = searching && total === 0 && settled;
+  root.classList.toggle('is-searching', searching);
+  root.classList.toggle('search-no-results', none);
+  pinnedWrap.classList.toggle('is-search-empty', searching && pinnedShown === 0);
+  searchEmpty.hidden = !none;
+  quickSearchCount.textContent = !searching ? ''
+    : total === 0 && !settled ? 'در حال جست‌وجو…'
+      : settled ? `${digits.format(total)} نتیجه` : `${digits.format(total)} نتیجه تا اینجا`;
+  layoutMasonry();
+  requestAnimationFrame(() => updatePinnedNav());
+}
+
+// Cards recycled off the top are only data and an empty ghost; a search needs all of them back as real cards.
+function restoreAllRecycled() {
+  if (!state.recycled.length) return;
+  const restored = state.recycled.splice(0).map(({ id, item, featured, ghost }) => {
+    const node = createCardNode(item, featured);
+    ghost.replaceWith(node);
+    return { id, node, item, sig: itemSignature(item) };
+  });
+  state.entries.unshift(...restored);
+}
+
+function commitSearch() {
+  clearTimeout(searchTimer);
+  const tokens = parseQuery(quickSearchInput.value);
+  if (tokens.join(' ') === state.searchTokens.join(' ')) return;
+  const wasSearching = state.searchTokens.length > 0;
+  state.searchTokens = tokens;
+  if (tokens.length && !wasSearching) restoreAllRecycled();
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  applySearchFilter();
+  rearmSentinel(); // hidden cards may have left room on the screen: let the feed load more if it is needed
+}
+
+function syncSearchVisibility() {
+  searchButton.hidden = app.hidden; // no search inside an article
+  quickSearch.hidden = app.hidden || !searchOpen;
+}
+
+function setSearchOpen(open) {
+  searchOpen = open;
+  searchButton.setAttribute('aria-expanded', String(open));
+  if (!open) quickSearchInput.value = '';
+  syncSearchVisibility();
+  if (open) quickSearchInput.focus({ preventScroll: true });
+  else commitSearch();
+}
+
+searchButton.addEventListener('click', () => setSearchOpen(!searchOpen));
+quickSearchClose.addEventListener('click', () => {
+  setSearchOpen(false);
+  searchButton.focus({ preventScroll: true });
+});
+quickSearchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(commitSearch, 140);
+});
+quickSearchInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    commitSearch();
+    quickSearchInput.blur(); // closes the phone keyboard so the results are visible
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    quickSearchClose.click();
+  }
+});
+// Cards that arrive while a query is active (next pages, live updates, a rebuilt feed) are filtered too.
+new MutationObserver(scheduleSearchFilter).observe(feed, { childList: true });
+new MutationObserver(scheduleSearchFilter).observe(pinnedStrip, { childList: true });
+new MutationObserver(syncSearchVisibility).observe(app, { attributes: true, attributeFilter: ['hidden'] });
+syncSearchVisibility();
 
 // ---------- Live updates ----------
 // The server pushes a tiny "feed changed" event (SSE); we then refetch the first page and animate the difference
@@ -700,8 +800,8 @@ async function applyLiveData(data, { compensate = false } = {}) {
     if (plan.items.length || plan.pinned.length) rebuildFromFresh();
     return;
   }
-  // Cards above the viewport were recycled (a spacer stands in for them): rebuilding from the top is the safe way.
-  if (plan.resync || (state.spacer && (plan.inserts.length || plan.removed.length))) { rebuildFromFresh(); return; }
+  // Cards above the viewport were recycled (ghosts stand in for them): rebuilding from the top is the safe way.
+  if (plan.resync || (state.recycled.length && (plan.inserts.length || plan.removed.length))) { rebuildFromFresh(); return; }
   if (!plan.inserts.length && !plan.updates.length && !plan.removed.length && !pinnedChanged) {
     state.firstId = firstId ?? state.firstId;
     return;
@@ -1694,7 +1794,7 @@ newItemsBanner.addEventListener('click', async () => {
         const data = await getJson(`/api/public/feed?${params}`);
         const plan = planLiveUpdate(state.entries, data);
         const simple = state.city && String(state.city.id) === cityId && state.category === categoryId
-          && !plan.resync && !(state.spacer && (plan.inserts.length || plan.removed.length));
+          && !plan.resync && !(state.recycled.length && (plan.inserts.length || plan.removed.length));
         if (simple) {
           await applyLiveData(data, { compensate: true });
           handled = true;
