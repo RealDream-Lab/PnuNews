@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.114.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.114.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.114.js';
+import { initDock } from '/shared/dock.v0.1.113.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.113.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.113.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -80,7 +80,7 @@ const dock = initDock({ showToast });
 
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
-const DEFAULT_PREFS = Object.freeze({ dastkhat: true, radio: true, autoplay: true, country: true, province: true, siblings: false });
+const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: true, country: true, province: true, siblings: false });
 const prefs = { ...DEFAULT_PREFS };
 try {
   const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
@@ -88,11 +88,6 @@ try {
     for (const key of Object.keys(DEFAULT_PREFS)) if (typeof saved[key] === 'boolean') prefs[key] = saved[key];
   }
 } catch {}
-
-// Dastkhat is the main font and Vazirmatn the second one; switching it off leaves Vazirmatn alone.
-function applyFontPreference() {
-  document.documentElement.dataset.font = prefs.dastkhat ? 'dastkhat' : 'vazirmatn';
-}
 
 function applyRadioPreference() {
   document.documentElement.classList.toggle('radio-hidden', !prefs.radio);
@@ -103,7 +98,6 @@ function applyRadioPreference() {
 function maybeAutoplayRadio() {
   if (prefs.radio && prefs.autoplay) dock.autoplayRadio();
 }
-applyFontPreference();
 applyRadioPreference();
 
 // ---------- Category filter (stored on this device only; default is "all") ----------
@@ -1337,10 +1331,7 @@ settingsDialog.addEventListener('change', (event) => {
   if (!(key in DEFAULT_PREFS)) return;
   prefs[key] = event.target.checked;
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
-  if (key === 'dastkhat') {
-    applyFontPreference();
-    scheduleMasonry();
-  } else if (key === 'radio') {
+  if (key === 'radio') {
     applyRadioPreference();
     syncAutoplaySwitch({ animate: true });
   } else if (key === 'autoplay') {
@@ -1939,7 +1930,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.114.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.113.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
