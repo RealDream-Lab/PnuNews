@@ -5,7 +5,7 @@
 //
 // This module is loaded only when /api/auth/viewer reports a signed-in user, so ordinary readers never download it.
 // The server is the authority: every save goes through PUT /api/admin/news/:id, which re-checks the permission.
-import { initRichEditor } from '/shared/rich-editor.v0.1.116.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.117.js';
 
 const PENCIL = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Zm9.5-13.5 4 4"/></svg>';
 
@@ -140,6 +140,44 @@ export function initInlineEdit({ roots, showToast = () => {}, onSaved = () => {}
     form.elements.category_id.value, form.elements.news_type.value, form.elements.is_pinned.checked, form.elements.is_urgent.checked,
   ]);
 
+  // ---------- «Close without saving?» is a modal of the site, like the others, not the browser's confirm box ----------
+  let confirmDialog = null;
+  let confirmPending = null;
+  function askDiscard() {
+    if (confirmPending) return confirmPending;
+    if (!confirmDialog) {
+      confirmDialog = document.createElement('dialog');
+      confirmDialog.className = 'info-dialog confirm-dialog';
+      confirmDialog.setAttribute('role', 'alertdialog');
+      confirmDialog.setAttribute('aria-labelledby', 'confirm-dialog-title');
+      confirmDialog.setAttribute('aria-describedby', 'confirm-dialog-text');
+      confirmDialog.innerHTML = `
+        <div class="info-panel confirm-panel">
+          <h2 class="info-title" id="confirm-dialog-title">بستن بدون ذخیره؟</h2>
+          <p class="confirm-text" id="confirm-dialog-text">تغییرات ذخیره‌نشده از بین می‌رود. بستن پنجره؟</p>
+          <div class="confirm-actions">
+            <button type="button" class="button-primary" data-confirm="keep" autofocus>ادامه ویرایش</button>
+            <button type="button" class="button-danger" data-confirm="discard">بستن بدون ذخیره</button>
+          </div>
+        </div>`;
+      document.body.append(confirmDialog);
+      // Only the red button discards; the other button, Escape and anything else keep the editor open.
+      confirmDialog.addEventListener('click', (event) => {
+        const choice = event.target.closest('[data-confirm]')?.dataset.confirm;
+        if (choice) confirmDialog.close(choice);
+      });
+    }
+    confirmPending = new Promise((resolve) => {
+      confirmDialog.addEventListener('close', () => {
+        confirmPending = null;
+        resolve(confirmDialog.returnValue === 'discard');
+      }, { once: true });
+    });
+    confirmDialog.returnValue = '';
+    confirmDialog.showModal();
+    return confirmPending;
+  }
+
   function build() {
     dialog = document.createElement('dialog');
     dialog.className = 'info-dialog edit-dialog';
@@ -154,14 +192,24 @@ export function initInlineEdit({ roots, showToast = () => {}, onSaved = () => {}
       askLink: async () => window.prompt('نشانی پیوند را وارد کنید', 'https://') ?? '',
     });
     const dirty = () => current && snapshotOf(form, body) !== current.snapshot;
-    const requestClose = () => {
-      if (dirty() && !window.confirm('تغییرات ذخیره‌نشده از بین می‌رود. بستن پنجره؟')) return;
+    const requestClose = async () => {
+      if (dirty() && !(await askDiscard())) return;
       dialog.close();
     };
     dialog.addEventListener('click', (event) => { if (event.target.closest('[data-edit-cancel]')) requestClose(); });
-    // Escape asks first when there is unsaved work (a click on the dark area deliberately does nothing).
+    // Escape asks first when there is unsaved work (a click on the dark area deliberately does nothing). Handling the
+    // key itself (not only the dialog's cancel event) matters: a browser refuses to cancel a second Escape that comes
+    // without a click in between, which would close the editor and lose the changes.
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      requestClose();
+    });
+    // The same request from elsewhere (the Android back gesture, for example).
     dialog.addEventListener('cancel', (event) => {
-      if (dirty() && !window.confirm('تغییرات ذخیره‌نشده از بین می‌رود. بستن پنجره؟')) event.preventDefault();
+      if (!dirty()) return;
+      event.preventDefault();
+      requestClose();
     });
     dialog.addEventListener('close', () => { current = null; });
     form.addEventListener('submit', (event) => { event.preventDefault(); save(); });
@@ -290,7 +338,7 @@ export function initInlineEdit({ roots, showToast = () => {}, onSaved = () => {}
     refresh() { active = true; schedule(); },
     // A new session may have other rights than the old one: forget what was learned and ask again.
     reset() { clear(); active = true; schedule(); },
-    disable() { active = false; clear(); if (dialog?.open) { current = null; dialog.close(); } },
+    disable() { active = false; clear(); if (confirmDialog?.open) confirmDialog.close(); if (dialog?.open) { current = null; dialog.close(); } },
     scanNow: scan,
   };
 }
