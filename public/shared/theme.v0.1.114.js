@@ -29,6 +29,17 @@
       if (link.getAttribute('href') !== href) link.setAttribute('href', href);
     }
   };
+  // Main font: Dastkhat (with Vazirmatn as the second font) unless the visitor switched it off in the settings.
+  // Read here, before the first paint, so the page never flashes in the other font.
+  const dastkhatOn = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('pnu.prefs') || 'null');
+      return typeof saved?.dastkhat === 'boolean' ? saved.dastkhat : true;
+    } catch {
+      return true;
+    }
+  };
+  root.dataset.font = dastkhatOn() ? 'dastkhat' : 'vazirmatn';
   // Night mode is the default; only an explicit choice of the visitor (stored) switches it to light.
   root.dataset.theme = stored() ?? 'dark';
   chrome();
