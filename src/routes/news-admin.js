@@ -238,6 +238,28 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
     }
   });
 
+  // Which of these news may the signed-in user edit? The public reader asks for the cards on screen to show an
+  // "edit" button on exactly those (same rule as the panel: canEditNews). Unknown, deleted or foreign ids are just left out.
+  router.get('/editable', async (request, response, next) => {
+    try {
+      const ids = [...new Set(String(request.query.ids ?? '').split(',').map(idValue).filter(Boolean))].slice(0, 100);
+      if (!ids.length) return response.json({ ids: [] });
+      const [rows, regions] = await Promise.all([
+        pool.query(
+          `SELECT n.id, n.created_by, n.source_url, creator.role AS created_by_role, creator.region_id AS created_by_region_id
+           FROM news n JOIN users creator ON creator.id = n.created_by
+           WHERE n.deleted_at IS NULL AND n.id IN (${ids.map(() => '?').join(', ')})`,
+          ids,
+        ).then(([result]) => result),
+        loadRegions(pool),
+      ]);
+      const editable = rows.filter((news) => canEditNews(request.user, news, { regions })).map((news) => Number(news.id));
+      return response.json({ ids: editable });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.post('/', async (request, response, next) => {
     const content = cleanTitleAndContent(request.body ?? {});
     if (!content) return response.status(400).json({ error: 'عنوان یا متن خبر معتبر نیست.' });

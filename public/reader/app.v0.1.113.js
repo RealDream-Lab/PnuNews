@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.112.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.112.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.112.js';
+import { initDock } from '/shared/dock.v0.1.113.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.113.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.113.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -44,6 +44,7 @@ const state = {
   pinnedSig: '',
   firstId: null,
   newsId: null,
+  newsOnly: false, // opened straight on /n/<id>: the article is rendered into #app instead of #news-view
   refreshTimer: null,
   toastTimer: null,
   fontScale: 1,
@@ -1099,6 +1100,7 @@ async function refreshConfig() {
 }
 
 async function initializeReader({ newsOnly = false } = {}) {
+  state.newsOnly = newsOnly;
   initTheme();
   initFontScale();
   intersectionObserver = new IntersectionObserver((entries) => {
@@ -1195,7 +1197,7 @@ function renderNewsPage(item, initial) {
   const gallery = galleryImages.map((image, index) => `<button type="button" class="gallery-image-frame" data-lightbox-index="${index}" aria-label="${escapeHtml(`نمایش بزرگ تصویر ${digits.format(index + 1)} از ${digits.format(galleryImages.length)}`)}">${placeholderMarkup(image.dominant_color)}<img src="${escapeHtml(image.src)}" srcset="${escapeHtml(image.srcset ?? '')}" sizes="(max-width: 767px) 100vw, 50vw" width="${Number(image.width) || 800}" height="${Number(image.height) || 600}" loading="lazy" decoding="async" alt="${escapeHtml(image.original_name)}"></button>`).join('');
   const files = (item.files ?? []).map((file) => `<a class="attachment-link" href="${escapeHtml(file.url)}"><span>▤ ${escapeHtml(file.original_name)}</span><span>${escapeHtml(formatBytes(file.size_bytes))}</span></a>`).join('');
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
-    <article class="news-page">${cover}<h1>${escapeHtml(item.title)}</h1>
+    <article class="news-page" data-news-page-id="${item.id}">${cover}<h1>${escapeHtml(item.title)}</h1>
     <div class="news-details">${category}<time datetime="${escapeHtml(item.published_at)}">${fullDate}</time><span>${digits.format(item.view_count)} بازدید</span></div>
     <div class="news-body">${sameTabPortalLinks(item.body_html, item.source_url)}</div>
     ${signature}
@@ -1897,6 +1899,52 @@ function initScrollTop() {
   update();
 }
 initScrollTop();
+
+// ---------- Inline editing for signed-in staff (WordPress style) ----------
+// A visitor without a session costs one tiny request; for a signed-in user the editor module is loaded on demand and
+// puts an "edit" button on the news they may edit (the server decides, with the same rule as the panel).
+let inlineEdit = null;
+let inlineViewerId = null;
+let inlineBusy = false;
+let inlineCheckedAt = 0;
+
+function afterInlineSave({ id }) {
+  if (state.newsId === Number(id)) loadNewsPage(id, { initial: state.newsOnly });
+  syncFeed();
+}
+
+async function refreshViewer() {
+  if (inlineBusy) return;
+  inlineBusy = true;
+  inlineCheckedAt = Date.now();
+  try {
+    let user = null;
+    try {
+      const response = await fetch('/api/auth/viewer', { headers: { accept: 'application/json' } });
+      if (!response.ok) return;
+      user = (await response.json()).user;
+    } catch { return; }
+    if (!user) {
+      inlineEdit?.disable();
+      inlineViewerId = null;
+      return;
+    }
+    if (!inlineEdit) {
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.113.js');
+      inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
+      inlineEdit.refresh();
+    } else if (inlineViewerId !== user.id) {
+      inlineEdit.reset();
+    }
+    inlineViewerId = user.id;
+  } finally {
+    inlineBusy = false;
+  }
+}
+refreshViewer();
+// Signing in or out in the panel's tab: look again when this tab comes back to the front.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - inlineCheckedAt > 60_000) refreshViewer(); });
+addEventListener('pageshow', (event) => { if (event.persisted) refreshViewer(); });
 
 const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
 if (initialNewsMatch) {

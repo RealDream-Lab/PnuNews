@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.112.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.113.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -793,6 +793,12 @@ async function prepareWorkspace() {
   if (USERS_VIEW_ROLES.includes(state.user.role)) await fillDomainFilter();
   if (matchMedia("(max-width: 767px)").matches) goToView("mobile-compose");
   else goToView("dashboard");
+  // "ویرایش کامل در پنل" from the public site's inline editor: /dashboard/?edit=<news id> opens that news here.
+  const wanted = Number(new URLSearchParams(location.search).get("edit"));
+  if (Number.isSafeInteger(wanted) && wanted > 0) {
+    history.replaceState(null, "", location.pathname);
+    await openEditor(wanted);
+  }
 }
 
 // The news list's domain filter: every admin (not domain users) can narrow the list to one work domain.
