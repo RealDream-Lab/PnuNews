@@ -3,6 +3,7 @@ import { appEvents, emitNewsPublished } from '../events.js';
 import { ensureDefaultCategory } from '../news/default-category.js';
 import { canAssignNews, canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
+import { FLAG_LIFETIME_HOURS, flagsHaveExpired } from '../news/flag-expiry.js';
 import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
 
@@ -588,6 +589,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         if (!context.canEdit) return response.status(403).json({ error: 'اجازهٔ تغییر وضعیت این خبر را ندارید.' });
         const enabled = request.body?.enabled === undefined ? !Boolean(context.news[field]) : request.body.enabled;
         if (typeof enabled !== 'boolean') return response.status(400).json({ error: 'مقدار باید درست یا نادرست باشد.' });
+        if (enabled && context.news.status === 'published' && flagsHaveExpired(context.news.published_at, clock())) {
+          return response.status(400).json({ error: `خبر مهم یا فوری فقط تا ${FLAG_LIFETIME_HOURS} ساعت پس از انتشار ممکن است؛ این خبر قدیمی‌تر است.` });
+        }
         const connection = await pool.getConnection();
         try {
           await connection.beginTransaction();

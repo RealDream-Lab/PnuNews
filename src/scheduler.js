@@ -1,4 +1,5 @@
 import { appEvents, emitNewsPublished } from './events.js';
+import { FLAG_LIFETIME_HOURS } from './news/flag-expiry.js';
 
 export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 } = {}) {
   let timer = null;
@@ -36,7 +37,42 @@ export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 
     }
 
     for (const id of publishedIds) emitNewsPublished(events, id);
+    // A failure here must never stop publishing or the server from starting; the next tick tries again.
+    await expireFlags().catch((error) => console.error(`Expiring important/urgent flags failed: ${error.message}`));
     return publishedIds;
+  }
+
+  // «مهم» و «فوری» بعد از ۷۲ ساعت از زمان انتشار برداشته می‌شوند و خبر عادی می‌شود. خود دیتابیس هم عوض می‌شود،
+  // پس پنل مدیریت، فید و خبر تکی همه یک چیز نشان می‌دهند، و خوانندگان باز از رویداد news.changed تازه می‌شوند.
+  async function expireFlags() {
+    let connection;
+    let ids = [];
+    try {
+      connection = await pool.getConnection();
+      await connection.beginTransaction();
+      const [due] = await connection.query(
+        `SELECT id FROM news
+         WHERE status = 'published' AND deleted_at IS NULL AND (is_pinned = 1 OR is_urgent = 1)
+           AND published_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ${FLAG_LIFETIME_HOURS} HOUR)
+         ORDER BY id FOR UPDATE`,
+      );
+      ids = due.map((item) => Number(item.id));
+      if (ids.length) {
+        const placeholders = ids.map(() => '?').join(', ');
+        await connection.execute(
+          `UPDATE news SET is_pinned = 0, is_urgent = 0, updated_at = UTC_TIMESTAMP() WHERE id IN (${placeholders})`,
+          ids,
+        );
+      }
+      await connection.commit();
+    } catch (error) {
+      if (connection) await connection.rollback();
+      throw error;
+    } finally {
+      connection?.release();
+    }
+    for (const id of ids) events.emit('news.changed', { id });
+    return ids;
   }
 
   // Expired sessions and old lockout counters are useless; do not keep them forever.
@@ -64,5 +100,5 @@ export function createScheduler(pool, { events = appEvents, intervalMs = 30_000 
     timer = null;
   }
 
-  return { start, stop, runOnce, purgeExpired };
+  return { start, stop, runOnce, purgeExpired, expireFlags };
 }
