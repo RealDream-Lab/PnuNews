@@ -86,7 +86,10 @@ export function createAuthMiddleware(pool, config, clock = Date.now) {
   return async function authenticate(request, response, next) {
     try {
       const token = readCookie(request, 'session', config.nodeEnv);
-      if (!token) return response.status(401).json({ error: 'برای ادامه وارد شوید.' });
+      if (!token) {
+        if (request.softAuth) return next();
+        return response.status(401).json({ error: 'برای ادامه وارد شوید.' });
+      }
       const [rows] = await pool.execute(
         `SELECT u.id, u.username, u.full_name, u.role, u.region_id, u.is_active,
                 u.must_change_password, s.token_hash, s.remember,
@@ -97,6 +100,7 @@ export function createAuthMiddleware(pool, config, clock = Date.now) {
       );
       if (!rows.length) {
         clearOpaqueCookie(response, 'session', config.nodeEnv);
+        if (request.softAuth) return next();
         return response.status(401).json({ error: 'نشست معتبر نیست؛ دوباره وارد شوید.' });
       }
       request.user = rows[0];
@@ -418,6 +422,19 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
     } catch (error) {
       return next(error);
     }
+  });
+
+  // Soft "who is looking?" check for the public reader (inline editing): never a 401 for a visitor without a session,
+  // and nothing but the bare minimum about a signed-in staff member. A user who must still change the password is
+  // treated as signed out here, exactly as the admin API refuses them.
+  router.get('/viewer', (request, response, next) => {
+    request.softAuth = true; // no session: authenticate lets the request through without a user instead of answering 401
+    return authenticate(request, response, async (error) => {
+      if (error) return next(error);
+      const user = request.user;
+      if (!user || user.must_change_password) return response.json({ user: null });
+      return response.json({ user: { id: user.id, full_name: user.full_name, role: user.role } });
+    });
   });
 
   router.get('/me', authenticate, async (request, response, next) => {
