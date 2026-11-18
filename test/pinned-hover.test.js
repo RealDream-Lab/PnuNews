@@ -33,3 +33,11 @@ test('a click or Enter still moves one step for the keyboard and for reduced mot
 test('the arrows are still only shown for a mouse', () => {
   assert.match(styles, /@media\(hover:hover\) and \(pointer:fine\)\{\n\.pinned-nav:not\(\[hidden\]\)\{display:grid/);
 });
+
+test('the arrows use the site theme colours (as the scroll-to-top button does), not a fixed accent', () => {
+  const rules = styles.split('\n').filter((line) => line.startsWith('.pinned-nav') || line.startsWith('.pinned-prev') || line.startsWith('.pinned-next')).join('\n');
+  assert.match(rules, /\.pinned-nav:not\(\[hidden\]\)\{[^}]*border:1px solid var\(--border\)[^}]*background:var\(--surface\);color:var\(--primary\)/);
+  assert.match(rules, /\.pinned-nav:hover\{[^}]*background:var\(--primary-soft\);border-color:var\(--primary\)/);
+  assert.match(rules, /\.pinned-nav:focus-visible\{outline:2px solid var\(--primary\)/);
+  assert.doesNotMatch(rules, /#[0-9a-f]{3,8}\b|rgba\(0,229,195/i, 'no hard-coded colour may come back');
+});
