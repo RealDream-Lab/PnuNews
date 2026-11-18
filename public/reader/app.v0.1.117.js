@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.116.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.116.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.116.js';
+import { initDock } from '/shared/dock.v0.1.117.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.117.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.117.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1974,7 +1974,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.116.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.117.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
