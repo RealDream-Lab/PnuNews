@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.114.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.114.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.114.js';
+import { initDock } from '/shared/dock.v0.1.115.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.115.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.115.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1708,7 +1708,10 @@ feed.addEventListener('click', (event) => {
 });
 // The strip scrolls sideways, but scrollbars are hidden app-wide and a mouse wheel only scrolls up and down, so on a
 // desktop it could not be moved at all. Arrow buttons (shown for a mouse only, see the CSS) and the wheel fix that;
-// a touch screen keeps swiping. scrollLeft is negative in right-to-left pages, hence the absolute values.
+// a touch screen keeps swiping. With a mouse, resting the pointer on an arrow keeps the strip moving that way until
+// the pointer leaves or the end is reached, so no click is needed; a click (or Enter/Space) still moves it a step for
+// the keyboard and for people who prefer reduced motion. scrollLeft is negative in right-to-left pages, hence the
+// absolute values.
 const pinnedPrev = document.querySelector('.pinned-prev');
 const pinnedNext = document.querySelector('.pinned-next');
 const pinnedDirection = () => (getComputedStyle(pinnedStrip).direction === 'rtl' ? -1 : 1);
@@ -1718,12 +1721,53 @@ function updatePinnedNav() {
   const overflowing = !pinnedStrip.hidden && max > 2;
   pinnedPrev.hidden = !overflowing || position <= 2;
   pinnedNext.hidden = !overflowing || position >= max - 2;
+  // an arrow that disappears (end reached, strip emptied) ends the hover scrolling it started
+  if ((hoverStep < 0 && pinnedPrev.hidden) || (hoverStep > 0 && pinnedNext.hidden)) stopHoverScroll();
 }
 function scrollPinned(step) {
   pinnedStrip.scrollBy({ left: step * pinnedDirection() * Math.max(pinnedStrip.clientWidth * 0.8, 200), behavior: reducedMotion.matches ? 'auto' : 'smooth' });
 }
-pinnedPrev.addEventListener('click', () => scrollPinned(-1));
-pinnedNext.addEventListener('click', () => scrollPinned(1));
+// Hover scrolling: about 600 px per second after a short ease-in, driven by the frame clock so it is the same speed
+// on every screen. It runs only while the pointer is on the arrow.
+const HOVER_SPEED = 0.6;
+const HOVER_EASE_MS = 250;
+let hoverStep = 0;
+let hoverFrame = 0;
+let hoverStart = 0;
+let hoverLast = 0;
+const hoverScrolls = () => !reducedMotion.matches;
+function hoverTick(now) {
+  const elapsed = now - hoverStart;
+  const dt = Math.min(now - hoverLast, 50);
+  hoverLast = now;
+  const ease = Math.min(1, elapsed / HOVER_EASE_MS);
+  pinnedStrip.scrollLeft += hoverStep * pinnedDirection() * HOVER_SPEED * ease * dt;
+  updatePinnedNav();
+  if (!hoverStep) return;
+  const { max, position } = pinnedRange();
+  if (hoverStep > 0 ? position >= max - 1 : position <= 1) { stopHoverScroll(); return; }
+  hoverFrame = requestAnimationFrame(hoverTick);
+}
+function startHoverScroll(step) {
+  if (!hoverScrolls() || hoverStep === step) return;
+  cancelAnimationFrame(hoverFrame);
+  hoverStep = step;
+  hoverStart = hoverLast = performance.now();
+  hoverFrame = requestAnimationFrame(hoverTick);
+}
+function stopHoverScroll() {
+  hoverStep = 0;
+  cancelAnimationFrame(hoverFrame);
+}
+for (const [button, step] of [[pinnedPrev, -1], [pinnedNext, 1]]) {
+  button.addEventListener('pointerenter', (event) => { if (event.pointerType !== 'touch') startHoverScroll(step); });
+  button.addEventListener('pointerleave', stopHoverScroll);
+  button.addEventListener('pointercancel', stopHoverScroll);
+  // A mouse click is not needed (hovering already scrolls, and a step would fight it); keyboard activation has
+  // detail 0 and, with reduced motion, every click keeps moving a step.
+  button.addEventListener('click', (event) => { if (event.detail === 0 || !hoverScrolls()) scrollPinned(step); });
+}
+addEventListener('blur', stopHoverScroll);
 pinnedStrip.addEventListener('scroll', updatePinnedNav, { passive: true });
 addEventListener('resize', updatePinnedNav);
 new MutationObserver(updatePinnedNav).observe(pinnedStrip, { childList: true, attributes: true, attributeFilter: ['hidden'] });
@@ -1930,7 +1974,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.114.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.115.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
