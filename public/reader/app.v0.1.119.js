@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.118.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.118.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.118.js';
+import { initDock } from '/shared/dock.v0.1.119.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.119.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.119.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -466,6 +466,7 @@ function clearFeed() {
   freshPending = false;
   pinnedStrip.replaceChildren();
   pinnedStrip.hidden = true;
+  syncPrayerCard();
   newItemsBanner.hidden = true;
 }
 
@@ -586,6 +587,7 @@ async function loadMore() {
       state.pinnedSig = pinnedSignature(pinned);
       pinnedStrip.hidden = !pinned.length;
       if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
+      syncPrayerCard();
     }
     for (const item of data.items) {
       if (state.firstId == null) state.firstId = item.id;
@@ -812,9 +814,40 @@ function animateOut(node) {
   ).finished.catch(() => {});
 }
 
+// ---------- Next astronomical / religious event: first card of the strip, only when the visitor shares the position ----------
+// The module is loaded after the first paint; without it (or without permission) nothing here shows.
+let prayerNode = null;
+let prayerView = null;
+function syncPrayerCard() {
+  if (!prayerView) {
+    prayerNode?.remove();
+    if (!pinnedStrip.querySelector('[data-news-id]')) pinnedStrip.hidden = true;
+    return;
+  }
+  if (!prayerNode) {
+    prayerNode = document.createElement('article');
+    prayerNode.className = 'prayer-card';
+    prayerNode.setAttribute('role', 'group');
+    prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
+  }
+  prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
+  if (pinnedStrip.firstElementChild !== prayerNode) pinnedStrip.prepend(prayerNode);
+  pinnedStrip.hidden = false;
+  updatePinnedNav();
+}
+let prayerModule = null;
+function startPrayerCard() {
+  import('/shared/prayer-card.v0.1.119.js').then((module) => {
+    prayerModule = module;
+    return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } }).start();
+  }).catch(() => { /* offline or an old browser: the strip simply has no prayer card */ });
+}
+setTimeout(startPrayerCard, 1200);
+
 function renderPinnedStrip(pinned) {
   pinnedStrip.hidden = !pinned.length;
   pinnedStrip.innerHTML = pinned.length ? pinned.map(pinnedMarkup).join('') : '';
+  syncPrayerCard();
   if (pinned.length && !reducedMotion.matches) pinnedStrip.animate([{ opacity: 0.2 }, { opacity: 1 }], { duration: 450, easing: 'ease-out' });
 }
 
@@ -1974,7 +2007,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.118.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.119.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

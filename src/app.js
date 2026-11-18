@@ -65,7 +65,7 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
   app.use(async (request, response, next) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
     response.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    response.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
     response.setHeader('Content-Security-Policy', contentSecurityPolicy(config.publicUrl, await currentRadioOrigins()));
     response.setHeader('X-Frame-Options', 'DENY');
     response.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
