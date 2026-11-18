@@ -1,0 +1,6530 @@
+[
+  {
+    "city": "آبش احمد",
+    "latitude": "39.122217199999994",
+    "longitude": "47.394406939671214",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "آذرشهر",
+    "latitude": "37.759",
+    "longitude": "45.9783",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "آقکند",
+    "latitude": "37.2575571",
+    "longitude": "48.0648621",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "اسکو",
+    "latitude": "37.9161035",
+    "longitude": "46.1244787",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "اهر",
+    "latitude": "38.4774934",
+    "longitude": "47.0662215",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ایلخچی",
+    "latitude": "37.9389278",
+    "longitude": "45.9800159",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "باسمنج",
+    "latitude": "37.9955619",
+    "longitude": "46.4749113",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "بخشایش",
+    "latitude": "38.131648",
+    "longitude": "46.9471214",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "بستان آباد",
+    "latitude": "37.84633",
+    "longitude": "46.83542",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "بناب",
+    "latitude": "37.3404",
+    "longitude": "46.0561",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "بناب جدید",
+    "latitude": "38.428347",
+    "longitude": "45.9086682",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "تبریز",
+    "latitude": "38.0738612",
+    "longitude": "46.2978789",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ترکمانچای",
+    "latitude": "37.5816929",
+    "longitude": "47.3911101",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "تسوج",
+    "latitude": "38.3168836",
+    "longitude": "45.3590459",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "تیکمه داش",
+    "latitude": "37.7257203",
+    "longitude": "46.9375589",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "جلفا",
+    "latitude": "38.9376054",
+    "longitude": "45.6252101",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خاروانا",
+    "latitude": "38.6851329",
+    "longitude": "46.1697582",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خامنه",
+    "latitude": "38.1934507",
+    "longitude": "45.6298023",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خراجو",
+    "latitude": "37.3127515",
+    "longitude": "46.5310312",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خسروشهر",
+    "latitude": "37.9162874",
+    "longitude": "46.1239485",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خضرلو",
+    "latitude": "37.4294876",
+    "longitude": "45.9579756",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خمارلو",
+    "latitude": "39.1584011",
+    "longitude": "47.0326209",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "خواجه",
+    "latitude": "38.1529122",
+    "longitude": "46.5827856",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "دوزدوزان",
+    "latitude": "37.948976",
+    "longitude": "47.119787",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "زرنق",
+    "latitude": "38.0911",
+    "longitude": "47.0828",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "زنوز",
+    "latitude": "38.5880287",
+    "longitude": "45.8319818",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "سراب",
+    "latitude": "37.9408",
+    "longitude": "47.5367",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "سردرود",
+    "latitude": "38.0278895",
+    "longitude": "46.1474327",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "سهند",
+    "latitude": "37.9471891",
+    "longitude": "46.1184603",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "سیس",
+    "latitude": "38.1997037",
+    "longitude": "45.8124325",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "سیه رود",
+    "latitude": "38.8693808",
+    "longitude": "46.0023332",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "شبستر",
+    "latitude": "38.1783704",
+    "longitude": "45.7002363",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "شربیان",
+    "latitude": "37.881101",
+    "longitude": "47.1008161",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "شرفخانه",
+    "latitude": "38.1786897",
+    "longitude": "45.4892529",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "شندآباد",
+    "latitude": "38.1623547",
+    "longitude": "45.6717498",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "صوفیان",
+    "latitude": "38.27694",
+    "longitude": "45.981373",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "عجب شیر",
+    "latitude": "37.4908406",
+    "longitude": "45.88682372325094",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "قره آغاج",
+    "latitude": "37.2187",
+    "longitude": "47.2167",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "کشکسرای",
+    "latitude": "38.458553",
+    "longitude": "45.5673225",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "کلوانق",
+    "latitude": "38.1035391",
+    "longitude": "46.9922274",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "کلیبر",
+    "latitude": "38.8629817",
+    "longitude": "47.0399693",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "کوزه کنان",
+    "latitude": "38.1865623",
+    "longitude": "45.5751442",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "گوگان",
+    "latitude": "37.7818413",
+    "longitude": "45.9038288",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "لیلان",
+    "latitude": "37.0111324",
+    "longitude": "46.2059139",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "مراغه",
+    "latitude": "37.378812499999995",
+    "longitude": "46.250922101253664",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "مرند",
+    "latitude": "38.4306358",
+    "longitude": "45.7741",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ملک کیان",
+    "latitude": "38.04473115",
+    "longitude": "46.50777968845449",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ملکان",
+    "latitude": "37.14258",
+    "longitude": "46.10345",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ممقان",
+    "latitude": "37.8443261",
+    "longitude": "45.9729822",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "مهربان",
+    "latitude": "38.0806733",
+    "longitude": "47.1317722",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "میانه",
+    "latitude": "37.4284148",
+    "longitude": "47.7058119",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "نظرکهریزی",
+    "latitude": "37.34697",
+    "longitude": "46.7629592",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "وایقان",
+    "latitude": "38.1304823",
+    "longitude": "45.7129464",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "ورزقان",
+    "latitude": "38.5087607",
+    "longitude": "46.6487801",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "هادی شهر",
+    "latitude": "38.8416756",
+    "longitude": "45.6648065",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "هرگلان",
+    "latitude": "37.64031885",
+    "longitude": "46.22278133036872",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "هریس",
+    "latitude": "38.24816",
+    "longitude": "47.11678",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "هشترود",
+    "latitude": "37.4759767",
+    "longitude": "47.0498103",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "هوراند",
+    "latitude": "38.8604709",
+    "longitude": "47.3683131",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "یامچی",
+    "latitude": "38.5223144",
+    "longitude": "45.6404499",
+    "province": "آذربایجان شرقی"
+  },
+  {
+    "city": "آواجیق",
+    "latitude": "39.3301839",
+    "longitude": "44.1538901",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "ارومیه",
+    "latitude": "37.548341",
+    "longitude": "45.0667111",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "اشنویه",
+    "latitude": "37.0418235",
+    "longitude": "45.0983499",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "ایواوغلی",
+    "latitude": "38.7139034",
+    "longitude": "45.206595",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "باروق",
+    "latitude": "36.9546339",
+    "longitude": "46.3247366",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "بازرگان",
+    "latitude": "39.3886668",
+    "longitude": "44.3876859",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "بوکان",
+    "latitude": "36.5215096",
+    "longitude": "46.2111837",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "پلدشت",
+    "latitude": "39.3402705",
+    "longitude": "45.07061225913259",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "پیرانشهر",
+    "latitude": "36.6994559",
+    "longitude": "45.140337",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "تازه شهر",
+    "latitude": "38.1751182",
+    "longitude": "44.6915009",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "تکاب",
+    "latitude": "36.4007658",
+    "longitude": "47.1117125",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "چهاربرج",
+    "latitude": "37.1254",
+    "longitude": "45.9782",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "خوی",
+    "latitude": "38.5504343",
+    "longitude": "44.95354",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "دیزج دیز",
+    "latitude": "38.4614758",
+    "longitude": "45.0252181",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "سردشت",
+    "latitude": "36.1553184",
+    "longitude": "45.4799637",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "سلماس",
+    "latitude": "38.2026927",
+    "longitude": "44.76768597555627",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "سیلوانه",
+    "latitude": "37.387855900000005",
+    "longitude": "44.79870604289104",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "سیمینه",
+    "latitude": "36.7303445",
+    "longitude": "46.1534194",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "سیه چشمه",
+    "latitude": "39.0651269",
+    "longitude": "44.3844026",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "شاهین دژ",
+    "latitude": "36.6784386",
+    "longitude": "46.5656627",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "شوط",
+    "latitude": "39.2178874",
+    "longitude": "44.7711898",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "فیرورق",
+    "latitude": "38.5821035",
+    "longitude": "44.8316495",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "قره ضیاءالدین",
+    "latitude": "38.891166",
+    "longitude": "45.0282107",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "قطور",
+    "latitude": "38.4714718",
+    "longitude": "44.4099457",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "قوشچی",
+    "latitude": "37.9929508",
+    "longitude": "45.0370956",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "کشاورز",
+    "latitude": "36.8355495",
+    "longitude": "46.3573777",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "گردکشانه",
+    "latitude": "36.8084866",
+    "longitude": "45.264528",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "ماکو",
+    "latitude": "39.2909641",
+    "longitude": "44.4521379",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "محمدیار",
+    "latitude": "36.9841837",
+    "longitude": "45.5167584",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "محمودآباد",
+    "latitude": "36.7197",
+    "longitude": "46.5145",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "مهاباد",
+    "latitude": "36.7651739",
+    "longitude": "45.7218136",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "میاندوآب",
+    "latitude": "36.9695588",
+    "longitude": "46.0993809",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "میرآباد",
+    "latitude": "36.4053",
+    "longitude": "45.372",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "نالوس",
+    "latitude": "36.9835017",
+    "longitude": "45.1431549",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "نقده",
+    "latitude": "36.9555967",
+    "longitude": "45.3878933",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "نوشین",
+    "latitude": "37.7349",
+    "longitude": "45.0513",
+    "province": "آذربایجان غربی"
+  },
+  {
+    "city": "آبی بیگلو",
+    "latitude": "38.28365",
+    "longitude": "48.5527012",
+    "province": "اردبیل"
+  },
+  {
+    "city": "اردبیل",
+    "latitude": "38.2498",
+    "longitude": "48.2933",
+    "province": "اردبیل"
+  },
+  {
+    "city": "اصلاندوز",
+    "latitude": "39.4417175",
+    "longitude": "47.4102145",
+    "province": "اردبیل"
+  },
+  {
+    "city": "بیله سوار",
+    "latitude": "39.3779114",
+    "longitude": "48.3499706",
+    "province": "اردبیل"
+  },
+  {
+    "city": "پارس آباد",
+    "latitude": "39.6482",
+    "longitude": "47.9174",
+    "province": "اردبیل"
+  },
+  {
+    "city": "تازه کند",
+    "latitude": "39.0443",
+    "longitude": "47.7453",
+    "province": "اردبیل"
+  },
+  {
+    "city": "تازه کندانگوت",
+    "latitude": "39.045299",
+    "longitude": "47.7448756",
+    "province": "اردبیل"
+  },
+  {
+    "city": "جعفرآباد",
+    "latitude": "39.4346",
+    "longitude": "48.0939",
+    "province": "اردبیل"
+  },
+  {
+    "city": "خلخال",
+    "latitude": "37.6192217",
+    "longitude": "48.5278144",
+    "province": "اردبیل"
+  },
+  {
+    "city": "رضی",
+    "latitude": "38.6296398",
+    "longitude": "48.0956519",
+    "province": "اردبیل"
+  },
+  {
+    "city": "سرعین",
+    "latitude": "38.1493746",
+    "longitude": "48.0746208",
+    "province": "اردبیل"
+  },
+  {
+    "city": "عنبران",
+    "latitude": "38.4900003",
+    "longitude": "48.4355097",
+    "province": "اردبیل"
+  },
+  {
+    "city": "فخرآباد",
+    "latitude": "38.5241",
+    "longitude": "47.8628",
+    "province": "اردبیل"
+  },
+  {
+    "city": "کلور",
+    "latitude": "37.3889125",
+    "longitude": "48.7221802",
+    "province": "اردبیل"
+  },
+  {
+    "city": "کوراییم",
+    "latitude": "37.9552413",
+    "longitude": "48.2355776",
+    "province": "اردبیل"
+  },
+  {
+    "city": "گرمی",
+    "latitude": "39.029223",
+    "longitude": "48.0800478",
+    "province": "اردبیل"
+  },
+  {
+    "city": "گیوی",
+    "latitude": "37.6846951",
+    "longitude": "48.3396197",
+    "province": "اردبیل"
+  },
+  {
+    "city": "لاهرود",
+    "latitude": "38.5081222",
+    "longitude": "47.8316745",
+    "province": "اردبیل"
+  },
+  {
+    "city": "مشگین شهر",
+    "latitude": "38.3979293",
+    "longitude": "47.6764836",
+    "province": "اردبیل"
+  },
+  {
+    "city": "نمین",
+    "latitude": "38.4240161",
+    "longitude": "48.4840477",
+    "province": "اردبیل"
+  },
+  {
+    "city": "نیر",
+    "latitude": "38.0346",
+    "longitude": "47.9986",
+    "province": "اردبیل"
+  },
+  {
+    "city": "هشتجین",
+    "latitude": "37.369503",
+    "longitude": "48.322197",
+    "province": "اردبیل"
+  },
+  {
+    "city": "هیر",
+    "latitude": "38.0801837",
+    "longitude": "48.5065169",
+    "province": "اردبیل"
+  },
+  {
+    "city": "آران وبیدگل",
+    "latitude": "34.0546135",
+    "longitude": "51.47856839538319",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ابریشم",
+    "latitude": "32.5697615",
+    "longitude": "51.5712769",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ابوزیدآباد",
+    "latitude": "33.9230699",
+    "longitude": "51.6876684",
+    "province": "اصفهان"
+  },
+  {
+    "city": "اردستان",
+    "latitude": "33.3797762",
+    "longitude": "52.3724967",
+    "province": "اصفهان"
+  },
+  {
+    "city": "اژیه",
+    "latitude": "32.4400685",
+    "longitude": "52.3789114",
+    "province": "اصفهان"
+  },
+  {
+    "city": "اصفهان",
+    "latitude": "32.6707877",
+    "longitude": "51.6650002",
+    "province": "اصفهان"
+  },
+  {
+    "city": "افوس",
+    "latitude": "33.0240732",
+    "longitude": "50.0929526",
+    "province": "اصفهان"
+  },
+  {
+    "city": "انارک",
+    "latitude": "33.3104146",
+    "longitude": "53.6981497",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ایمانشهر",
+    "latitude": "32.4881597",
+    "longitude": "51.4469528",
+    "province": "اصفهان"
+  },
+  {
+    "city": "بادرود",
+    "latitude": "33.6916541",
+    "longitude": "52.0076895",
+    "province": "اصفهان"
+  },
+  {
+    "city": "باغ بهادران",
+    "latitude": "32.3762181",
+    "longitude": "51.1890059",
+    "province": "اصفهان"
+  },
+  {
+    "city": "بافران",
+    "latitude": "32.8444997",
+    "longitude": "53.1311698",
+    "province": "اصفهان"
+  },
+  {
+    "city": "برزک",
+    "latitude": "33.7828104",
+    "longitude": "51.2252965",
+    "province": "اصفهان"
+  },
+  {
+    "city": "برف انبار",
+    "latitude": "33.0022943",
+    "longitude": "50.1956911",
+    "province": "اصفهان"
+  },
+  {
+    "city": "بوئین و میاندشت",
+    "latitude": "33.0805194",
+    "longitude": "50.1598427",
+    "province": "اصفهان"
+  },
+  {
+    "city": "بهاران شهر",
+    "latitude": "32.515486",
+    "longitude": "51.5417638",
+    "province": "اصفهان"
+  },
+  {
+    "city": "بهارستان",
+    "latitude": "32.4858819",
+    "longitude": "51.7785054",
+    "province": "اصفهان"
+  },
+  {
+    "city": "پیربکران",
+    "latitude": "32.468331",
+    "longitude": "51.5595521",
+    "province": "اصفهان"
+  },
+  {
+    "city": "تودشک",
+    "latitude": "32.7198701",
+    "longitude": "52.6707972",
+    "province": "اصفهان"
+  },
+  {
+    "city": "تیران",
+    "latitude": "32.70328",
+    "longitude": "51.15381",
+    "province": "اصفهان"
+  },
+  {
+    "city": "جندق",
+    "latitude": "34.0422837",
+    "longitude": "54.4150165",
+    "province": "اصفهان"
+  },
+  {
+    "city": "جوزدان",
+    "latitude": "32.5566297",
+    "longitude": "51.3714526",
+    "province": "اصفهان"
+  },
+  {
+    "city": "جوشقان و کامو",
+    "latitude": "33.6350305",
+    "longitude": "51.2613626",
+    "province": "اصفهان"
+  },
+  {
+    "city": "چادگان",
+    "latitude": "32.7679417",
+    "longitude": "50.6290648",
+    "province": "اصفهان"
+  },
+  {
+    "city": "چرمهین",
+    "latitude": "32.3333972",
+    "longitude": "51.1898097",
+    "province": "اصفهان"
+  },
+  {
+    "city": "چمگردان",
+    "latitude": "32.393093",
+    "longitude": "51.338919",
+    "province": "اصفهان"
+  },
+  {
+    "city": "حبیب آباد",
+    "latitude": "32.8276538",
+    "longitude": "51.7757315",
+    "province": "اصفهان"
+  },
+  {
+    "city": "حنا",
+    "latitude": "31.1971774",
+    "longitude": "51.7245141",
+    "province": "اصفهان"
+  },
+  {
+    "city": "خالدآباد",
+    "latitude": "33.6998125",
+    "longitude": "51.9883183",
+    "province": "اصفهان"
+  },
+  {
+    "city": "خمینی شهر",
+    "latitude": "32.6938201",
+    "longitude": "51.5254892",
+    "province": "اصفهان"
+  },
+  {
+    "city": "خوانسار",
+    "latitude": "33.22692",
+    "longitude": "50.3146044",
+    "province": "اصفهان"
+  },
+  {
+    "city": "خور",
+    "latitude": "33.77512",
+    "longitude": "55.08329",
+    "province": "اصفهان"
+  },
+  {
+    "city": "خورزوق",
+    "latitude": "32.7777528",
+    "longitude": "51.648766",
+    "province": "اصفهان"
+  },
+  {
+    "city": "داران",
+    "latitude": "32.98741",
+    "longitude": "50.4108",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دامنه",
+    "latitude": "33.0178599",
+    "longitude": "50.4893488",
+    "province": "اصفهان"
+  },
+  {
+    "city": "درچه",
+    "latitude": "32.6122831",
+    "longitude": "51.5574338",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دستگرد",
+    "latitude": "32.80208",
+    "longitude": "51.66361",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دولت آباد",
+    "latitude": "32.79978",
+    "longitude": "51.69553",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دهاقان",
+    "latitude": "31.9367339",
+    "longitude": "51.6471146",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دهق",
+    "latitude": "33.1049536",
+    "longitude": "50.9629781",
+    "province": "اصفهان"
+  },
+  {
+    "city": "دیزیچه",
+    "latitude": "32.3829496",
+    "longitude": "51.5128444",
+    "province": "اصفهان"
+  },
+  {
+    "city": "رزوه",
+    "latitude": "32.8349784",
+    "longitude": "50.5673592",
+    "province": "اصفهان"
+  },
+  {
+    "city": "رضوانشهر",
+    "latitude": "32.665594",
+    "longitude": "51.064282",
+    "province": "اصفهان"
+  },
+  {
+    "city": "زاینده رود",
+    "latitude": "32.38917",
+    "longitude": "51.27028",
+    "province": "اصفهان"
+  },
+  {
+    "city": "زرین شهر",
+    "latitude": "32.3887062",
+    "longitude": "51.3737142",
+    "province": "اصفهان"
+  },
+  {
+    "city": "زواره",
+    "latitude": "33.4469079",
+    "longitude": "52.4948886",
+    "province": "اصفهان"
+  },
+  {
+    "city": "زیباشهر",
+    "latitude": "32.3865574",
+    "longitude": "51.5679359",
+    "province": "اصفهان"
+  },
+  {
+    "city": "سده لنجان",
+    "latitude": "32.3783604",
+    "longitude": "51.3148844",
+    "province": "اصفهان"
+  },
+  {
+    "city": "سفیدشهر",
+    "latitude": "34.126299",
+    "longitude": "51.3506189",
+    "province": "اصفهان"
+  },
+  {
+    "city": "سگزی",
+    "latitude": "32.690556",
+    "longitude": "52.125556",
+    "province": "اصفهان"
+  },
+  {
+    "city": "سمیرم",
+    "latitude": "31.41667",
+    "longitude": "51.56667",
+    "province": "اصفهان"
+  },
+  {
+    "city": "شاهین شهر",
+    "latitude": "32.85788",
+    "longitude": "51.5529",
+    "province": "اصفهان"
+  },
+  {
+    "city": "شهرضا",
+    "latitude": "32.0116032",
+    "longitude": "51.8651719",
+    "province": "اصفهان"
+  },
+  {
+    "city": "طالخونچه",
+    "latitude": "32.2661882",
+    "longitude": "51.5639295",
+    "province": "اصفهان"
+  },
+  {
+    "city": "عسگران",
+    "latitude": "32.865658",
+    "longitude": "50.852181",
+    "province": "اصفهان"
+  },
+  {
+    "city": "علویجه",
+    "latitude": "33.0560985",
+    "longitude": "51.0845672",
+    "province": "اصفهان"
+  },
+  {
+    "city": "فریدونشهر",
+    "latitude": "32.94195",
+    "longitude": "50.11991",
+    "province": "اصفهان"
+  },
+  {
+    "city": "فلاورجان",
+    "latitude": "32.5576772",
+    "longitude": "51.5079153",
+    "province": "اصفهان"
+  },
+  {
+    "city": "فولادشهر",
+    "latitude": "32.4834868",
+    "longitude": "51.4173278",
+    "province": "اصفهان"
+  },
+  {
+    "city": "قمصر",
+    "latitude": "33.75",
+    "longitude": "51.43202",
+    "province": "اصفهان"
+  },
+  {
+    "city": "قهجاورستان",
+    "latitude": "32.7040579",
+    "longitude": "51.8330476",
+    "province": "اصفهان"
+  },
+  {
+    "city": "قهدریجان",
+    "latitude": "32.577126",
+    "longitude": "51.4539164",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کاشان",
+    "latitude": "33.9876533",
+    "longitude": "51.4428856",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کرکوند",
+    "latitude": "32.3460971",
+    "longitude": "51.4473626",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کلیشاد و سودرجان",
+    "latitude": "32.5476802",
+    "longitude": "51.5329463",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کمشچه",
+    "latitude": "32.9054",
+    "longitude": "51.8098",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کمه",
+    "latitude": "31.0676887",
+    "longitude": "51.5936835",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کوشک",
+    "latitude": "32.64219",
+    "longitude": "51.49955",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کوهپایه",
+    "latitude": "32.7138321",
+    "longitude": "52.4405045",
+    "province": "اصفهان"
+  },
+  {
+    "city": "کهریزسنگ",
+    "latitude": "32.62883235",
+    "longitude": "51.480913042335175",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گرگاب",
+    "latitude": "32.8678119",
+    "longitude": "51.5981358",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گزبرخوار",
+    "latitude": "32.807793",
+    "longitude": "51.61823",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گلپایگان",
+    "latitude": "33.456488",
+    "longitude": "50.2883303",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گلدشت",
+    "latitude": "32.6247941",
+    "longitude": "51.4391574",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گلشهر",
+    "latitude": "33.5130447",
+    "longitude": "50.4754975",
+    "province": "اصفهان"
+  },
+  {
+    "city": "گوگد",
+    "latitude": "33.4755802",
+    "longitude": "50.3554565",
+    "province": "اصفهان"
+  },
+  {
+    "city": "مبارکه",
+    "latitude": "32.34612",
+    "longitude": "51.50205",
+    "province": "اصفهان"
+  },
+  {
+    "city": "مجلسی",
+    "latitude": "32.1968552",
+    "longitude": "51.5007466",
+    "province": "اصفهان"
+  },
+  {
+    "city": "مشکات",
+    "latitude": "34.1769",
+    "longitude": "51.2651",
+    "province": "اصفهان"
+  },
+  {
+    "city": "منظریه",
+    "latitude": "31.94509",
+    "longitude": "51.87178",
+    "province": "اصفهان"
+  },
+  {
+    "city": "میمه",
+    "latitude": "33.4467299",
+    "longitude": "51.1733569",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نائین",
+    "latitude": "32.8610688",
+    "longitude": "53.085985",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نجف آباد",
+    "latitude": "32.63464",
+    "longitude": "51.36525",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نطنز",
+    "latitude": "33.5071275",
+    "longitude": "51.9135547",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نوش آباد",
+    "latitude": "34.0776414",
+    "longitude": "51.4338827",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نیاسر",
+    "latitude": "33.970466",
+    "longitude": "51.1457545",
+    "province": "اصفهان"
+  },
+  {
+    "city": "نیک آباد",
+    "latitude": "32.3041598",
+    "longitude": "52.2032026",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ورزنه",
+    "latitude": "32.4203632",
+    "longitude": "52.6486815",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ورنامخواست",
+    "latitude": "32.3589117",
+    "longitude": "51.3787538",
+    "province": "اصفهان"
+  },
+  {
+    "city": "وزوان",
+    "latitude": "33.4183839",
+    "longitude": "51.1847456",
+    "province": "اصفهان"
+  },
+  {
+    "city": "ونک",
+    "latitude": "31.5274",
+    "longitude": "51.32551",
+    "province": "اصفهان"
+  },
+  {
+    "city": "هرند",
+    "latitude": "32.5625906",
+    "longitude": "52.4355327",
+    "province": "اصفهان"
+  },
+  {
+    "city": "اسارا",
+    "latitude": "36.036872",
+    "longitude": "51.1954666",
+    "province": "البرز"
+  },
+  {
+    "city": "اشتهارد",
+    "latitude": "35.7234469",
+    "longitude": "50.3670608",
+    "province": "البرز"
+  },
+  {
+    "city": "تنکمان",
+    "latitude": "35.8906652",
+    "longitude": "50.6156142",
+    "province": "البرز"
+  },
+  {
+    "city": "تهران دشت",
+    "latitude": "35.905688",
+    "longitude": "50.742687",
+    "province": "البرز"
+  },
+  {
+    "city": "چهارباغ",
+    "latitude": "35.8394861",
+    "longitude": "50.8480555",
+    "province": "البرز"
+  },
+  {
+    "city": "دیزین",
+    "latitude": "36.04917",
+    "longitude": "51.41722",
+    "province": "البرز"
+  },
+  {
+    "city": "ساوجبلاغ",
+    "latitude": "35.960996",
+    "longitude": "50.683794",
+    "province": "البرز"
+  },
+  {
+    "city": "شهر جدید هشتگرد",
+    "latitude": "35.9953399",
+    "longitude": "50.7267844",
+    "province": "البرز"
+  },
+  {
+    "city": "طالقان",
+    "latitude": "36.177868",
+    "longitude": "50.7655155",
+    "province": "البرز"
+  },
+  {
+    "city": "فردیس",
+    "latitude": "35.7292",
+    "longitude": "50.98483",
+    "province": "البرز"
+  },
+  {
+    "city": "کرج",
+    "latitude": "35.8224892",
+    "longitude": "50.9904681",
+    "province": "البرز"
+  },
+  {
+    "city": "کردان",
+    "latitude": "35.9314",
+    "longitude": "50.8311",
+    "province": "البرز"
+  },
+  {
+    "city": "کمال شهر",
+    "latitude": "35.8624842",
+    "longitude": "50.880468",
+    "province": "البرز"
+  },
+  {
+    "city": "کوهسار",
+    "latitude": "35.9627157",
+    "longitude": "50.7920955",
+    "province": "البرز"
+  },
+  {
+    "city": "گرمدره",
+    "latitude": "35.7510396",
+    "longitude": "51.066017",
+    "province": "البرز"
+  },
+  {
+    "city": "ماهدشت",
+    "latitude": "35.729757",
+    "longitude": "50.8109893",
+    "province": "البرز"
+  },
+  {
+    "city": "محمدشهر",
+    "latitude": "35.7527246",
+    "longitude": "50.9039864",
+    "province": "البرز"
+  },
+  {
+    "city": "مشکین دشت",
+    "latitude": "35.7509589",
+    "longitude": "50.9420738",
+    "province": "البرز"
+  },
+  {
+    "city": "نظرآباد",
+    "latitude": "35.95411",
+    "longitude": "50.60607",
+    "province": "البرز"
+  },
+  {
+    "city": "هشتگرد",
+    "latitude": "35.962",
+    "longitude": "50.6799",
+    "province": "البرز"
+  },
+  {
+    "city": "آبدانان",
+    "latitude": "32.9901681",
+    "longitude": "47.4221887",
+    "province": "ایلام"
+  },
+  {
+    "city": "آسمان آباد",
+    "latitude": "33.8619245",
+    "longitude": "46.4518435",
+    "province": "ایلام"
+  },
+  {
+    "city": "ارکواز",
+    "latitude": "33.3846543",
+    "longitude": "46.5973663",
+    "province": "ایلام"
+  },
+  {
+    "city": "ایلام",
+    "latitude": "33.6374",
+    "longitude": "46.4227",
+    "province": "ایلام"
+  },
+  {
+    "city": "ایوان",
+    "latitude": "33.8282411",
+    "longitude": "46.3096374",
+    "province": "ایلام"
+  },
+  {
+    "city": "بدره",
+    "latitude": "33.3060497",
+    "longitude": "47.0385999",
+    "province": "ایلام"
+  },
+  {
+    "city": "پهله",
+    "latitude": "33.0119112",
+    "longitude": "46.8815641",
+    "province": "ایلام"
+  },
+  {
+    "city": "توحید",
+    "latitude": "33.728139",
+    "longitude": "47.0678839",
+    "province": "ایلام"
+  },
+  {
+    "city": "چوار",
+    "latitude": "33.6967187",
+    "longitude": "46.2967631",
+    "province": "ایلام"
+  },
+  {
+    "city": "دره شهر",
+    "latitude": "33.1385109",
+    "longitude": "47.3753599",
+    "province": "ایلام"
+  },
+  {
+    "city": "دلگشا",
+    "latitude": "33.4057",
+    "longitude": "46.5948",
+    "province": "ایلام"
+  },
+  {
+    "city": "دهلران",
+    "latitude": "32.6941",
+    "longitude": "47.2679",
+    "province": "ایلام"
+  },
+  {
+    "city": "زرنه",
+    "latitude": "33.928499",
+    "longitude": "46.1826201",
+    "province": "ایلام"
+  },
+  {
+    "city": "سراب باغ",
+    "latitude": "32.898466",
+    "longitude": "47.5728997",
+    "province": "ایلام"
+  },
+  {
+    "city": "سرابله",
+    "latitude": "33.7675797",
+    "longitude": "46.5654912",
+    "province": "ایلام"
+  },
+  {
+    "city": "صالح آباد",
+    "latitude": "33.4697",
+    "longitude": "46.188",
+    "province": "ایلام"
+  },
+  {
+    "city": "لومار",
+    "latitude": "33.5673389",
+    "longitude": "46.8146332",
+    "province": "ایلام"
+  },
+  {
+    "city": "مورموری",
+    "latitude": "32.7254932",
+    "longitude": "47.6773754",
+    "province": "ایلام"
+  },
+  {
+    "city": "موسیان",
+    "latitude": "32.5209668",
+    "longitude": "47.376702",
+    "province": "ایلام"
+  },
+  {
+    "city": "مهران",
+    "latitude": "33.1222",
+    "longitude": "46.1646",
+    "province": "ایلام"
+  },
+  {
+    "city": "میمه",
+    "latitude": "33.2280492",
+    "longitude": "46.919563",
+    "province": "ایلام"
+  },
+  {
+    "city": "آب پخش",
+    "latitude": "29.3604336",
+    "longitude": "51.0713656",
+    "province": "بوشهر"
+  },
+  {
+    "city": "آبدان",
+    "latitude": "28.086050200000003",
+    "longitude": "51.78362047831979",
+    "province": "بوشهر"
+  },
+  {
+    "city": "امام حسن",
+    "latitude": "29.8407369",
+    "longitude": "50.2645174",
+    "province": "بوشهر"
+  },
+  {
+    "city": "انارستان",
+    "latitude": "28.0307",
+    "longitude": "52.06186",
+    "province": "بوشهر"
+  },
+  {
+    "city": "اهرم",
+    "latitude": "28.8830282",
+    "longitude": "51.2742019",
+    "province": "بوشهر"
+  },
+  {
+    "city": "برازجان",
+    "latitude": "29.2699",
+    "longitude": "51.2188",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بردخون",
+    "latitude": "28.0623996",
+    "longitude": "51.4771795",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بندردیر",
+    "latitude": "27.838773",
+    "longitude": "51.937609",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بندردیلم",
+    "latitude": "30.054",
+    "longitude": "50.165",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بندرریگ",
+    "latitude": "29.463964150000002",
+    "longitude": "50.63840005420174",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بندرکنگان",
+    "latitude": "27.8353",
+    "longitude": "52.0594",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بندرگناوه",
+    "latitude": "29.567821",
+    "longitude": "50.516853",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بنک",
+    "latitude": "27.8720312",
+    "longitude": "52.0270259",
+    "province": "بوشهر"
+  },
+  {
+    "city": "بوشهر",
+    "latitude": "28.96887",
+    "longitude": "50.83657",
+    "province": "بوشهر"
+  },
+  {
+    "city": "تنگ ارم",
+    "latitude": "29.1544748",
+    "longitude": "51.5293588",
+    "province": "بوشهر"
+  },
+  {
+    "city": "جم",
+    "latitude": "27.8262811",
+    "longitude": "52.3263597",
+    "province": "بوشهر"
+  },
+  {
+    "city": "چغادک",
+    "latitude": "28.98560965",
+    "longitude": "51.03739601209239",
+    "province": "بوشهر"
+  },
+  {
+    "city": "خارک",
+    "latitude": "29.240594299999998",
+    "longitude": "50.31172927653904",
+    "province": "بوشهر"
+  },
+  {
+    "city": "خورموج",
+    "latitude": "28.654813400000002",
+    "longitude": "51.38282787109593",
+    "province": "بوشهر"
+  },
+  {
+    "city": "دالکی",
+    "latitude": "29.4307486",
+    "longitude": "51.2925138",
+    "province": "بوشهر"
+  },
+  {
+    "city": "دلوار",
+    "latitude": "28.7628729",
+    "longitude": "51.0719232",
+    "province": "بوشهر"
+  },
+  {
+    "city": "ریز",
+    "latitude": "28.0517466",
+    "longitude": "52.0837191",
+    "province": "بوشهر"
+  },
+  {
+    "city": "سعدآباد",
+    "latitude": "29.3848355",
+    "longitude": "51.1166292",
+    "province": "بوشهر"
+  },
+  {
+    "city": "سیراف",
+    "latitude": "27.66573",
+    "longitude": "52.34616",
+    "province": "بوشهر"
+  },
+  {
+    "city": "شبانکاره",
+    "latitude": "29.4696831",
+    "longitude": "50.9909728",
+    "province": "بوشهر"
+  },
+  {
+    "city": "شنبه",
+    "latitude": "28.3952701",
+    "longitude": "51.7645229",
+    "province": "بوشهر"
+  },
+  {
+    "city": "عسلویه",
+    "latitude": "27.4760027",
+    "longitude": "52.6070411",
+    "province": "بوشهر"
+  },
+  {
+    "city": "کاکی",
+    "latitude": "28.3366456",
+    "longitude": "51.523857",
+    "province": "بوشهر"
+  },
+  {
+    "city": "کلمه",
+    "latitude": "28.9436694",
+    "longitude": "51.4581903",
+    "province": "بوشهر"
+  },
+  {
+    "city": "نخل تقی",
+    "latitude": "27.4980795",
+    "longitude": "52.583854",
+    "province": "بوشهر"
+  },
+  {
+    "city": "وحدتیه",
+    "latitude": "29.48306",
+    "longitude": "51.2369657",
+    "province": "بوشهر"
+  },
+  {
+    "city": "آبسرد",
+    "latitude": "35.62293",
+    "longitude": "52.15323",
+    "province": "تهران"
+  },
+  {
+    "city": "آبعلی",
+    "latitude": "35.7620424",
+    "longitude": "51.9628205",
+    "province": "تهران"
+  },
+  {
+    "city": "ارجمند",
+    "latitude": "35.8154903",
+    "longitude": "52.5141334",
+    "province": "تهران"
+  },
+  {
+    "city": "اسلامشهر",
+    "latitude": "35.5478513",
+    "longitude": "51.2318676",
+    "province": "تهران"
+  },
+  {
+    "city": "اندیشه",
+    "latitude": "35.6803",
+    "longitude": "51.0193",
+    "province": "تهران"
+  },
+  {
+    "city": "باغستان",
+    "latitude": "35.6452441",
+    "longitude": "51.1310219",
+    "province": "تهران"
+  },
+  {
+    "city": "باقرشهر",
+    "latitude": "35.5338489",
+    "longitude": "51.4053842",
+    "province": "تهران"
+  },
+  {
+    "city": "بومهن",
+    "latitude": "35.7285207",
+    "longitude": "51.864313",
+    "province": "تهران"
+  },
+  {
+    "city": "پاکدشت",
+    "latitude": "35.47854",
+    "longitude": "51.6834",
+    "province": "تهران"
+  },
+  {
+    "city": "پردیس",
+    "latitude": "35.7411286",
+    "longitude": "51.815509",
+    "province": "تهران"
+  },
+  {
+    "city": "پرند",
+    "latitude": "35.47195",
+    "longitude": "50.97547",
+    "province": "تهران"
+  },
+  {
+    "city": "پیشوا",
+    "latitude": "35.3086544",
+    "longitude": "51.7190255",
+    "province": "تهران"
+  },
+  {
+    "city": "تهران",
+    "latitude": "35.6892523",
+    "longitude": "51.3896004",
+    "province": "تهران"
+  },
+  {
+    "city": "جوادآباد",
+    "latitude": "35.2133",
+    "longitude": "51.67023",
+    "province": "تهران"
+  },
+  {
+    "city": "چهاردانگه",
+    "latitude": "35.6031",
+    "longitude": "51.3098",
+    "province": "تهران"
+  },
+  {
+    "city": "حسن آباد",
+    "latitude": "35.36732",
+    "longitude": "51.23498",
+    "province": "تهران"
+  },
+  {
+    "city": "دماوند",
+    "latitude": "35.71842",
+    "longitude": "52.06958",
+    "province": "تهران"
+  },
+  {
+    "city": "رباط کریم",
+    "latitude": "35.480576",
+    "longitude": "51.0781534",
+    "province": "تهران"
+  },
+  {
+    "city": "رودهن",
+    "latitude": "35.734772",
+    "longitude": "51.9063798",
+    "province": "تهران"
+  },
+  {
+    "city": "سعید آباد",
+    "latitude": "35.7338",
+    "longitude": "51.7014",
+    "province": "تهران"
+  },
+  {
+    "city": "شاهدشهر",
+    "latitude": "35.5735353",
+    "longitude": "51.0868332",
+    "province": "تهران"
+  },
+  {
+    "city": "شریف آباد",
+    "latitude": "35.422537",
+    "longitude": "51.7902387",
+    "province": "تهران"
+  },
+  {
+    "city": "شمشک",
+    "latitude": "36.011362",
+    "longitude": "51.4909361",
+    "province": "تهران"
+  },
+  {
+    "city": "شهر ری",
+    "latitude": "35.5989911",
+    "longitude": "51.4357865",
+    "province": "تهران"
+  },
+  {
+    "city": "شهریار",
+    "latitude": "35.65884",
+    "longitude": "51.05775",
+    "province": "تهران"
+  },
+  {
+    "city": "صالح آباد",
+    "latitude": "35.4255334",
+    "longitude": "51.6167707",
+    "province": "تهران"
+  },
+  {
+    "city": "صباشهر",
+    "latitude": "35.5824779",
+    "longitude": "51.1130446",
+    "province": "تهران"
+  },
+  {
+    "city": "صفادشت",
+    "latitude": "35.69244",
+    "longitude": "50.84828",
+    "province": "تهران"
+  },
+  {
+    "city": "فردوسیه",
+    "latitude": "35.6000722",
+    "longitude": "51.0627593",
+    "province": "تهران"
+  },
+  {
+    "city": "فشم",
+    "latitude": "35.9300601",
+    "longitude": "51.5263647",
+    "province": "تهران"
+  },
+  {
+    "city": "فیروزکوه",
+    "latitude": "35.7556732",
+    "longitude": "52.7730592",
+    "province": "تهران"
+  },
+  {
+    "city": "قدس",
+    "latitude": "35.7214",
+    "longitude": "51.109",
+    "province": "تهران"
+  },
+  {
+    "city": "قرچک",
+    "latitude": "35.430769",
+    "longitude": "51.57778497244185",
+    "province": "تهران"
+  },
+  {
+    "city": "قیامدشت",
+    "latitude": "35.5237555",
+    "longitude": "51.6510033",
+    "province": "تهران"
+  },
+  {
+    "city": "کهریزک",
+    "latitude": "35.517323",
+    "longitude": "51.3618852",
+    "province": "تهران"
+  },
+  {
+    "city": "کیلان",
+    "latitude": "35.5505069",
+    "longitude": "52.1684289",
+    "province": "تهران"
+  },
+  {
+    "city": "گلستان",
+    "latitude": "35.5183",
+    "longitude": "51.1819",
+    "province": "تهران"
+  },
+  {
+    "city": "لواسان",
+    "latitude": "35.8204845",
+    "longitude": "51.6321444",
+    "province": "تهران"
+  },
+  {
+    "city": "ملارد",
+    "latitude": "35.6659",
+    "longitude": "50.9767",
+    "province": "تهران"
+  },
+  {
+    "city": "میگون",
+    "latitude": "35.7058036",
+    "longitude": "51.3745835",
+    "province": "تهران"
+  },
+  {
+    "city": "نسیم شهر",
+    "latitude": "35.5683375",
+    "longitude": "51.1591692",
+    "province": "تهران"
+  },
+  {
+    "city": "نصیرآباد",
+    "latitude": "35.49209",
+    "longitude": "51.13836",
+    "province": "تهران"
+  },
+  {
+    "city": "وحیدیه",
+    "latitude": "35.6062379",
+    "longitude": "51.0263766",
+    "province": "تهران"
+  },
+  {
+    "city": "ورامین",
+    "latitude": "35.3242",
+    "longitude": "51.6457",
+    "province": "تهران"
+  },
+  {
+    "city": "آلونی",
+    "latitude": "31.5528467",
+    "longitude": "51.0576007",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "اردل",
+    "latitude": "31.997682",
+    "longitude": "50.6609476",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "باباحیدر",
+    "latitude": "32.3276473",
+    "longitude": "50.4743756",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "بروجن",
+    "latitude": "31.9719093",
+    "longitude": "51.291596",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "بلداجی",
+    "latitude": "31.9365711",
+    "longitude": "51.0513348",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "بن",
+    "latitude": "32.5422671",
+    "longitude": "50.7453326",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "جونقان",
+    "latitude": "32.1516564",
+    "longitude": "50.6856466",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "چلگرد",
+    "latitude": "32.4682525",
+    "longitude": "50.1222437",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "سامان",
+    "latitude": "32.45014",
+    "longitude": "50.91092",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "سفیددشت",
+    "latitude": "32.1715539",
+    "longitude": "51.2055318",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "سودجان",
+    "latitude": "32.5215922",
+    "longitude": "50.4018883",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "سورشجان",
+    "latitude": "32.3163942",
+    "longitude": "50.6761962",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "شلمزار",
+    "latitude": "32.0465",
+    "longitude": "50.81639",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "شهرکرد",
+    "latitude": "32.3257366",
+    "longitude": "50.8497369",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "طاقانک",
+    "latitude": "32.2224453",
+    "longitude": "50.8392836",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "فارسان",
+    "latitude": "32.25694",
+    "longitude": "50.56095",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "فرادنبه",
+    "latitude": "32.0080417",
+    "longitude": "51.2176939",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "فرخ شهر",
+    "latitude": "32.2732354",
+    "longitude": "50.9836849",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "کیان",
+    "latitude": "32.28418",
+    "longitude": "50.89202",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "گندمان",
+    "latitude": "31.8650116",
+    "longitude": "51.153733",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "گهرو",
+    "latitude": "32.004757",
+    "longitude": "50.8871785",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "لردگان",
+    "latitude": "31.5126237",
+    "longitude": "50.8303948",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "مال خلیفه",
+    "latitude": "31.2905232",
+    "longitude": "51.2604527",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "ناغان",
+    "latitude": "31.9344796",
+    "longitude": "50.7276893",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "نافچ",
+    "latitude": "32.4228214",
+    "longitude": "50.7896658",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "نقنه",
+    "latitude": "31.9333253",
+    "longitude": "51.3258702",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "هفشجان",
+    "latitude": "32.2255216",
+    "longitude": "50.7945045",
+    "province": "چهارمحال و بختیاری"
+  },
+  {
+    "city": "آرین شهر",
+    "latitude": "33.3319207",
+    "longitude": "59.2333976",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "آیسک",
+    "latitude": "33.8862967",
+    "longitude": "58.3810693",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "ارسک",
+    "latitude": "33.7015379",
+    "longitude": "57.3732972",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "اسدیه",
+    "latitude": "32.9157088",
+    "longitude": "60.0209676",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "اسفدن",
+    "latitude": "33.6478435",
+    "longitude": "59.7791575",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "اسلامیه",
+    "latitude": "34.0448547",
+    "longitude": "58.2202617",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "بشرویه",
+    "latitude": "33.8662098",
+    "longitude": "57.4253814",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "بیرجند",
+    "latitude": "32.8633961",
+    "longitude": "59.2177294",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "حاجی آباد",
+    "latitude": "33.60496",
+    "longitude": "59.9934",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "خضری دشت بیاض",
+    "latitude": "34.0216542",
+    "longitude": "58.8140837",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "خوسف",
+    "latitude": "32.7796665",
+    "longitude": "58.8928449",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "دیهوک",
+    "latitude": "33.2914689",
+    "longitude": "57.5174149",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "زهان",
+    "latitude": "33.4226757",
+    "longitude": "59.8126423",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "سرایان",
+    "latitude": "33.8625217",
+    "longitude": "58.5231892",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "سربیشه",
+    "latitude": "32.573805",
+    "longitude": "59.795754",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "سه قلعه",
+    "latitude": "33.665653",
+    "longitude": "58.3976472",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "شوسف",
+    "latitude": "31.8035023",
+    "longitude": "60.0099186",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "طبس",
+    "latitude": "33.5962283",
+    "longitude": "56.9249087",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "فردوس",
+    "latitude": "34.0185",
+    "longitude": "58.17222",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "قاین",
+    "latitude": "33.7340439",
+    "longitude": "59.1795177",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "قهستان",
+    "latitude": "33.1495413",
+    "longitude": "59.7165809",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "مود",
+    "latitude": "32.7063592",
+    "longitude": "59.5243809",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "نهبندان",
+    "latitude": "31.5431543",
+    "longitude": "60.0349456",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "نیمبلوک",
+    "latitude": "33.9122595",
+    "longitude": "58.9319935",
+    "province": "خراسان جنوبی"
+  },
+  {
+    "city": "احمدآباد صولت",
+    "latitude": "35.1163649",
+    "longitude": "60.6897163",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "انابد",
+    "latitude": "35.2532264",
+    "longitude": "57.8122034",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "باجگیران",
+    "latitude": "37.6219339",
+    "longitude": "58.4182686",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "باخرز",
+    "latitude": "34.9941781",
+    "longitude": "60.3148224",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بار",
+    "latitude": "36.4897198",
+    "longitude": "58.7161898",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بایگ",
+    "latitude": "35.3756395",
+    "longitude": "59.0389376",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بجستان",
+    "latitude": "34.5163087",
+    "longitude": "58.1834619",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بردسکن",
+    "latitude": "35.2611338",
+    "longitude": "57.9685311",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بیدخت",
+    "latitude": "34.3463245",
+    "longitude": "58.7573243",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "بینالود",
+    "latitude": "36.4275522",
+    "longitude": "58.8450526",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "تایباد",
+    "latitude": "34.7401763",
+    "longitude": "60.7755127",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "تربت جام",
+    "latitude": "35.2432546",
+    "longitude": "60.626313",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "تربت حیدریه",
+    "latitude": "35.2740853",
+    "longitude": "59.2194494",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "جغتای",
+    "latitude": "36.638031",
+    "longitude": "57.0743721",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "جنگل",
+    "latitude": "34.7033333",
+    "longitude": "59.2227778",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "چاپشلو",
+    "latitude": "37.3514931",
+    "longitude": "59.0774864",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "چکنه",
+    "latitude": "36.8179746",
+    "longitude": "58.5035404",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "چناران",
+    "latitude": "36.6483961",
+    "longitude": "59.1185005",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "خرو",
+    "latitude": "36.1442815",
+    "longitude": "59.0158029",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "خلیل آباد",
+    "latitude": "35.2545313",
+    "longitude": "58.2863427",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "خواف",
+    "latitude": "34.5723166",
+    "longitude": "60.1440373",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "داورزن",
+    "latitude": "36.3512877",
+    "longitude": "56.8762448",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "در رود",
+    "latitude": "36.1386891",
+    "longitude": "59.1162125",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "درگز",
+    "latitude": "37.4470313",
+    "longitude": "59.1064876",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "دولت آباد",
+    "latitude": "35.28219",
+    "longitude": "59.51972",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "رباط سنگ",
+    "latitude": "35.5460635",
+    "longitude": "59.1938079",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "رشتخوار",
+    "latitude": "34.9751301",
+    "longitude": "59.6245967",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "رضویه",
+    "latitude": "36.2064831",
+    "longitude": "59.7698334",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "روداب",
+    "latitude": "36.0213972",
+    "longitude": "57.3114353",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "ریوش",
+    "latitude": "35.4751589",
+    "longitude": "58.4586724",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سبزوار",
+    "latitude": "36.2134053",
+    "longitude": "57.6808799",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سرخس",
+    "latitude": "36.5399097",
+    "longitude": "61.1564431",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سفیدسنگ",
+    "latitude": "35.6579548",
+    "longitude": "60.0949107",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سلامی",
+    "latitude": "34.7448255",
+    "longitude": "59.9785539",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سلطان آباد",
+    "latitude": "36.40352",
+    "longitude": "58.03894",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "سنگان",
+    "latitude": "34.3995279",
+    "longitude": "60.2571339",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "شادمهر",
+    "latitude": "35.1716343",
+    "longitude": "59.0366756",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "شاندیز",
+    "latitude": "36.3958867",
+    "longitude": "59.2985989",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "ششتمد",
+    "latitude": "35.9585753",
+    "longitude": "57.766785",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "شهرآباد",
+    "latitude": "35.1490811",
+    "longitude": "57.9356524",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "شهرزو",
+    "latitude": "36.7488391",
+    "longitude": "59.9338092",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "صالح آباد",
+    "latitude": "35.68806",
+    "longitude": "61.09556",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "طرقبه",
+    "latitude": "36.24709825",
+    "longitude": "59.37117367408429",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "عشق آباد",
+    "latitude": "36.04139",
+    "longitude": "58.68194",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "فرهادگرد",
+    "latitude": "35.7664697",
+    "longitude": "59.7345327",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "فریمان",
+    "latitude": "35.701215",
+    "longitude": "59.8465304",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "فیروزه",
+    "latitude": "36.28639",
+    "longitude": "58.58586",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "فیض آباد",
+    "latitude": "35.01891",
+    "longitude": "58.78343",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "قدمگاه",
+    "latitude": "36.1063279",
+    "longitude": "59.0597459",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "قلندرآباد",
+    "latitude": "35.5993818",
+    "longitude": "59.9498981",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "قوچان",
+    "latitude": "37.1060904",
+    "longitude": "58.5086657",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کاخک",
+    "latitude": "34.1511878",
+    "longitude": "58.6392528",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کاریز",
+    "latitude": "34.8127778",
+    "longitude": "60.8241667",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کاشمر",
+    "latitude": "35.2446715",
+    "longitude": "58.4641341",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کدکن",
+    "latitude": "35.5855764",
+    "longitude": "58.8787467",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کلات",
+    "latitude": "36.99532",
+    "longitude": "59.76472",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "کندر",
+    "latitude": "35.21191",
+    "longitude": "58.15159",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "گلبهار",
+    "latitude": "36.56349145",
+    "longitude": "59.17880319834591",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "گلمکان",
+    "latitude": "36.4818235",
+    "longitude": "59.1595291",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "گناباد",
+    "latitude": "34.3528343",
+    "longitude": "58.6832352",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "لطف آباد",
+    "latitude": "37.5178695",
+    "longitude": "59.3409617",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "مزدآوند",
+    "latitude": "36.1557394",
+    "longitude": "60.5291811",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "مشهد",
+    "latitude": "36.2974945",
+    "longitude": "59.6059232",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "ملک آباد",
+    "latitude": "35.9991019",
+    "longitude": "59.5918125",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "نشتیفان",
+    "latitude": "34.4337222",
+    "longitude": "60.1777943",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "نقاب",
+    "latitude": "36.7105093",
+    "longitude": "57.4086684",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "نوخندان",
+    "latitude": "37.5200945",
+    "longitude": "58.9893154",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "نیشابور",
+    "latitude": "36.2105604",
+    "longitude": "58.7922291",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "نیل شهر",
+    "latitude": "35.1224857",
+    "longitude": "60.7736351",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "همت آباد",
+    "latitude": "36.2976907",
+    "longitude": "58.4637326",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "یونسی",
+    "latitude": "34.8055463",
+    "longitude": "58.4372591",
+    "province": "خراسان رضوی"
+  },
+  {
+    "city": "آشخانه",
+    "latitude": "37.5603754",
+    "longitude": "56.922995",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "اسفراین",
+    "latitude": "37.0750975",
+    "longitude": "57.5096169",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "بجنورد",
+    "latitude": "37.4759752",
+    "longitude": "57.3319881",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "پیش قلعه",
+    "latitude": "37.6502286",
+    "longitude": "57.0018995",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "تیتکانلو",
+    "latitude": "37.2811331",
+    "longitude": "58.2884947",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "جاجرم",
+    "latitude": "36.9499996",
+    "longitude": "56.3792939",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "حصارگرمخان",
+    "latitude": "37.5167",
+    "longitude": "57.45",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "درق",
+    "latitude": "36.970346",
+    "longitude": "56.206334",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "راز",
+    "latitude": "37.9338042",
+    "longitude": "57.1113879",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "سنخواست",
+    "latitude": "37.0997416",
+    "longitude": "56.8492214",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "شوقان",
+    "latitude": "37.3418549",
+    "longitude": "56.886776",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "شیروان",
+    "latitude": "37.39669",
+    "longitude": "57.92952",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "صفی آباد",
+    "latitude": "36.6954",
+    "longitude": "57.92838",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "فاروج",
+    "latitude": "37.2317346",
+    "longitude": "58.2192859",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "قاضی",
+    "latitude": "37.847182",
+    "longitude": "57.3160849",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "گرمه",
+    "latitude": "36.9870347",
+    "longitude": "56.2888872",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "لوجلی",
+    "latitude": "37.6069313",
+    "longitude": "57.8574221",
+    "province": "خراسان شمالی"
+  },
+  {
+    "city": "آبادان",
+    "latitude": "30.3636097",
+    "longitude": "48.2591475",
+    "province": "خوزستان"
+  },
+  {
+    "city": "آغاجاری",
+    "latitude": "30.6995647",
+    "longitude": "49.8285336",
+    "province": "خوزستان"
+  },
+  {
+    "city": "اروندکنار",
+    "latitude": "29.9843073",
+    "longitude": "48.5109871",
+    "province": "خوزستان"
+  },
+  {
+    "city": "الوان",
+    "latitude": "31.87431",
+    "longitude": "48.34156",
+    "province": "خوزستان"
+  },
+  {
+    "city": "امیدیه",
+    "latitude": "30.76277",
+    "longitude": "49.70226",
+    "province": "خوزستان"
+  },
+  {
+    "city": "اندیمشک",
+    "latitude": "32.4854294",
+    "longitude": "48.3270335",
+    "province": "خوزستان"
+  },
+  {
+    "city": "اهواز",
+    "latitude": "31.3230637",
+    "longitude": "48.67932",
+    "province": "خوزستان"
+  },
+  {
+    "city": "ایذه",
+    "latitude": "31.8303661",
+    "longitude": "49.8685539",
+    "province": "خوزستان"
+  },
+  {
+    "city": "باغ ملک",
+    "latitude": "31.52398",
+    "longitude": "49.88558",
+    "province": "خوزستان"
+  },
+  {
+    "city": "بستان",
+    "latitude": "31.7215101",
+    "longitude": "47.9867165",
+    "province": "خوزستان"
+  },
+  {
+    "city": "بندرامام خمینی",
+    "latitude": "30.43698",
+    "longitude": "49.10288",
+    "province": "خوزستان"
+  },
+  {
+    "city": "بندرماهشهر",
+    "latitude": "30.5458",
+    "longitude": "49.1803",
+    "province": "خوزستان"
+  },
+  {
+    "city": "بهبهان",
+    "latitude": "30.593435900000003",
+    "longitude": "50.239197767309",
+    "province": "خوزستان"
+  },
+  {
+    "city": "ترکالکی",
+    "latitude": "32.2441851",
+    "longitude": "48.8464607",
+    "province": "خوزستان"
+  },
+  {
+    "city": "جایزان",
+    "latitude": "30.8751924",
+    "longitude": "49.853429",
+    "province": "خوزستان"
+  },
+  {
+    "city": "چمران",
+    "latitude": "30.707295",
+    "longitude": "49.159817",
+    "province": "خوزستان"
+  },
+  {
+    "city": "چویبده",
+    "latitude": "30.18634745",
+    "longitude": "48.58201569942754",
+    "province": "خوزستان"
+  },
+  {
+    "city": "حر",
+    "latitude": "32.144177",
+    "longitude": "48.391286",
+    "province": "خوزستان"
+  },
+  {
+    "city": "حسینیه",
+    "latitude": "32.6826625",
+    "longitude": "48.247497",
+    "province": "خوزستان"
+  },
+  {
+    "city": "حمیدیه",
+    "latitude": "31.4808215",
+    "longitude": "48.4353791",
+    "province": "خوزستان"
+  },
+  {
+    "city": "خرمشهر",
+    "latitude": "30.4333105",
+    "longitude": "48.1779858",
+    "province": "خوزستان"
+  },
+  {
+    "city": "دارخوین",
+    "latitude": "30.7416962",
+    "longitude": "48.4194934",
+    "province": "خوزستان"
+  },
+  {
+    "city": "دزآب",
+    "latitude": "32.2280083",
+    "longitude": "48.4246878",
+    "province": "خوزستان"
+  },
+  {
+    "city": "دزفول",
+    "latitude": "32.3780257",
+    "longitude": "48.4032064",
+    "province": "خوزستان"
+  },
+  {
+    "city": "دهدز",
+    "latitude": "31.707783",
+    "longitude": "50.2885498",
+    "province": "خوزستان"
+  },
+  {
+    "city": "رامشیر",
+    "latitude": "30.8939518",
+    "longitude": "49.4093497",
+    "province": "خوزستان"
+  },
+  {
+    "city": "رامهرمز",
+    "latitude": "31.2780254",
+    "longitude": "49.6020152",
+    "province": "خوزستان"
+  },
+  {
+    "city": "رفیع",
+    "latitude": "31.5962386",
+    "longitude": "47.8919447",
+    "province": "خوزستان"
+  },
+  {
+    "city": "سالند",
+    "latitude": "32.4967988",
+    "longitude": "48.8341935",
+    "province": "خوزستان"
+  },
+  {
+    "city": "سردشت",
+    "latitude": "30.3277",
+    "longitude": "50.219",
+    "province": "خوزستان"
+  },
+  {
+    "city": "سوسنگرد",
+    "latitude": "31.5565801",
+    "longitude": "48.1880626",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شادگان",
+    "latitude": "30.6492516",
+    "longitude": "48.6690288",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شاوور",
+    "latitude": "32.0564315",
+    "longitude": "48.3043796",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شرافت",
+    "latitude": "32.0877",
+    "longitude": "48.7684",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شوش",
+    "latitude": "32.2003687",
+    "longitude": "48.2489839",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شوشتر",
+    "latitude": "32.0492034",
+    "longitude": "48.851281",
+    "province": "خوزستان"
+  },
+  {
+    "city": "شیبان",
+    "latitude": "31.40794",
+    "longitude": "48.7946",
+    "province": "خوزستان"
+  },
+  {
+    "city": "صالح شهر",
+    "latitude": "32.2120495",
+    "longitude": "48.6722366",
+    "province": "خوزستان"
+  },
+  {
+    "city": "صفی آباد",
+    "latitude": "32.26299",
+    "longitude": "48.41865",
+    "province": "خوزستان"
+  },
+  {
+    "city": "صیدون",
+    "latitude": "31.367373",
+    "longitude": "50.0844132",
+    "province": "خوزستان"
+  },
+  {
+    "city": "قلعه تل",
+    "latitude": "31.6307184",
+    "longitude": "49.8908244",
+    "province": "خوزستان"
+  },
+  {
+    "city": "قلعه خواجه",
+    "latitude": "32.2055934",
+    "longitude": "49.4535184",
+    "province": "خوزستان"
+  },
+  {
+    "city": "گتوند",
+    "latitude": "32.245156699999995",
+    "longitude": "48.812418181822636",
+    "province": "خوزستان"
+  },
+  {
+    "city": "لالی",
+    "latitude": "32.3306321",
+    "longitude": "49.0944",
+    "province": "خوزستان"
+  },
+  {
+    "city": "مسجدسلیمان",
+    "latitude": "31.9364",
+    "longitude": "49.3039",
+    "province": "خوزستان"
+  },
+  {
+    "city": "ملاثانی",
+    "latitude": "31.5841359",
+    "longitude": "48.888229",
+    "province": "خوزستان"
+  },
+  {
+    "city": "میانرود",
+    "latitude": "32.151171",
+    "longitude": "48.44136",
+    "province": "خوزستان"
+  },
+  {
+    "city": "مینوشهر",
+    "latitude": "30.3534226",
+    "longitude": "48.2170496",
+    "province": "خوزستان"
+  },
+  {
+    "city": "ویس",
+    "latitude": "31.48595",
+    "longitude": "48.87515",
+    "province": "خوزستان"
+  },
+  {
+    "city": "هفتگل",
+    "latitude": "31.44686",
+    "longitude": "49.52951",
+    "province": "خوزستان"
+  },
+  {
+    "city": "هندیجان",
+    "latitude": "30.2363224",
+    "longitude": "49.7122886",
+    "province": "خوزستان"
+  },
+  {
+    "city": "هویزه",
+    "latitude": "31.462778",
+    "longitude": "48.0755697",
+    "province": "خوزستان"
+  },
+  {
+    "city": "آب بر",
+    "latitude": "36.9258587",
+    "longitude": "48.953276",
+    "province": "زنجان"
+  },
+  {
+    "city": "ابهر",
+    "latitude": "36.1468",
+    "longitude": "49.218",
+    "province": "زنجان"
+  },
+  {
+    "city": "ارمغان خانه",
+    "latitude": "36.9656",
+    "longitude": "48.3781",
+    "province": "زنجان"
+  },
+  {
+    "city": "چورزق",
+    "latitude": "36.9982345",
+    "longitude": "48.7776206",
+    "province": "زنجان"
+  },
+  {
+    "city": "حلب",
+    "latitude": "36.2955098",
+    "longitude": "48.0597202",
+    "province": "زنجان"
+  },
+  {
+    "city": "خرمدره",
+    "latitude": "36.20777",
+    "longitude": "49.19527",
+    "province": "زنجان"
+  },
+  {
+    "city": "دندی",
+    "latitude": "36.5541697",
+    "longitude": "47.6207573",
+    "province": "زنجان"
+  },
+  {
+    "city": "زرین آباد",
+    "latitude": "36.42622",
+    "longitude": "48.28158",
+    "province": "زنجان"
+  },
+  {
+    "city": "زرین رود",
+    "latitude": "35.7565444",
+    "longitude": "48.4811949",
+    "province": "زنجان"
+  },
+  {
+    "city": "زنجان",
+    "latitude": "36.67642",
+    "longitude": "48.49628",
+    "province": "زنجان"
+  },
+  {
+    "city": "سجاس",
+    "latitude": "36.2402834",
+    "longitude": "48.5530842",
+    "province": "زنجان"
+  },
+  {
+    "city": "سلطانیه",
+    "latitude": "36.4345194",
+    "longitude": "48.7940806",
+    "province": "زنجان"
+  },
+  {
+    "city": "سهرورد",
+    "latitude": "36.0705638",
+    "longitude": "48.4416193",
+    "province": "زنجان"
+  },
+  {
+    "city": "صائین قلعه",
+    "latitude": "36.3038013",
+    "longitude": "49.072849",
+    "province": "زنجان"
+  },
+  {
+    "city": "قیدار",
+    "latitude": "36.1227353",
+    "longitude": "48.591074",
+    "province": "زنجان"
+  },
+  {
+    "city": "گرماب",
+    "latitude": "35.8479451",
+    "longitude": "48.1962354",
+    "province": "زنجان"
+  },
+  {
+    "city": "ماه نشان",
+    "latitude": "36.7456508",
+    "longitude": "47.6716751",
+    "province": "زنجان"
+  },
+  {
+    "city": "هیدج",
+    "latitude": "36.2557601",
+    "longitude": "49.13398571132363",
+    "province": "زنجان"
+  },
+  {
+    "city": "آرادان",
+    "latitude": "35.2478246",
+    "longitude": "52.4928417",
+    "province": "سمنان"
+  },
+  {
+    "city": "ایوانکی",
+    "latitude": "35.3441899",
+    "longitude": "52.069922",
+    "province": "سمنان"
+  },
+  {
+    "city": "بسطام",
+    "latitude": "36.4827556",
+    "longitude": "55.0010717",
+    "province": "سمنان"
+  },
+  {
+    "city": "بیارجمند",
+    "latitude": "36.0790243",
+    "longitude": "55.8098841",
+    "province": "سمنان"
+  },
+  {
+    "city": "دامغان",
+    "latitude": "36.1679",
+    "longitude": "54.34292",
+    "province": "سمنان"
+  },
+  {
+    "city": "درجزین",
+    "latitude": "35.6539439",
+    "longitude": "53.3379876",
+    "province": "سمنان"
+  },
+  {
+    "city": "دیباج",
+    "latitude": "36.4282719",
+    "longitude": "54.2294606",
+    "province": "سمنان"
+  },
+  {
+    "city": "سرخه",
+    "latitude": "35.4638851",
+    "longitude": "53.2135038",
+    "province": "سمنان"
+  },
+  {
+    "city": "سمنان",
+    "latitude": "35.5834074",
+    "longitude": "53.3882906",
+    "province": "سمنان"
+  },
+  {
+    "city": "شاهرود",
+    "latitude": "36.41819",
+    "longitude": "54.97628",
+    "province": "سمنان"
+  },
+  {
+    "city": "شهمیرزاد",
+    "latitude": "35.7735069",
+    "longitude": "53.3279767",
+    "province": "سمنان"
+  },
+  {
+    "city": "کلاته خیج",
+    "latitude": "36.6737481",
+    "longitude": "55.2968812",
+    "province": "سمنان"
+  },
+  {
+    "city": "گرمسار",
+    "latitude": "35.2221321",
+    "longitude": "52.3385276",
+    "province": "سمنان"
+  },
+  {
+    "city": "مجن",
+    "latitude": "36.4796519",
+    "longitude": "54.6483772",
+    "province": "سمنان"
+  },
+  {
+    "city": "مهدی شهر",
+    "latitude": "35.7108029",
+    "longitude": "53.3555769",
+    "province": "سمنان"
+  },
+  {
+    "city": "میامی",
+    "latitude": "36.41092",
+    "longitude": "55.65018",
+    "province": "سمنان"
+  },
+  {
+    "city": "ادیمی",
+    "latitude": "31.1159553",
+    "longitude": "61.4082693",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "اسپکه",
+    "latitude": "26.8384487",
+    "longitude": "60.1725848",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "ایرانشهر",
+    "latitude": "27.2069903",
+    "longitude": "60.6882515",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "بزمان",
+    "latitude": "27.850547",
+    "longitude": "60.1736164",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "بمپور",
+    "latitude": "27.1941781",
+    "longitude": "60.4554816",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "بنت",
+    "latitude": "26.290834",
+    "longitude": "59.5237216",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "بنجار",
+    "latitude": "31.0428989",
+    "longitude": "61.5682749",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "پیشین",
+    "latitude": "26.0802335",
+    "longitude": "61.7515585",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "جالق",
+    "latitude": "27.6033419",
+    "longitude": "62.7097131",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "چابهار",
+    "latitude": "25.2919",
+    "longitude": "60.643",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "خاش",
+    "latitude": "28.2203911",
+    "longitude": "61.2137052",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "دوست محمد",
+    "latitude": "31.1427915",
+    "longitude": "61.7909563",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "راسک",
+    "latitude": "26.2368044",
+    "longitude": "61.3987716",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "زابل",
+    "latitude": "31.0306",
+    "longitude": "61.4949",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "زابلی",
+    "latitude": "27.1310393",
+    "longitude": "61.6746528",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "زاهدان",
+    "latitude": "29.4963",
+    "longitude": "60.8629",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "زهک",
+    "latitude": "30.8932189",
+    "longitude": "61.6827311",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "سراوان",
+    "latitude": "27.37089",
+    "longitude": "62.33096",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "سرباز",
+    "latitude": "26.6321167",
+    "longitude": "61.2570288",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "سوران",
+    "latitude": "27.288866300000002",
+    "longitude": "62.003235133081795",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "سیرکان",
+    "latitude": "26.830089",
+    "longitude": "62.6388773",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "فنوج",
+    "latitude": "26.575768",
+    "longitude": "59.6398773",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "قصرقند",
+    "latitude": "26.231489500000002",
+    "longitude": "60.74725642598839",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "کنارک",
+    "latitude": "25.3604",
+    "longitude": "60.3995",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "گلمورتی",
+    "latitude": "27.4809916",
+    "longitude": "59.4483063",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "محمدآباد",
+    "latitude": "30.886775",
+    "longitude": "61.463721",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "محمدان",
+    "latitude": "27.2023277",
+    "longitude": "60.5616428",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "محمدی",
+    "latitude": "27.334289",
+    "longitude": "62.391132849243654",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "میرجاوه",
+    "latitude": "29.0149246",
+    "longitude": "61.4540744",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "نصرت آباد",
+    "latitude": "29.8589189",
+    "longitude": "59.9802973",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "نگور",
+    "latitude": "25.3889117",
+    "longitude": "61.1390842",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "نوک آباد",
+    "latitude": "28.5400131",
+    "longitude": "60.7597704",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "نیک شهر",
+    "latitude": "26.2256",
+    "longitude": "60.2122",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "هیدوچ",
+    "latitude": "27.0005081",
+    "longitude": "62.116917",
+    "province": "سیستان و بلوچستان"
+  },
+  {
+    "city": "آباده",
+    "latitude": "31.1608",
+    "longitude": "52.6506",
+    "province": "فارس"
+  },
+  {
+    "city": "آباده طشک",
+    "latitude": "29.8078337",
+    "longitude": "53.7268534",
+    "province": "فارس"
+  },
+  {
+    "city": "اردکان",
+    "latitude": "30.25961",
+    "longitude": "51.98491",
+    "province": "فارس"
+  },
+  {
+    "city": "ارسنجان",
+    "latitude": "29.914968",
+    "longitude": "53.3089761",
+    "province": "فارس"
+  },
+  {
+    "city": "استهبان",
+    "latitude": "29.1252321",
+    "longitude": "54.0405113",
+    "province": "فارس"
+  },
+  {
+    "city": "اشکنان",
+    "latitude": "27.2218581",
+    "longitude": "53.6163045",
+    "province": "فارس"
+  },
+  {
+    "city": "افزر",
+    "latitude": "28.3468462",
+    "longitude": "52.9664812",
+    "province": "فارس"
+  },
+  {
+    "city": "اقلید",
+    "latitude": "30.8925778",
+    "longitude": "52.688496",
+    "province": "فارس"
+  },
+  {
+    "city": "امام شهر",
+    "latitude": "28.44684",
+    "longitude": "53.15325",
+    "province": "فارس"
+  },
+  {
+    "city": "اوز",
+    "latitude": "27.7622",
+    "longitude": "54.00417",
+    "province": "فارس"
+  },
+  {
+    "city": "اهل",
+    "latitude": "27.2112114",
+    "longitude": "53.6588384",
+    "province": "فارس"
+  },
+  {
+    "city": "ایج",
+    "latitude": "29.0232949",
+    "longitude": "54.246120778683704",
+    "province": "فارس"
+  },
+  {
+    "city": "ایزدخواست",
+    "latitude": "31.5158438",
+    "longitude": "52.1247911",
+    "province": "فارس"
+  },
+  {
+    "city": "باب انار",
+    "latitude": "28.97229995",
+    "longitude": "53.20067114690388",
+    "province": "فارس"
+  },
+  {
+    "city": "بالاده",
+    "latitude": "29.2869221",
+    "longitude": "51.9394109",
+    "province": "فارس"
+  },
+  {
+    "city": "بنارویه",
+    "latitude": "28.0832919",
+    "longitude": "54.0467988",
+    "province": "فارس"
+  },
+  {
+    "city": "بوانات",
+    "latitude": "30.4738825",
+    "longitude": "53.6228281",
+    "province": "فارس"
+  },
+  {
+    "city": "بهمن",
+    "latitude": "31.192208",
+    "longitude": "52.486238",
+    "province": "فارس"
+  },
+  {
+    "city": "بیرم",
+    "latitude": "27.4298807",
+    "longitude": "53.5141478",
+    "province": "فارس"
+  },
+  {
+    "city": "بیضا",
+    "latitude": "30.008388",
+    "longitude": "52.3584413",
+    "province": "فارس"
+  },
+  {
+    "city": "جنت شهر",
+    "latitude": "28.6548665",
+    "longitude": "54.6837567",
+    "province": "فارس"
+  },
+  {
+    "city": "جویم",
+    "latitude": "28.2529474",
+    "longitude": "53.9829116",
+    "province": "فارس"
+  },
+  {
+    "city": "جهرم",
+    "latitude": "28.5",
+    "longitude": "53.5605",
+    "province": "فارس"
+  },
+  {
+    "city": "خان زنیان",
+    "latitude": "29.6717432",
+    "longitude": "52.15202",
+    "province": "فارس"
+  },
+  {
+    "city": "خاوران",
+    "latitude": "28.937829",
+    "longitude": "53.3147706",
+    "province": "فارس"
+  },
+  {
+    "city": "خرامه",
+    "latitude": "29.498294",
+    "longitude": "53.3122486",
+    "province": "فارس"
+  },
+  {
+    "city": "خشت",
+    "latitude": "29.5679441",
+    "longitude": "51.3395311",
+    "province": "فارس"
+  },
+  {
+    "city": "خنج",
+    "latitude": "27.8913",
+    "longitude": "53.4344",
+    "province": "فارس"
+  },
+  {
+    "city": "خور",
+    "latitude": "27.6399501",
+    "longitude": "54.3422031",
+    "province": "فارس"
+  },
+  {
+    "city": "داراب",
+    "latitude": "28.75171",
+    "longitude": "54.54065",
+    "province": "فارس"
+  },
+  {
+    "city": "دبیران",
+    "latitude": "28.4064149",
+    "longitude": "54.1884143",
+    "province": "فارس"
+  },
+  {
+    "city": "دژکرد",
+    "latitude": "30.7231669",
+    "longitude": "51.954873",
+    "province": "فارس"
+  },
+  {
+    "city": "دوبرجی",
+    "latitude": "28.3068",
+    "longitude": "55.1927",
+    "province": "فارس"
+  },
+  {
+    "city": "دهرم",
+    "latitude": "28.4921165",
+    "longitude": "52.3036835",
+    "province": "فارس"
+  },
+  {
+    "city": "رامجرد",
+    "latitude": "30.0755424",
+    "longitude": "52.592567",
+    "province": "فارس"
+  },
+  {
+    "city": "رونیز",
+    "latitude": "29.1904364",
+    "longitude": "53.7674276",
+    "province": "فارس"
+  },
+  {
+    "city": "زاهدشهر",
+    "latitude": "28.7484346",
+    "longitude": "53.8041063",
+    "province": "فارس"
+  },
+  {
+    "city": "زرقان",
+    "latitude": "29.774274",
+    "longitude": "52.7215709",
+    "province": "فارس"
+  },
+  {
+    "city": "زرین دشت",
+    "latitude": "28.354451",
+    "longitude": "54.417138",
+    "province": "فارس"
+  },
+  {
+    "city": "سده",
+    "latitude": "30.7101418",
+    "longitude": "52.1742262",
+    "province": "فارس"
+  },
+  {
+    "city": "سروستان",
+    "latitude": "29.2721889",
+    "longitude": "53.22157",
+    "province": "فارس"
+  },
+  {
+    "city": "سعادت شهر",
+    "latitude": "30.0797928",
+    "longitude": "53.1358118",
+    "province": "فارس"
+  },
+  {
+    "city": "سورمق",
+    "latitude": "31.0338723",
+    "longitude": "52.8397513",
+    "province": "فارس"
+  },
+  {
+    "city": "سیدان",
+    "latitude": "30.0045006",
+    "longitude": "53.0060452",
+    "province": "فارس"
+  },
+  {
+    "city": "ششده",
+    "latitude": "28.9486348",
+    "longitude": "53.9955053",
+    "province": "فارس"
+  },
+  {
+    "city": "شهرپیر",
+    "latitude": "28.25472515",
+    "longitude": "54.308476674823865",
+    "province": "فارس"
+  },
+  {
+    "city": "شیراز",
+    "latitude": "29.6060218",
+    "longitude": "52.5378041",
+    "province": "فارس"
+  },
+  {
+    "city": "صدرا",
+    "latitude": "29.8153909",
+    "longitude": "52.4748633",
+    "province": "فارس"
+  },
+  {
+    "city": "صغاد",
+    "latitude": "31.1915603",
+    "longitude": "52.5155699",
+    "province": "فارس"
+  },
+  {
+    "city": "صفاشهر",
+    "latitude": "30.6114269",
+    "longitude": "53.1912987",
+    "province": "فارس"
+  },
+  {
+    "city": "علامرودشت",
+    "latitude": "27.6248362",
+    "longitude": "52.9976097",
+    "province": "فارس"
+  },
+  {
+    "city": "فدامی",
+    "latitude": "28.2155252",
+    "longitude": "55.133631",
+    "province": "فارس"
+  },
+  {
+    "city": "فراشبند",
+    "latitude": "28.8553783",
+    "longitude": "52.0946443",
+    "province": "فارس"
+  },
+  {
+    "city": "فسا",
+    "latitude": "28.9366395",
+    "longitude": "53.6510677",
+    "province": "فارس"
+  },
+  {
+    "city": "فیروزآباد",
+    "latitude": "28.845604",
+    "longitude": "52.5727236",
+    "province": "فارس"
+  },
+  {
+    "city": "قادرآباد",
+    "latitude": "30.2742465",
+    "longitude": "53.2686602",
+    "province": "فارس"
+  },
+  {
+    "city": "قائمیه",
+    "latitude": "29.8510025",
+    "longitude": "51.5819119",
+    "province": "فارس"
+  },
+  {
+    "city": "قطب آباد",
+    "latitude": "28.6393017",
+    "longitude": "53.6378046",
+    "province": "فارس"
+  },
+  {
+    "city": "قطرویه",
+    "latitude": "29.1461299",
+    "longitude": "54.7027042",
+    "province": "فارس"
+  },
+  {
+    "city": "قیر",
+    "latitude": "28.482802",
+    "longitude": "53.0357558",
+    "province": "فارس"
+  },
+  {
+    "city": "کارزین",
+    "latitude": "28.4097651",
+    "longitude": "53.106353",
+    "province": "فارس"
+  },
+  {
+    "city": "کازرون",
+    "latitude": "29.6203251",
+    "longitude": "51.6520826",
+    "province": "فارس"
+  },
+  {
+    "city": "کامفیروز",
+    "latitude": "30.3222845",
+    "longitude": "52.1932593",
+    "province": "فارس"
+  },
+  {
+    "city": "کره ای",
+    "latitude": "30.03306",
+    "longitude": "53.71778",
+    "province": "فارس"
+  },
+  {
+    "city": "کنارتخته",
+    "latitude": "29.5327812",
+    "longitude": "51.3960796",
+    "province": "فارس"
+  },
+  {
+    "city": "کوار",
+    "latitude": "29.2003014",
+    "longitude": "52.6926076",
+    "province": "فارس"
+  },
+  {
+    "city": "گراش",
+    "latitude": "27.67743775",
+    "longitude": "54.134877272168154",
+    "province": "فارس"
+  },
+  {
+    "city": "گله دار",
+    "latitude": "27.6633591",
+    "longitude": "52.6611102",
+    "province": "فارس"
+  },
+  {
+    "city": "لار",
+    "latitude": "27.6619203",
+    "longitude": "54.3229561",
+    "province": "فارس"
+  },
+  {
+    "city": "لامرد",
+    "latitude": "27.34089055",
+    "longitude": "53.18240261890401",
+    "province": "فارس"
+  },
+  {
+    "city": "لپویی",
+    "latitude": "29.80312655",
+    "longitude": "52.641864525386424",
+    "province": "فارس"
+  },
+  {
+    "city": "لطیفی",
+    "latitude": "27.6900779",
+    "longitude": "54.38714",
+    "province": "فارس"
+  },
+  {
+    "city": "مبارک‌آباد",
+    "latitude": "28.358979",
+    "longitude": "53.327681",
+    "province": "فارس"
+  },
+  {
+    "city": "مرودشت",
+    "latitude": "29.8762905",
+    "longitude": "52.8062895",
+    "province": "فارس"
+  },
+  {
+    "city": "مشکان",
+    "latitude": "29.4764819",
+    "longitude": "54.3343068",
+    "province": "فارس"
+  },
+  {
+    "city": "مصیری",
+    "latitude": "30.2443946",
+    "longitude": "51.5241743",
+    "province": "فارس"
+  },
+  {
+    "city": "مهر",
+    "latitude": "27.5521",
+    "longitude": "52.88157",
+    "province": "فارس"
+  },
+  {
+    "city": "میمند",
+    "latitude": "28.8666095",
+    "longitude": "52.7485061",
+    "province": "فارس"
+  },
+  {
+    "city": "نوبندگان",
+    "latitude": "28.8545602",
+    "longitude": "53.8259023",
+    "province": "فارس"
+  },
+  {
+    "city": "نوجین",
+    "latitude": "29.1225372",
+    "longitude": "52.0151013",
+    "province": "فارس"
+  },
+  {
+    "city": "نودان",
+    "latitude": "29.8019495",
+    "longitude": "51.6935995",
+    "province": "فارس"
+  },
+  {
+    "city": "نورآباد",
+    "latitude": "30.11405",
+    "longitude": "51.52174",
+    "province": "فارس"
+  },
+  {
+    "city": "نی ریز",
+    "latitude": "29.2545228",
+    "longitude": "54.366049792621084",
+    "province": "فارس"
+  },
+  {
+    "city": "وراوی",
+    "latitude": "27.4668628",
+    "longitude": "53.0501495",
+    "province": "فارس"
+  },
+  {
+    "city": "آبگرم",
+    "latitude": "35.7572894",
+    "longitude": "49.2849077",
+    "province": "قزوین"
+  },
+  {
+    "city": "آبیک",
+    "latitude": "36.0416927",
+    "longitude": "50.5320519",
+    "province": "قزوین"
+  },
+  {
+    "city": "آوج",
+    "latitude": "35.5787119",
+    "longitude": "49.2235559",
+    "province": "قزوین"
+  },
+  {
+    "city": "ارداق",
+    "latitude": "36.0531207",
+    "longitude": "49.8249049",
+    "province": "قزوین"
+  },
+  {
+    "city": "اسفرورین",
+    "latitude": "35.9353304",
+    "longitude": "49.7479887",
+    "province": "قزوین"
+  },
+  {
+    "city": "اقبالیه",
+    "latitude": "36.23081",
+    "longitude": "49.92499",
+    "province": "قزوین"
+  },
+  {
+    "city": "الوند",
+    "latitude": "36.1893",
+    "longitude": "50.0643",
+    "province": "قزوین"
+  },
+  {
+    "city": "بوئین زهرا",
+    "latitude": "35.7679957",
+    "longitude": "50.0579667",
+    "province": "قزوین"
+  },
+  {
+    "city": "بیدستان",
+    "latitude": "36.23097",
+    "longitude": "50.12362",
+    "province": "قزوین"
+  },
+  {
+    "city": "تاکستان",
+    "latitude": "36.0726006",
+    "longitude": "49.6937027",
+    "province": "قزوین"
+  },
+  {
+    "city": "خاکعلی",
+    "latitude": "36.1285497",
+    "longitude": "50.1758838",
+    "province": "قزوین"
+  },
+  {
+    "city": "خرمدشت",
+    "latitude": "35.92653",
+    "longitude": "49.51525",
+    "province": "قزوین"
+  },
+  {
+    "city": "دانسفهان",
+    "latitude": "35.811396",
+    "longitude": "49.7420921",
+    "province": "قزوین"
+  },
+  {
+    "city": "رازمیان",
+    "latitude": "36.5411254",
+    "longitude": "50.2117178",
+    "province": "قزوین"
+  },
+  {
+    "city": "سگزآباد",
+    "latitude": "35.7739115",
+    "longitude": "49.9362308",
+    "province": "قزوین"
+  },
+  {
+    "city": "سیردان",
+    "latitude": "36.6466238",
+    "longitude": "49.1917414",
+    "province": "قزوین"
+  },
+  {
+    "city": "شال",
+    "latitude": "35.8980371",
+    "longitude": "49.7700946",
+    "province": "قزوین"
+  },
+  {
+    "city": "شریفیه",
+    "latitude": "36.2135701",
+    "longitude": "50.1532034",
+    "province": "قزوین"
+  },
+  {
+    "city": "ضیاآباد",
+    "latitude": "35.99325",
+    "longitude": "49.44638",
+    "province": "قزوین"
+  },
+  {
+    "city": "قزوین",
+    "latitude": "36.289444",
+    "longitude": "50.008611",
+    "province": "قزوین"
+  },
+  {
+    "city": "کوهین",
+    "latitude": "36.3701265",
+    "longitude": "49.6631317",
+    "province": "قزوین"
+  },
+  {
+    "city": "محمدیه",
+    "latitude": "36.22374",
+    "longitude": "50.18247",
+    "province": "قزوین"
+  },
+  {
+    "city": "محمودآباد نمونه",
+    "latitude": "36.2898869",
+    "longitude": "49.9005962",
+    "province": "قزوین"
+  },
+  {
+    "city": "معلم کلایه",
+    "latitude": "36.451748",
+    "longitude": "50.4753083",
+    "province": "قزوین"
+  },
+  {
+    "city": "نرجه",
+    "latitude": "35.9909852",
+    "longitude": "49.6245427",
+    "province": "قزوین"
+  },
+  {
+    "city": "جعفریه",
+    "latitude": "34.7747682",
+    "longitude": "50.5164348",
+    "province": "قم"
+  },
+  {
+    "city": "دستجرد",
+    "latitude": "34.551944",
+    "longitude": "50.248333",
+    "province": "قم"
+  },
+  {
+    "city": "سلفچگان",
+    "latitude": "34.4783955",
+    "longitude": "50.4577101",
+    "province": "قم"
+  },
+  {
+    "city": "قم",
+    "latitude": "34.6422939",
+    "longitude": "50.8801184",
+    "province": "قم"
+  },
+  {
+    "city": "قنوات",
+    "latitude": "34.6136599",
+    "longitude": "51.0246432",
+    "province": "قم"
+  },
+  {
+    "city": "کهک",
+    "latitude": "34.3938",
+    "longitude": "50.8643",
+    "province": "قم"
+  },
+  {
+    "city": "آرمرده",
+    "latitude": "35.931781",
+    "longitude": "45.7966561",
+    "province": "کردستان"
+  },
+  {
+    "city": "بابارشانی",
+    "latitude": "35.6794083",
+    "longitude": "47.7985162",
+    "province": "کردستان"
+  },
+  {
+    "city": "بانه",
+    "latitude": "35.983333",
+    "longitude": "45.816667",
+    "province": "کردستان"
+  },
+  {
+    "city": "بلبان آباد",
+    "latitude": "35.1406",
+    "longitude": "47.321",
+    "province": "کردستان"
+  },
+  {
+    "city": "بوئین سفلی",
+    "latitude": "35.9383195",
+    "longitude": "45.9348089",
+    "province": "کردستان"
+  },
+  {
+    "city": "بیجار",
+    "latitude": "35.87342035",
+    "longitude": "47.60509546647435",
+    "province": "کردستان"
+  },
+  {
+    "city": "دزج",
+    "latitude": "35.0641194",
+    "longitude": "47.9661961",
+    "province": "کردستان"
+  },
+  {
+    "city": "دلبران",
+    "latitude": "35.2446523",
+    "longitude": "47.9869563",
+    "province": "کردستان"
+  },
+  {
+    "city": "دهگلان",
+    "latitude": "35.280039",
+    "longitude": "47.4189871",
+    "province": "کردستان"
+  },
+  {
+    "city": "دیواندره",
+    "latitude": "35.916470200000006",
+    "longitude": "47.02800434340727",
+    "province": "کردستان"
+  },
+  {
+    "city": "زرینه",
+    "latitude": "36.0602",
+    "longitude": "47.1508",
+    "province": "کردستان"
+  },
+  {
+    "city": "سروآباد",
+    "latitude": "35.3126",
+    "longitude": "46.3669",
+    "province": "کردستان"
+  },
+  {
+    "city": "سریش آباد",
+    "latitude": "35.2478257",
+    "longitude": "47.778892",
+    "province": "کردستان"
+  },
+  {
+    "city": "سقز",
+    "latitude": "36.2427456",
+    "longitude": "46.2705227",
+    "province": "کردستان"
+  },
+  {
+    "city": "سنندج",
+    "latitude": "35.3126047",
+    "longitude": "46.9978639",
+    "province": "کردستان"
+  },
+  {
+    "city": "شویشه",
+    "latitude": "35.3560249",
+    "longitude": "46.677491721352474",
+    "province": "کردستان"
+  },
+  {
+    "city": "صاحب",
+    "latitude": "36.2017503",
+    "longitude": "46.4610855",
+    "province": "کردستان"
+  },
+  {
+    "city": "قروه",
+    "latitude": "35.1664",
+    "longitude": "47.80564",
+    "province": "کردستان"
+  },
+  {
+    "city": "کامیاران",
+    "latitude": "34.7974315",
+    "longitude": "46.9361058",
+    "province": "کردستان"
+  },
+  {
+    "city": "کانی دینار",
+    "latitude": "35.4644364",
+    "longitude": "46.208135",
+    "province": "کردستان"
+  },
+  {
+    "city": "کانی سور",
+    "latitude": "36.0583",
+    "longitude": "45.7481",
+    "province": "کردستان"
+  },
+  {
+    "city": "مریوان",
+    "latitude": "35.5219063",
+    "longitude": "46.1758889",
+    "province": "کردستان"
+  },
+  {
+    "city": "موچش",
+    "latitude": "35.0574727",
+    "longitude": "47.1525037",
+    "province": "کردستان"
+  },
+  {
+    "city": "یاسوکند",
+    "latitude": "36.2843531",
+    "longitude": "47.746568",
+    "province": "کردستان"
+  },
+  {
+    "city": "اختیارآباد",
+    "latitude": "30.3276538",
+    "longitude": "56.9247177",
+    "province": "کرمان"
+  },
+  {
+    "city": "ارزوئیه",
+    "latitude": "28.4568592",
+    "longitude": "56.3634502",
+    "province": "کرمان"
+  },
+  {
+    "city": "امین شهر",
+    "latitude": "30.8419668",
+    "longitude": "55.3413062",
+    "province": "کرمان"
+  },
+  {
+    "city": "انار",
+    "latitude": "30.8723337",
+    "longitude": "55.2716302",
+    "province": "کرمان"
+  },
+  {
+    "city": "اندوهجرد",
+    "latitude": "30.2315368",
+    "longitude": "57.751371",
+    "province": "کرمان"
+  },
+  {
+    "city": "باغین",
+    "latitude": "30.187107",
+    "longitude": "56.8176548",
+    "province": "کرمان"
+  },
+  {
+    "city": "بافت",
+    "latitude": "29.2356229",
+    "longitude": "56.6059046",
+    "province": "کرمان"
+  },
+  {
+    "city": "بردسیر",
+    "latitude": "29.9283973",
+    "longitude": "56.5717384",
+    "province": "کرمان"
+  },
+  {
+    "city": "بروات",
+    "latitude": "29.0661863",
+    "longitude": "58.404499",
+    "province": "کرمان"
+  },
+  {
+    "city": "بزنجان",
+    "latitude": "29.2513403",
+    "longitude": "56.6995331",
+    "province": "کرمان"
+  },
+  {
+    "city": "بم",
+    "latitude": "29.1059864",
+    "longitude": "58.3565663",
+    "province": "کرمان"
+  },
+  {
+    "city": "بهرمان",
+    "latitude": "30.9034647",
+    "longitude": "55.7289235",
+    "province": "کرمان"
+  },
+  {
+    "city": "پاریز",
+    "latitude": "29.8735063",
+    "longitude": "55.7493447",
+    "province": "کرمان"
+  },
+  {
+    "city": "جبالبارز",
+    "latitude": "28.9071346",
+    "longitude": "57.8852472",
+    "province": "کرمان"
+  },
+  {
+    "city": "جوپار",
+    "latitude": "29.9107857",
+    "longitude": "57.2013751",
+    "province": "کرمان"
+  },
+  {
+    "city": "جوزم",
+    "latitude": "30.5167659",
+    "longitude": "55.0329444",
+    "province": "کرمان"
+  },
+  {
+    "city": "جیرفت",
+    "latitude": "28.6697367",
+    "longitude": "57.7373382",
+    "province": "کرمان"
+  },
+  {
+    "city": "چترود",
+    "latitude": "30.6012065",
+    "longitude": "56.9087704",
+    "province": "کرمان"
+  },
+  {
+    "city": "خاتون آباد",
+    "latitude": "30.0077147",
+    "longitude": "55.4204993",
+    "province": "کرمان"
+  },
+  {
+    "city": "خانوک",
+    "latitude": "30.7174008",
+    "longitude": "56.77589",
+    "province": "کرمان"
+  },
+  {
+    "city": "درب بهشت",
+    "latitude": "29.2331911",
+    "longitude": "57.3371829",
+    "province": "کرمان"
+  },
+  {
+    "city": "دهج",
+    "latitude": "30.6907903",
+    "longitude": "54.8777097",
+    "province": "کرمان"
+  },
+  {
+    "city": "رابر",
+    "latitude": "29.2907749",
+    "longitude": "56.914165",
+    "province": "کرمان"
+  },
+  {
+    "city": "راور",
+    "latitude": "31.2676737",
+    "longitude": "56.8069974",
+    "province": "کرمان"
+  },
+  {
+    "city": "راین",
+    "latitude": "29.5981294",
+    "longitude": "57.4364877",
+    "province": "کرمان"
+  },
+  {
+    "city": "رفسنجان",
+    "latitude": "30.3977034",
+    "longitude": "55.99061815731841",
+    "province": "کرمان"
+  },
+  {
+    "city": "رودبار",
+    "latitude": "28.02899",
+    "longitude": "57.9961",
+    "province": "کرمان"
+  },
+  {
+    "city": "ریحان شهر",
+    "latitude": "30.7452118",
+    "longitude": "56.7310201",
+    "province": "کرمان"
+  },
+  {
+    "city": "زرند",
+    "latitude": "30.8134822",
+    "longitude": "56.5672432",
+    "province": "کرمان"
+  },
+  {
+    "city": "زنگی آباد",
+    "latitude": "30.4102939",
+    "longitude": "56.9155312",
+    "province": "کرمان"
+  },
+  {
+    "city": "زیدآباد",
+    "latitude": "29.6004426",
+    "longitude": "55.5367771",
+    "province": "کرمان"
+  },
+  {
+    "city": "سیرجان",
+    "latitude": "29.4458687",
+    "longitude": "55.6704717",
+    "province": "کرمان"
+  },
+  {
+    "city": "شهداد",
+    "latitude": "30.4196387",
+    "longitude": "57.7023666",
+    "province": "کرمان"
+  },
+  {
+    "city": "شهربابک",
+    "latitude": "30.1362593",
+    "longitude": "55.122642783333205",
+    "province": "کرمان"
+  },
+  {
+    "city": "صفائیه",
+    "latitude": "30.8265371",
+    "longitude": "55.8105318",
+    "province": "کرمان"
+  },
+  {
+    "city": "عنبرآباد",
+    "latitude": "28.4779105",
+    "longitude": "57.844051",
+    "province": "کرمان"
+  },
+  {
+    "city": "فاریاب",
+    "latitude": "28.0987",
+    "longitude": "57.23181",
+    "province": "کرمان"
+  },
+  {
+    "city": "فهرج",
+    "latitude": "28.9502",
+    "longitude": "58.885",
+    "province": "کرمان"
+  },
+  {
+    "city": "قلعه گنج",
+    "latitude": "27.5239005",
+    "longitude": "57.8771387",
+    "province": "کرمان"
+  },
+  {
+    "city": "کاظم آباد",
+    "latitude": "30.5674028",
+    "longitude": "56.844081",
+    "province": "کرمان"
+  },
+  {
+    "city": "کرمان",
+    "latitude": "30.2924085",
+    "longitude": "57.0645647",
+    "province": "کرمان"
+  },
+  {
+    "city": "کوهبنان",
+    "latitude": "31.4100681",
+    "longitude": "56.2825998",
+    "province": "کرمان"
+  },
+  {
+    "city": "کهنوج",
+    "latitude": "27.9502255",
+    "longitude": "57.7025775",
+    "province": "کرمان"
+  },
+  {
+    "city": "گلباف",
+    "latitude": "29.885",
+    "longitude": "57.7305",
+    "province": "کرمان"
+  },
+  {
+    "city": "گلزار",
+    "latitude": "29.7111348",
+    "longitude": "57.0372966",
+    "province": "کرمان"
+  },
+  {
+    "city": "لاله زار",
+    "latitude": "29.5230978",
+    "longitude": "56.8158055",
+    "province": "کرمان"
+  },
+  {
+    "city": "ماهان",
+    "latitude": "30.0536359",
+    "longitude": "57.2883027",
+    "province": "کرمان"
+  },
+  {
+    "city": "محمدآباد",
+    "latitude": "28.66877",
+    "longitude": "59.07341",
+    "province": "کرمان"
+  },
+  {
+    "city": "محی آباد",
+    "latitude": "30.0837663",
+    "longitude": "57.162155",
+    "province": "کرمان"
+  },
+  {
+    "city": "مردهک",
+    "latitude": "28.3517264",
+    "longitude": "58.1586637",
+    "province": "کرمان"
+  },
+  {
+    "city": "مس سرچشمه",
+    "latitude": "29.9969927",
+    "longitude": "55.7961096",
+    "province": "کرمان"
+  },
+  {
+    "city": "منوجان",
+    "latitude": "27.4014947",
+    "longitude": "57.4949725",
+    "province": "کرمان"
+  },
+  {
+    "city": "نجف شهر",
+    "latitude": "29.3897031",
+    "longitude": "55.7203011",
+    "province": "کرمان"
+  },
+  {
+    "city": "نرماشیر",
+    "latitude": "28.9513934",
+    "longitude": "58.6963456",
+    "province": "کرمان"
+  },
+  {
+    "city": "نظام شهر",
+    "latitude": "28.915423599999997",
+    "longitude": "58.55057516779594",
+    "province": "کرمان"
+  },
+  {
+    "city": "نگار",
+    "latitude": "29.8575198",
+    "longitude": "56.8004242",
+    "province": "کرمان"
+  },
+  {
+    "city": "نودژ",
+    "latitude": "27.5256296",
+    "longitude": "57.454475",
+    "province": "کرمان"
+  },
+  {
+    "city": "هجدک",
+    "latitude": "30.7594357",
+    "longitude": "57.0039838",
+    "province": "کرمان"
+  },
+  {
+    "city": "یزدان شهر",
+    "latitude": "30.8653247",
+    "longitude": "56.3647809",
+    "province": "کرمان"
+  },
+  {
+    "city": "ازگله",
+    "latitude": "34.8322142",
+    "longitude": "45.8424966",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "اسلام آباد غرب",
+    "latitude": "34.0917135",
+    "longitude": "46.5075945",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "باینگان",
+    "latitude": "34.9813",
+    "longitude": "46.2709",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "بیستون",
+    "latitude": "34.3995692",
+    "longitude": "47.4448343",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "پاوه",
+    "latitude": "35.0458307",
+    "longitude": "46.3622191",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "تازه آباد",
+    "latitude": "34.7387",
+    "longitude": "46.1496",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "جوان رود",
+    "latitude": "34.7961",
+    "longitude": "46.5172",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "حمیل",
+    "latitude": "33.9376399",
+    "longitude": "46.7736717",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "روانسر",
+    "latitude": "34.7161309",
+    "longitude": "46.6508369",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "سرپل ذهاب",
+    "latitude": "34.45931455",
+    "longitude": "45.8659790797641",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "سرمست",
+    "latitude": "34.0266",
+    "longitude": "46.329",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "سطر",
+    "latitude": "34.813333",
+    "longitude": "47.459167",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "سنقر",
+    "latitude": "34.78187",
+    "longitude": "47.59945",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "سومار",
+    "latitude": "33.8862053",
+    "longitude": "45.6388242",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "صحنه",
+    "latitude": "34.4812132",
+    "longitude": "47.6935934",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "قصرشیرین",
+    "latitude": "34.5119",
+    "longitude": "45.5772",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "کرمانشاه",
+    "latitude": "34.3239414",
+    "longitude": "47.0735891",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "کرندغرب",
+    "latitude": "34.2719359",
+    "longitude": "46.2285895",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "کنگاور",
+    "latitude": "34.5051774",
+    "longitude": "47.9658794",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "کوزران",
+    "latitude": "34.4965",
+    "longitude": "46.599",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "گهواره",
+    "latitude": "34.344125",
+    "longitude": "46.417181",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "گیلانغرب",
+    "latitude": "34.1411088",
+    "longitude": "45.9140759",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "ماهیدشت",
+    "latitude": "34.2677638",
+    "longitude": "46.8003223",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "میان راهان",
+    "latitude": "34.5843",
+    "longitude": "47.442",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "نودشه",
+    "latitude": "35.1808",
+    "longitude": "46.2544",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "نوسود",
+    "latitude": "35.1612676",
+    "longitude": "46.2042463",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "هرسین",
+    "latitude": "34.2721",
+    "longitude": "47.5861",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "هلشی",
+    "latitude": "34.1105266",
+    "longitude": "47.0894855",
+    "province": "کرمانشاه"
+  },
+  {
+    "city": "باشت",
+    "latitude": "30.3610498",
+    "longitude": "51.1575225",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "پاتاوه",
+    "latitude": "30.9584492",
+    "longitude": "51.2641496",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "چرام",
+    "latitude": "30.750813",
+    "longitude": "50.7419101",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "چیتاب",
+    "latitude": "30.7942097",
+    "longitude": "51.327525",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "دوگنبدان",
+    "latitude": "30.3586",
+    "longitude": "50.7981",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "دهدشت",
+    "latitude": "30.7923985",
+    "longitude": "50.562923",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "دیشموک",
+    "latitude": "31.2969774",
+    "longitude": "50.4022724",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "سوق",
+    "latitude": "30.8608561",
+    "longitude": "50.4565101",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "سی سخت",
+    "latitude": "30.8630661",
+    "longitude": "51.4557071",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "قلعه رئیسی",
+    "latitude": "31.1905312",
+    "longitude": "50.4413014",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "گراب سفلی",
+    "latitude": "30.9426038",
+    "longitude": "50.8983137",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "لنده",
+    "latitude": "30.9795975",
+    "longitude": "50.4238799",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "لیکک",
+    "latitude": "30.8924843",
+    "longitude": "50.0917097",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "مادوان",
+    "latitude": "30.71525",
+    "longitude": "51.54131",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "مارگون",
+    "latitude": "30.9921088",
+    "longitude": "51.0829701",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "یاسوج",
+    "latitude": "30.6681785",
+    "longitude": "51.581916",
+    "province": "کهگیلویه و بویراحمد"
+  },
+  {
+    "city": "آزادشهر",
+    "latitude": "37.08641",
+    "longitude": "55.17222",
+    "province": "گلستان"
+  },
+  {
+    "city": "آق قلا",
+    "latitude": "37.0134841",
+    "longitude": "54.4576664",
+    "province": "گلستان"
+  },
+  {
+    "city": "انبارآلوم",
+    "latitude": "37.137102",
+    "longitude": "54.6189997",
+    "province": "گلستان"
+  },
+  {
+    "city": "اینچه برون",
+    "latitude": "37.4553436",
+    "longitude": "54.7183338",
+    "province": "گلستان"
+  },
+  {
+    "city": "بندرترکمن",
+    "latitude": "36.909722",
+    "longitude": "54.113611",
+    "province": "گلستان"
+  },
+  {
+    "city": "بندرگز",
+    "latitude": "36.7719958",
+    "longitude": "53.9481369",
+    "province": "گلستان"
+  },
+  {
+    "city": "جلین",
+    "latitude": "36.8502904",
+    "longitude": "54.53508165584597",
+    "province": "گلستان"
+  },
+  {
+    "city": "خان ببین",
+    "latitude": "37.0125489",
+    "longitude": "54.985773",
+    "province": "گلستان"
+  },
+  {
+    "city": "دلند",
+    "latitude": "37.0355462",
+    "longitude": "55.0492231",
+    "province": "گلستان"
+  },
+  {
+    "city": "رامیان",
+    "latitude": "37.0150484",
+    "longitude": "55.1424163",
+    "province": "گلستان"
+  },
+  {
+    "city": "سرخنکلاته",
+    "latitude": "36.8924801",
+    "longitude": "54.5690723",
+    "province": "گلستان"
+  },
+  {
+    "city": "سیمین شهر",
+    "latitude": "37.0112938",
+    "longitude": "54.2317085",
+    "province": "گلستان"
+  },
+  {
+    "city": "علی آباد کتول",
+    "latitude": "36.9083415",
+    "longitude": "54.8675871",
+    "province": "گلستان"
+  },
+  {
+    "city": "فاضل آباد",
+    "latitude": "36.900353",
+    "longitude": "54.7501997",
+    "province": "گلستان"
+  },
+  {
+    "city": "کردکوی",
+    "latitude": "36.7930696",
+    "longitude": "54.112584537826336",
+    "province": "گلستان"
+  },
+  {
+    "city": "کلاله",
+    "latitude": "37.3756726",
+    "longitude": "55.4932947",
+    "province": "گلستان"
+  },
+  {
+    "city": "گالیکش",
+    "latitude": "37.2719444",
+    "longitude": "55.4325",
+    "province": "گلستان"
+  },
+  {
+    "city": "گرگان",
+    "latitude": "36.8392776",
+    "longitude": "54.4320858",
+    "province": "گلستان"
+  },
+  {
+    "city": "گمیش تپه",
+    "latitude": "37.070099",
+    "longitude": "54.0770422",
+    "province": "گلستان"
+  },
+  {
+    "city": "گنبدکاووس",
+    "latitude": "37.25004",
+    "longitude": "55.16721",
+    "province": "گلستان"
+  },
+  {
+    "city": "مراوه",
+    "latitude": "37.9042755",
+    "longitude": "55.9549173",
+    "province": "گلستان"
+  },
+  {
+    "city": "مینودشت",
+    "latitude": "37.2288889",
+    "longitude": "55.3747222",
+    "province": "گلستان"
+  },
+  {
+    "city": "نگین شهر",
+    "latitude": "37.1391667",
+    "longitude": "55.1638889",
+    "province": "گلستان"
+  },
+  {
+    "city": "نوده خاندوز",
+    "latitude": "37.0763889",
+    "longitude": "55.2625",
+    "province": "گلستان"
+  },
+  {
+    "city": "نوکنده",
+    "latitude": "36.7400119",
+    "longitude": "53.9094891",
+    "province": "گلستان"
+  },
+  {
+    "city": "آستارا",
+    "latitude": "38.4193239",
+    "longitude": "48.8715278",
+    "province": "گیلان"
+  },
+  {
+    "city": "آستانه اشرفیه",
+    "latitude": "37.2607374",
+    "longitude": "49.9456642",
+    "province": "گیلان"
+  },
+  {
+    "city": "احمدسرگوراب",
+    "latitude": "37.135167550000006",
+    "longitude": "49.37290005139745",
+    "province": "گیلان"
+  },
+  {
+    "city": "اسالم",
+    "latitude": "37.720567",
+    "longitude": "48.9583895",
+    "province": "گیلان"
+  },
+  {
+    "city": "اطاقور",
+    "latitude": "37.1099647",
+    "longitude": "50.1145061",
+    "province": "گیلان"
+  },
+  {
+    "city": "املش",
+    "latitude": "37.0961905",
+    "longitude": "50.1844452",
+    "province": "گیلان"
+  },
+  {
+    "city": "بازار جمعه",
+    "latitude": "37.4058797",
+    "longitude": "49.1199769",
+    "province": "گیلان"
+  },
+  {
+    "city": "بره سر",
+    "latitude": "36.7791256",
+    "longitude": "49.752007",
+    "province": "گیلان"
+  },
+  {
+    "city": "بندرانزلی",
+    "latitude": "37.4592329",
+    "longitude": "49.523213",
+    "province": "گیلان"
+  },
+  {
+    "city": "پره سر",
+    "latitude": "37.6026842",
+    "longitude": "49.0656917",
+    "province": "گیلان"
+  },
+  {
+    "city": "پیربازار",
+    "latitude": "37.3420574",
+    "longitude": "49.5471642",
+    "province": "گیلان"
+  },
+  {
+    "city": "تالش",
+    "latitude": "37.7974981",
+    "longitude": "48.904184",
+    "province": "گیلان"
+  },
+  {
+    "city": "توتکابن",
+    "latitude": "36.8928479",
+    "longitude": "49.5276938",
+    "province": "گیلان"
+  },
+  {
+    "city": "جیرنده",
+    "latitude": "36.7021301",
+    "longitude": "49.7957151",
+    "province": "گیلان"
+  },
+  {
+    "city": "چابکسر",
+    "latitude": "36.9743391",
+    "longitude": "50.57079",
+    "province": "گیلان"
+  },
+  {
+    "city": "چاف و چمخاله",
+    "latitude": "37.2462052",
+    "longitude": "50.2477691",
+    "province": "گیلان"
+  },
+  {
+    "city": "چوبر",
+    "latitude": "38.1795115",
+    "longitude": "48.892019",
+    "province": "گیلان"
+  },
+  {
+    "city": "حویق",
+    "latitude": "38.1479478",
+    "longitude": "48.8945515",
+    "province": "گیلان"
+  },
+  {
+    "city": "خشکبیجار",
+    "latitude": "37.3742058",
+    "longitude": "49.7581583",
+    "province": "گیلان"
+  },
+  {
+    "city": "خمام",
+    "latitude": "37.3904902",
+    "longitude": "49.6607472",
+    "province": "گیلان"
+  },
+  {
+    "city": "دیلمان",
+    "latitude": "36.8884879",
+    "longitude": "49.906745",
+    "province": "گیلان"
+  },
+  {
+    "city": "رانکوه",
+    "latitude": "37.0509408",
+    "longitude": "50.2358103",
+    "province": "گیلان"
+  },
+  {
+    "city": "رحیم آباد",
+    "latitude": "37.03278",
+    "longitude": "50.32944",
+    "province": "گیلان"
+  },
+  {
+    "city": "رستم آباد",
+    "latitude": "36.897394",
+    "longitude": "49.4915717",
+    "province": "گیلان"
+  },
+  {
+    "city": "رشت",
+    "latitude": "37.2793607",
+    "longitude": "49.5846102",
+    "province": "گیلان"
+  },
+  {
+    "city": "رضوانشهر",
+    "latitude": "37.5479126",
+    "longitude": "49.1395774",
+    "province": "گیلان"
+  },
+  {
+    "city": "رودبار",
+    "latitude": "36.8219055",
+    "longitude": "49.4268249",
+    "province": "گیلان"
+  },
+  {
+    "city": "رودبنه",
+    "latitude": "37.2548508",
+    "longitude": "50.0039032",
+    "province": "گیلان"
+  },
+  {
+    "city": "رودسر",
+    "latitude": "37.1381592",
+    "longitude": "50.2927862",
+    "province": "گیلان"
+  },
+  {
+    "city": "زیباکنار",
+    "latitude": "37.4345023",
+    "longitude": "49.8780892",
+    "province": "گیلان"
+  },
+  {
+    "city": "سنگر",
+    "latitude": "37.179787",
+    "longitude": "49.6947763",
+    "province": "گیلان"
+  },
+  {
+    "city": "سیاهکل",
+    "latitude": "37.1521893",
+    "longitude": "49.8716407",
+    "province": "گیلان"
+  },
+  {
+    "city": "شفت",
+    "latitude": "37.1716302",
+    "longitude": "49.40218558546241",
+    "province": "گیلان"
+  },
+  {
+    "city": "شلمان",
+    "latitude": "37.1559178",
+    "longitude": "50.2161864",
+    "province": "گیلان"
+  },
+  {
+    "city": "صومعه سرا",
+    "latitude": "37.30134",
+    "longitude": "49.31504",
+    "province": "گیلان"
+  },
+  {
+    "city": "فومن",
+    "latitude": "37.224",
+    "longitude": "49.3125",
+    "province": "گیلان"
+  },
+  {
+    "city": "کلاچای",
+    "latitude": "37.0769158",
+    "longitude": "50.3971953",
+    "province": "گیلان"
+  },
+  {
+    "city": "کوچصفهان",
+    "latitude": "37.2787049",
+    "longitude": "49.7721208",
+    "province": "گیلان"
+  },
+  {
+    "city": "کومله",
+    "latitude": "37.1523678",
+    "longitude": "50.1740681",
+    "province": "گیلان"
+  },
+  {
+    "city": "کیاشهر",
+    "latitude": "37.4188972",
+    "longitude": "49.9488125",
+    "province": "گیلان"
+  },
+  {
+    "city": "گوراب زرمیخ",
+    "latitude": "37.3021335",
+    "longitude": "49.2208733",
+    "province": "گیلان"
+  },
+  {
+    "city": "لاهیجان",
+    "latitude": "37.2060727",
+    "longitude": "50.0028774",
+    "province": "گیلان"
+  },
+  {
+    "city": "لشت نشا",
+    "latitude": "37.360129650000005",
+    "longitude": "49.8668572536712",
+    "province": "گیلان"
+  },
+  {
+    "city": "لنگرود",
+    "latitude": "37.1955948",
+    "longitude": "50.1529566",
+    "province": "گیلان"
+  },
+  {
+    "city": "لوشان",
+    "latitude": "36.6279334",
+    "longitude": "49.5162305",
+    "province": "گیلان"
+  },
+  {
+    "city": "لولمان",
+    "latitude": "37.2551709",
+    "longitude": "49.8150112",
+    "province": "گیلان"
+  },
+  {
+    "city": "لوندویل",
+    "latitude": "38.3082625",
+    "longitude": "48.8675037",
+    "province": "گیلان"
+  },
+  {
+    "city": "لیسار",
+    "latitude": "37.958973",
+    "longitude": "48.9082044",
+    "province": "گیلان"
+  },
+  {
+    "city": "ماسال",
+    "latitude": "37.3640801",
+    "longitude": "49.1328792",
+    "province": "گیلان"
+  },
+  {
+    "city": "ماسوله",
+    "latitude": "37.1551276",
+    "longitude": "48.9899692",
+    "province": "گیلان"
+  },
+  {
+    "city": "مرجقل",
+    "latitude": "37.2761076",
+    "longitude": "49.37639",
+    "province": "گیلان"
+  },
+  {
+    "city": "منجیل",
+    "latitude": "36.7448499",
+    "longitude": "49.4000305",
+    "province": "گیلان"
+  },
+  {
+    "city": "واجارگاه",
+    "latitude": "37.03829",
+    "longitude": "50.4058965",
+    "province": "گیلان"
+  },
+  {
+    "city": "ازنا",
+    "latitude": "33.45643",
+    "longitude": "49.45646",
+    "province": "لرستان"
+  },
+  {
+    "city": "اشترینان",
+    "latitude": "34.0166865",
+    "longitude": "48.6426479",
+    "province": "لرستان"
+  },
+  {
+    "city": "الشتر",
+    "latitude": "33.8627885",
+    "longitude": "48.2619601",
+    "province": "لرستان"
+  },
+  {
+    "city": "الیگودرز",
+    "latitude": "33.4035124",
+    "longitude": "49.6921874",
+    "province": "لرستان"
+  },
+  {
+    "city": "بروجرد",
+    "latitude": "33.8943281",
+    "longitude": "48.7560936",
+    "province": "لرستان"
+  },
+  {
+    "city": "پلدختر",
+    "latitude": "33.15249",
+    "longitude": "47.71014",
+    "province": "لرستان"
+  },
+  {
+    "city": "چالانچولان",
+    "latitude": "33.6652163",
+    "longitude": "48.9070691",
+    "province": "لرستان"
+  },
+  {
+    "city": "چغلوندی",
+    "latitude": "33.647584",
+    "longitude": "48.561754",
+    "province": "لرستان"
+  },
+  {
+    "city": "چقابل",
+    "latitude": "33.281147700000005",
+    "longitude": "47.50933787951992",
+    "province": "لرستان"
+  },
+  {
+    "city": "خرم آباد",
+    "latitude": "33.48778",
+    "longitude": "48.35583",
+    "province": "لرستان"
+  },
+  {
+    "city": "درب گنبد",
+    "latitude": "33.6904944",
+    "longitude": "47.1502234",
+    "province": "لرستان"
+  },
+  {
+    "city": "دورود",
+    "latitude": "33.49218",
+    "longitude": "49.0616",
+    "province": "لرستان"
+  },
+  {
+    "city": "زاغه",
+    "latitude": "33.4999202",
+    "longitude": "48.7059909",
+    "province": "لرستان"
+  },
+  {
+    "city": "سپیددشت",
+    "latitude": "33.2183987",
+    "longitude": "48.882817",
+    "province": "لرستان"
+  },
+  {
+    "city": "سراب دوره",
+    "latitude": "33.5636959",
+    "longitude": "48.0225482",
+    "province": "لرستان"
+  },
+  {
+    "city": "فیروزآباد",
+    "latitude": "33.8982515",
+    "longitude": "48.1034902",
+    "province": "لرستان"
+  },
+  {
+    "city": "کونانی",
+    "latitude": "33.40259",
+    "longitude": "47.3273",
+    "province": "لرستان"
+  },
+  {
+    "city": "کوهدشت",
+    "latitude": "33.52974155",
+    "longitude": "47.606896025803756",
+    "province": "لرستان"
+  },
+  {
+    "city": "گراب",
+    "latitude": "33.47381",
+    "longitude": "47.23625",
+    "province": "لرستان"
+  },
+  {
+    "city": "معمولان",
+    "latitude": "33.3797253",
+    "longitude": "47.9604832",
+    "province": "لرستان"
+  },
+  {
+    "city": "نورآباد",
+    "latitude": "34.07252",
+    "longitude": "47.9730368",
+    "province": "لرستان"
+  },
+  {
+    "city": "ویسیان",
+    "latitude": "33.4866325",
+    "longitude": "48.0304375",
+    "province": "لرستان"
+  },
+  {
+    "city": "آلاشت",
+    "latitude": "36.066319",
+    "longitude": "52.8366338",
+    "province": "مازندران"
+  },
+  {
+    "city": "آمل",
+    "latitude": "36.4718947",
+    "longitude": "52.3499009",
+    "province": "مازندران"
+  },
+  {
+    "city": "امیرکلا",
+    "latitude": "36.6001749",
+    "longitude": "52.6625614",
+    "province": "مازندران"
+  },
+  {
+    "city": "ایزدشهر",
+    "latitude": "36.5987867",
+    "longitude": "52.135172",
+    "province": "مازندران"
+  },
+  {
+    "city": "بابل",
+    "latitude": "36.55102",
+    "longitude": "52.6786",
+    "province": "مازندران"
+  },
+  {
+    "city": "بابلسر",
+    "latitude": "36.7008777",
+    "longitude": "52.6481047",
+    "province": "مازندران"
+  },
+  {
+    "city": "بلده",
+    "latitude": "36.202753",
+    "longitude": "51.8089289",
+    "province": "مازندران"
+  },
+  {
+    "city": "بهشهر",
+    "latitude": "36.6912955",
+    "longitude": "53.5432769",
+    "province": "مازندران"
+  },
+  {
+    "city": "بهنمیر",
+    "latitude": "36.6702899",
+    "longitude": "52.7620524",
+    "province": "مازندران"
+  },
+  {
+    "city": "پل سفید",
+    "latitude": "36.11787",
+    "longitude": "53.05531",
+    "province": "مازندران"
+  },
+  {
+    "city": "تنکابن",
+    "latitude": "36.8154324",
+    "longitude": "50.8787003",
+    "province": "مازندران"
+  },
+  {
+    "city": "جویبار",
+    "latitude": "36.6400238",
+    "longitude": "52.9100038",
+    "province": "مازندران"
+  },
+  {
+    "city": "چالوس",
+    "latitude": "36.6506329",
+    "longitude": "51.4223717",
+    "province": "مازندران"
+  },
+  {
+    "city": "چمستان",
+    "latitude": "36.4773762",
+    "longitude": "52.1167325",
+    "province": "مازندران"
+  },
+  {
+    "city": "خرم آباد",
+    "latitude": "36.78265",
+    "longitude": "50.87224",
+    "province": "مازندران"
+  },
+  {
+    "city": "خلیل شهر",
+    "latitude": "36.7013487",
+    "longitude": "53.6402049",
+    "province": "مازندران"
+  },
+  {
+    "city": "خوش رودپی",
+    "latitude": "36.3900109",
+    "longitude": "52.5693646",
+    "province": "مازندران"
+  },
+  {
+    "city": "دابودشت",
+    "latitude": "36.4792745",
+    "longitude": "52.4496747",
+    "province": "مازندران"
+  },
+  {
+    "city": "رامسر",
+    "latitude": "36.9225518",
+    "longitude": "50.6431897",
+    "province": "مازندران"
+  },
+  {
+    "city": "رستمکلا",
+    "latitude": "36.6872269",
+    "longitude": "53.4123632",
+    "province": "مازندران"
+  },
+  {
+    "city": "رویان",
+    "latitude": "36.5694026",
+    "longitude": "51.9617002",
+    "province": "مازندران"
+  },
+  {
+    "city": "رینه",
+    "latitude": "35.8819792",
+    "longitude": "52.1697254",
+    "province": "مازندران"
+  },
+  {
+    "city": "زرگرمحله",
+    "latitude": "36.52680945",
+    "longitude": "52.61966859028014",
+    "province": "مازندران"
+  },
+  {
+    "city": "زیرآب",
+    "latitude": "36.1797175",
+    "longitude": "52.9770067",
+    "province": "مازندران"
+  },
+  {
+    "city": "سادات شهر",
+    "latitude": "36.890589",
+    "longitude": "50.6981104",
+    "province": "مازندران"
+  },
+  {
+    "city": "ساری",
+    "latitude": "36.5659626",
+    "longitude": "53.0586327",
+    "province": "مازندران"
+  },
+  {
+    "city": "سرخرود",
+    "latitude": "36.6712757",
+    "longitude": "52.4492344",
+    "province": "مازندران"
+  },
+  {
+    "city": "سلمان شهر",
+    "latitude": "36.7050537",
+    "longitude": "51.1960013",
+    "province": "مازندران"
+  },
+  {
+    "city": "سورک",
+    "latitude": "36.59488",
+    "longitude": "53.20762",
+    "province": "مازندران"
+  },
+  {
+    "city": "شیرگاه",
+    "latitude": "36.3004288",
+    "longitude": "52.8815857",
+    "province": "مازندران"
+  },
+  {
+    "city": "شیرود",
+    "latitude": "36.8495832",
+    "longitude": "50.7909086",
+    "province": "مازندران"
+  },
+  {
+    "city": "عباس آباد",
+    "latitude": "36.72769",
+    "longitude": "51.10574",
+    "province": "مازندران"
+  },
+  {
+    "city": "فریدونکنار",
+    "latitude": "36.6830883",
+    "longitude": "52.5217808",
+    "province": "مازندران"
+  },
+  {
+    "city": "فریم",
+    "latitude": "36.1757554",
+    "longitude": "53.2653624",
+    "province": "مازندران"
+  },
+  {
+    "city": "قائم شهر",
+    "latitude": "36.4636399",
+    "longitude": "52.8579311",
+    "province": "مازندران"
+  },
+  {
+    "city": "کتالم",
+    "latitude": "36.88881815",
+    "longitude": "50.72436919840985",
+    "province": "مازندران"
+  },
+  {
+    "city": "کلارآباد",
+    "latitude": "36.6964662",
+    "longitude": "51.2511485",
+    "province": "مازندران"
+  },
+  {
+    "city": "کلاردشت",
+    "latitude": "36.5055519",
+    "longitude": "51.1587669",
+    "province": "مازندران"
+  },
+  {
+    "city": "کله بست",
+    "latitude": "36.6400809",
+    "longitude": "52.6315535",
+    "province": "مازندران"
+  },
+  {
+    "city": "کوهی خیل",
+    "latitude": "36.6879187",
+    "longitude": "52.9118026",
+    "province": "مازندران"
+  },
+  {
+    "city": "کیاسر",
+    "latitude": "36.2366087",
+    "longitude": "53.5412514",
+    "province": "مازندران"
+  },
+  {
+    "city": "کیاکلا",
+    "latitude": "36.580532",
+    "longitude": "52.8097463",
+    "province": "مازندران"
+  },
+  {
+    "city": "گتاب",
+    "latitude": "36.431717",
+    "longitude": "52.6578558",
+    "province": "مازندران"
+  },
+  {
+    "city": "گزنک",
+    "latitude": "35.9038115",
+    "longitude": "52.2246758",
+    "province": "مازندران"
+  },
+  {
+    "city": "گلوگاه",
+    "latitude": "36.31048",
+    "longitude": "52.62621",
+    "province": "مازندران"
+  },
+  {
+    "city": "محمودآباد",
+    "latitude": "36.6308963",
+    "longitude": "52.2621156",
+    "province": "مازندران"
+  },
+  {
+    "city": "مرزن آباد",
+    "latitude": "36.4539793",
+    "longitude": "51.3005787",
+    "province": "مازندران"
+  },
+  {
+    "city": "مرزیکلا",
+    "latitude": "36.3636458",
+    "longitude": "52.7341391",
+    "province": "مازندران"
+  },
+  {
+    "city": "نشتارود",
+    "latitude": "36.7486267",
+    "longitude": "51.0358454",
+    "province": "مازندران"
+  },
+  {
+    "city": "نکا",
+    "latitude": "36.6511824",
+    "longitude": "53.2965182",
+    "province": "مازندران"
+  },
+  {
+    "city": "نور",
+    "latitude": "36.5728497",
+    "longitude": "52.0073656",
+    "province": "مازندران"
+  },
+  {
+    "city": "نوشهر",
+    "latitude": "36.6508069",
+    "longitude": "51.5034126",
+    "province": "مازندران"
+  },
+  {
+    "city": "آستانه",
+    "latitude": "33.88346",
+    "longitude": "49.35229",
+    "province": "مرکزی"
+  },
+  {
+    "city": "آشتیان",
+    "latitude": "34.5216784",
+    "longitude": "50.0018687",
+    "province": "مرکزی"
+  },
+  {
+    "city": "اراک",
+    "latitude": "34.0862719",
+    "longitude": "49.6893884",
+    "province": "مرکزی"
+  },
+  {
+    "city": "پرندک",
+    "latitude": "35.3617104",
+    "longitude": "50.6796099",
+    "province": "مرکزی"
+  },
+  {
+    "city": "تفرش",
+    "latitude": "34.6927402",
+    "longitude": "50.0146963",
+    "province": "مرکزی"
+  },
+  {
+    "city": "توره",
+    "latitude": "34.0444771",
+    "longitude": "49.2886966",
+    "province": "مرکزی"
+  },
+  {
+    "city": "جاورسیان",
+    "latitude": "34.2576054",
+    "longitude": "49.3260118",
+    "province": "مرکزی"
+  },
+  {
+    "city": "خشکرود",
+    "latitude": "35.3986",
+    "longitude": "50.3341",
+    "province": "مرکزی"
+  },
+  {
+    "city": "خمین",
+    "latitude": "33.63889",
+    "longitude": "50.08003",
+    "province": "مرکزی"
+  },
+  {
+    "city": "خنداب",
+    "latitude": "34.3928",
+    "longitude": "49.1841",
+    "province": "مرکزی"
+  },
+  {
+    "city": "داودآباد",
+    "latitude": "34.2922268",
+    "longitude": "49.8553198",
+    "province": "مرکزی"
+  },
+  {
+    "city": "دلیجان",
+    "latitude": "33.9905",
+    "longitude": "50.6838",
+    "province": "مرکزی"
+  },
+  {
+    "city": "رازقان",
+    "latitude": "35.3312924",
+    "longitude": "49.9556045",
+    "province": "مرکزی"
+  },
+  {
+    "city": "زاویه",
+    "latitude": "35.3830162",
+    "longitude": "50.5644495",
+    "province": "مرکزی"
+  },
+  {
+    "city": "ساروق",
+    "latitude": "34.4082114",
+    "longitude": "49.5082074",
+    "province": "مرکزی"
+  },
+  {
+    "city": "ساوه",
+    "latitude": "35.0213",
+    "longitude": "50.3566",
+    "province": "مرکزی"
+  },
+  {
+    "city": "سنجان",
+    "latitude": "34.0503511",
+    "longitude": "49.6217982518177",
+    "province": "مرکزی"
+  },
+  {
+    "city": "شازند",
+    "latitude": "33.9293155",
+    "longitude": "49.4070049",
+    "province": "مرکزی"
+  },
+  {
+    "city": "غرق آباد",
+    "latitude": "35.1092029",
+    "longitude": "49.8312434",
+    "province": "مرکزی"
+  },
+  {
+    "city": "فرمهین",
+    "latitude": "34.5044405",
+    "longitude": "49.6842027",
+    "province": "مرکزی"
+  },
+  {
+    "city": "قورچی باشی",
+    "latitude": "33.67494",
+    "longitude": "49.8760505",
+    "province": "مرکزی"
+  },
+  {
+    "city": "کرهرود",
+    "latitude": "34.0612423",
+    "longitude": "49.6453234",
+    "province": "مرکزی"
+  },
+  {
+    "city": "کمیجان",
+    "latitude": "34.7207822",
+    "longitude": "49.3219622",
+    "province": "مرکزی"
+  },
+  {
+    "city": "مامونیه",
+    "latitude": "35.3011297",
+    "longitude": "50.5073612",
+    "province": "مرکزی"
+  },
+  {
+    "city": "محلات",
+    "latitude": "33.905556",
+    "longitude": "50.457222",
+    "province": "مرکزی"
+  },
+  {
+    "city": "مهاجران",
+    "latitude": "34.05042",
+    "longitude": "49.43498",
+    "province": "مرکزی"
+  },
+  {
+    "city": "میلاجرد",
+    "latitude": "34.6211735",
+    "longitude": "49.2047717",
+    "province": "مرکزی"
+  },
+  {
+    "city": "نراق",
+    "latitude": "34.0096318",
+    "longitude": "50.8402395",
+    "province": "مرکزی"
+  },
+  {
+    "city": "نوبران",
+    "latitude": "35.1306563",
+    "longitude": "49.7089976",
+    "province": "مرکزی"
+  },
+  {
+    "city": "نیمور",
+    "latitude": "33.88404",
+    "longitude": "50.5721677",
+    "province": "مرکزی"
+  },
+  {
+    "city": "هندودر",
+    "latitude": "33.7803949",
+    "longitude": "49.2308157",
+    "province": "مرکزی"
+  },
+  {
+    "city": "ابوموسی",
+    "latitude": "25.8844687",
+    "longitude": "55.0295208",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بستک",
+    "latitude": "27.1977195",
+    "longitude": "54.362564",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بندرجاسک",
+    "latitude": "25.643889",
+    "longitude": "57.774444",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بندرچارک",
+    "latitude": "26.733889",
+    "longitude": "54.274444",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بندرخمیر",
+    "latitude": "26.952998",
+    "longitude": "55.585567",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بندرعباس",
+    "latitude": "27.1793466",
+    "longitude": "56.2781423",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بندرلنگه",
+    "latitude": "26.56207",
+    "longitude": "54.88382",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "بیکا",
+    "latitude": "27.3554883",
+    "longitude": "57.1799223",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "پارسیان",
+    "latitude": "27.2082174",
+    "longitude": "53.0351431",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "تخت",
+    "latitude": "27.5012479",
+    "longitude": "56.6361561",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "جناح",
+    "latitude": "27.0173998",
+    "longitude": "54.2839961",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "حاجی آباد",
+    "latitude": "28.3091",
+    "longitude": "55.9017",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "درگهان",
+    "latitude": "26.9674546",
+    "longitude": "56.0778103",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "دهبارز",
+    "latitude": "27.4413347",
+    "longitude": "57.1909085",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "رویدر",
+    "latitude": "27.4646306",
+    "longitude": "55.4191063",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "زیارتعلی",
+    "latitude": "27.7411165",
+    "longitude": "57.2239649",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "سردشت",
+    "latitude": "26.45574",
+    "longitude": "57.90271",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "سندرک",
+    "latitude": "26.8370511",
+    "longitude": "57.4254084",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "سوزا",
+    "latitude": "26.777574",
+    "longitude": "56.0631263",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "سیریک",
+    "latitude": "26.5177389",
+    "longitude": "57.101798",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "فارغان",
+    "latitude": "28.0077984",
+    "longitude": "56.255127",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "فین",
+    "latitude": "27.6310402",
+    "longitude": "55.8952572",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "قشم",
+    "latitude": "26.9503253",
+    "longitude": "56.2690869",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "کنگ",
+    "latitude": "26.59775",
+    "longitude": "54.93694",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "کوشکنار",
+    "latitude": "27.2525961",
+    "longitude": "52.8671285",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "کیش",
+    "latitude": "26.5361759",
+    "longitude": "53.9742563",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "گوهران",
+    "latitude": "26.595",
+    "longitude": "57.8966",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "میناب",
+    "latitude": "27.09",
+    "longitude": "57.04",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "هشتبندی",
+    "latitude": "27.1525401",
+    "longitude": "57.4469048",
+    "province": "هرمزگان"
+  },
+  {
+    "city": "ازندریان",
+    "latitude": "34.504361",
+    "longitude": "48.6909354",
+    "province": "همدان"
+  },
+  {
+    "city": "اسدآباد",
+    "latitude": "34.78241",
+    "longitude": "48.12012",
+    "province": "همدان"
+  },
+  {
+    "city": "برزول",
+    "latitude": "34.2128467",
+    "longitude": "48.2600728",
+    "province": "همدان"
+  },
+  {
+    "city": "بهار",
+    "latitude": "34.9072",
+    "longitude": "48.4414",
+    "province": "همدان"
+  },
+  {
+    "city": "تویسرکان",
+    "latitude": "34.5478858",
+    "longitude": "48.4478184",
+    "province": "همدان"
+  },
+  {
+    "city": "جورقان",
+    "latitude": "34.8856081",
+    "longitude": "48.55631",
+    "province": "همدان"
+  },
+  {
+    "city": "جوکار",
+    "latitude": "34.4322536",
+    "longitude": "48.6862474",
+    "province": "همدان"
+  },
+  {
+    "city": "دمق",
+    "latitude": "35.4431296",
+    "longitude": "48.8234849",
+    "province": "همدان"
+  },
+  {
+    "city": "رزن",
+    "latitude": "35.3884459",
+    "longitude": "49.0344948",
+    "province": "همدان"
+  },
+  {
+    "city": "زنگنه",
+    "latitude": "34.1552764",
+    "longitude": "49.01032",
+    "province": "همدان"
+  },
+  {
+    "city": "سامن",
+    "latitude": "34.2090147",
+    "longitude": "48.704561",
+    "province": "همدان"
+  },
+  {
+    "city": "شیرین سو",
+    "latitude": "35.4926221",
+    "longitude": "48.4515219",
+    "province": "همدان"
+  },
+  {
+    "city": "صالح آباد",
+    "latitude": "34.9215829",
+    "longitude": "48.3431377",
+    "province": "همدان"
+  },
+  {
+    "city": "فامنین",
+    "latitude": "35.11593",
+    "longitude": "48.97336",
+    "province": "همدان"
+  },
+  {
+    "city": "فرسفج",
+    "latitude": "34.4865511",
+    "longitude": "48.2859752",
+    "province": "همدان"
+  },
+  {
+    "city": "فیروزان",
+    "latitude": "34.360476",
+    "longitude": "48.1138221",
+    "province": "همدان"
+  },
+  {
+    "city": "قروه درجزین",
+    "latitude": "35.3101504",
+    "longitude": "49.1004503",
+    "province": "همدان"
+  },
+  {
+    "city": "قهاوند",
+    "latitude": "34.8594697",
+    "longitude": "49.0033362",
+    "province": "همدان"
+  },
+  {
+    "city": "کبودر آهنگ",
+    "latitude": "35.1961",
+    "longitude": "48.7294",
+    "province": "همدان"
+  },
+  {
+    "city": "گل تپه",
+    "latitude": "35.21904",
+    "longitude": "48.20595",
+    "province": "همدان"
+  },
+  {
+    "city": "گیان",
+    "latitude": "34.1771986",
+    "longitude": "48.2445727",
+    "province": "همدان"
+  },
+  {
+    "city": "لالجین",
+    "latitude": "34.9746055",
+    "longitude": "48.4750848",
+    "province": "همدان"
+  },
+  {
+    "city": "مریانج",
+    "latitude": "34.8278333",
+    "longitude": "48.4656056",
+    "province": "همدان"
+  },
+  {
+    "city": "ملایر",
+    "latitude": "34.2922623",
+    "longitude": "48.8215749",
+    "province": "همدان"
+  },
+  {
+    "city": "نهاوند",
+    "latitude": "34.1896877",
+    "longitude": "48.3716218",
+    "province": "همدان"
+  },
+  {
+    "city": "همدان",
+    "latitude": "34.8",
+    "longitude": "48.52",
+    "province": "همدان"
+  },
+  {
+    "city": "ابرکوه",
+    "latitude": "31.1324814",
+    "longitude": "53.2803103",
+    "province": "یزد"
+  },
+  {
+    "city": "احمدآباد",
+    "latitude": "32.3577003",
+    "longitude": "53.9922234",
+    "province": "یزد"
+  },
+  {
+    "city": "اردکان",
+    "latitude": "32.3063333",
+    "longitude": "54.0159678",
+    "province": "یزد"
+  },
+  {
+    "city": "اشکذر",
+    "latitude": "32.000526",
+    "longitude": "54.2071804",
+    "province": "یزد"
+  },
+  {
+    "city": "بافق",
+    "latitude": "31.6035",
+    "longitude": "55.40249",
+    "province": "یزد"
+  },
+  {
+    "city": "بفروئیه",
+    "latitude": "32.2779278",
+    "longitude": "53.9939167",
+    "province": "یزد"
+  },
+  {
+    "city": "بهاباد",
+    "latitude": "31.87091",
+    "longitude": "56.02433",
+    "province": "یزد"
+  },
+  {
+    "city": "تفت",
+    "latitude": "31.752049",
+    "longitude": "54.217422",
+    "province": "یزد"
+  },
+  {
+    "city": "حمیدیا",
+    "latitude": "31.8696386",
+    "longitude": "54.3476482",
+    "province": "یزد"
+  },
+  {
+    "city": "خضرآباد",
+    "latitude": "31.8660363",
+    "longitude": "53.9524198",
+    "province": "یزد"
+  },
+  {
+    "city": "رضوانشهر",
+    "latitude": "32.02139",
+    "longitude": "54.1975",
+    "province": "یزد"
+  },
+  {
+    "city": "زارچ",
+    "latitude": "31.9903361",
+    "longitude": "54.2354245",
+    "province": "یزد"
+  },
+  {
+    "city": "شاهدیه",
+    "latitude": "31.9422469",
+    "longitude": "54.2828268",
+    "province": "یزد"
+  },
+  {
+    "city": "عقدا",
+    "latitude": "32.4399758",
+    "longitude": "53.628458",
+    "province": "یزد"
+  },
+  {
+    "city": "مروست",
+    "latitude": "30.4774172",
+    "longitude": "54.2126137",
+    "province": "یزد"
+  },
+  {
+    "city": "مهردشت",
+    "latitude": "31.0244526",
+    "longitude": "53.3488446",
+    "province": "یزد"
+  },
+  {
+    "city": "مهریز",
+    "latitude": "31.5841945",
+    "longitude": "54.4445661",
+    "province": "یزد"
+  },
+  {
+    "city": "میبد",
+    "latitude": "32.2510825",
+    "longitude": "54.0159205",
+    "province": "یزد"
+  },
+  {
+    "city": "ندوشن",
+    "latitude": "32.0281951",
+    "longitude": "53.5494049",
+    "province": "یزد"
+  },
+  {
+    "city": "نیر",
+    "latitude": "31.4845702",
+    "longitude": "54.1259966",
+    "province": "یزد"
+  },
+  {
+    "city": "هرات",
+    "latitude": "30.05407",
+    "longitude": "54.37294",
+    "province": "یزد"
+  },
+  {
+    "city": "یزد",
+    "latitude": "31.8565792",
+    "longitude": "54.3296297",
+    "province": "یزد"
+  }
+]
