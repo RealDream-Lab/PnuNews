@@ -12,3 +12,4 @@ node_modules/
 # macOS AppleDouble / metadata
 ._*
 .DS_Store
+Archive.zip
