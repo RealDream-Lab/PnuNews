@@ -10,8 +10,10 @@ export const EVENTS = [
   { key: 'fajr', label: 'اذان صبح' },
   { key: 'sunrise', label: 'طلوع آفتاب' },
   { key: 'dhuhr', label: 'اذان ظهر' },
+  { key: 'asr', label: 'اذان عصر' },
   { key: 'sunset', label: 'غروب آفتاب' },
   { key: 'maghrib', label: 'اذان مغرب' },
+  { key: 'isha', label: 'اذان عشا' },
   { key: 'midnight', label: 'نیمه‌شب شرعی' },
 ];
 
@@ -79,6 +81,15 @@ export function timeText(at, timeZone) {
   }
 }
 
+// The calendar day of a moment in a time zone, as YYYY-MM-DD (used to tell "tomorrow's fajr" from today's).
+export function dayInZone(ms, timeZone) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', ...(timeZone ? { timeZone } : {}) }).format(ms);
+  } catch {
+    return dayKey(ms);
+  }
+}
+
 export const dayKey = (now) => {
   const date = new Date(now);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -136,8 +147,11 @@ export function createPrayerCard({
       write(KEYS.position, JSON.stringify({ lat: position.lat, lon: position.lon, at: positionAt, ...(city ? { city } : {}) }));
     }
     const timeZone = city ? 'Asia/Tehran' : undefined; // a place inside Iran shows Iran's clock whatever the device says
+    // After the midnight of the Jafari night the next event is the fajr of the next calendar day: say so ("اذان صبح فردا").
+    // Only the fajr gets the word: the Jafari midnight itself may fall after 00:00 and is still "tonight".
+    const nextDay = current.key === 'fajr' && dayInZone(current.at, timeZone) !== dayInZone(stamp, timeZone);
     view = {
-      key: current.key, label: current.label, at: current.at, city, province: place?.province ?? null,
+      key: current.key, label: nextDay ? `${current.label} فردا` : current.label, at: current.at, city, province: place?.province ?? null,
       timeText: timeText(current.at, timeZone), countdown: countdownText(current.at - stamp),
     };
   }

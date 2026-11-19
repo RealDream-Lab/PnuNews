@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.123.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.123.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.123.js';
+import { initDock } from '/shared/dock.v0.1.124.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.124.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.124.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -883,7 +883,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.123.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.124.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -2067,7 +2067,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.123.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.124.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
