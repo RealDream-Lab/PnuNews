@@ -7,12 +7,12 @@
 import { PrayTime } from './praytime.v3.2.js';
 
 export const EVENTS = [
-  { key: 'fajr', label: 'اذان صبح', icon: 'moon' },
-  { key: 'sunrise', label: 'طلوع آفتاب', icon: 'sun' },
-  { key: 'dhuhr', label: 'اذان ظهر', icon: 'sun' },
-  { key: 'sunset', label: 'غروب آفتاب', icon: 'sunset' },
-  { key: 'maghrib', label: 'اذان مغرب', icon: 'sunset' },
-  { key: 'midnight', label: 'نیمه‌شب شرعی', icon: 'moon' },
+  { key: 'fajr', label: 'اذان صبح' },
+  { key: 'sunrise', label: 'طلوع آفتاب' },
+  { key: 'dhuhr', label: 'اذان ظهر' },
+  { key: 'sunset', label: 'غروب آفتاب' },
+  { key: 'maghrib', label: 'اذان مغرب' },
+  { key: 'midnight', label: 'نیمه‌شب شرعی' },
 ];
 
 const DAY = 864e5;
@@ -23,12 +23,6 @@ export const KEYS = {
 };
 const CACHE_MAX_AGE = 7 * DAY; // a remembered position older than this is not used
 const REFRESH_AFTER = 3 * 36e5; // a granted permission refreshes the position when the remembered one is older than this
-
-const ICONS = {
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  sunset: '<path d="M4 18h16M7 18a5 5 0 0 1 10 0M12 7v3M5 11l1.6 1.6M19 11l-1.6 1.6M2 14h2M20 14h2"/>',
-  moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4 6.5 6.5 0 0 0 20 14.5Z"/>',
-};
 
 // ---------- Pure calculations (no browser needed; covered by tests) ----------
 
@@ -92,10 +86,10 @@ export const dayKey = (now) => {
 
 const escapeText = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
-// Inner HTML of the card for a view made by the controller.
+// Inner HTML of the card for a view made by the controller: place / event and its time / time left.
 export function prayerMarkup(view) {
   const place = view.city ? escapeText(view.city) : 'موقعیت شما';
-  return `<div class="prayer-top"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[view.icon] ?? ICONS.sun}</svg><span class="card-kicker">رویداد بعدی · ${place}</span></div>`
+  return `<div class="prayer-place">${place}</div>`
     + `<div class="prayer-line"><strong class="prayer-name">${view.label}</strong><time class="prayer-time" datetime="${new Date(view.at).toISOString()}">${view.timeText}</time></div>`
     + `<div class="prayer-left">${view.countdown}</div>`;
 }
@@ -136,7 +130,7 @@ export function createPrayerCard({
     const place = nearestCity(cities, position.lat, position.lon);
     const timeZone = place ? 'Asia/Tehran' : undefined; // a place inside Iran shows Iran's clock whatever the device says
     view = {
-      key: current.key, label: current.label, icon: current.icon, at: current.at, city: place?.name ?? null, province: place?.province ?? null,
+      key: current.key, label: current.label, at: current.at, city: place?.name ?? null, province: place?.province ?? null,
       timeText: timeText(current.at, timeZone), countdown: countdownText(current.at - stamp),
     };
   }

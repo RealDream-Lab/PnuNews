@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.119.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.119.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.119.js';
+import { initDock } from '/shared/dock.v0.1.120.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.120.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.120.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -837,7 +837,7 @@ function syncPrayerCard() {
 }
 let prayerModule = null;
 function startPrayerCard() {
-  import('/shared/prayer-card.v0.1.119.js').then((module) => {
+  import('/shared/prayer-card.v0.1.120.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } }).start();
   }).catch(() => { /* offline or an old browser: the strip simply has no prayer card */ });
@@ -2007,7 +2007,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.119.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.120.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

@@ -68,9 +68,11 @@ test('texts: countdown and markup', () => {
   assert.equal(countdownText(45 * 6e4), '۴۵ دقیقه دیگر');
   assert.equal(countdownText(120 * 6e4), '۲ ساعت دیگر');
   assert.equal(countdownText(135 * 6e4), '۲ ساعت و ۱۵ دقیقه دیگر');
-  const html = prayerMarkup({ label: 'اذان ظهر', icon: 'sun', at: at('2026-11-19T12:00:00+03:30'), timeText: '۱۲:۰۰', countdown: '۱ ساعت دیگر', city: '<b>بیجار</b>' });
+  const html = prayerMarkup({ label: 'اذان ظهر', at: at('2026-11-19T12:00:00+03:30'), timeText: '۱۲:۰۰', countdown: '۱ ساعت دیگر', city: '<b>بیجار</b>' });
   assert.ok(html.includes('اذان ظهر') && html.includes('۱۲:۰۰') && html.includes('&lt;b&gt;'), 'city text is escaped');
-  assert.ok(prayerMarkup({ label: 'x', icon: 'moon', at: 0, timeText: '', countdown: '', city: null }).includes('موقعیت شما'));
+  assert.ok(html.indexOf('prayer-place') < html.indexOf('prayer-name') && html.indexOf('prayer-name') < html.indexOf('prayer-left'), 'place, then event and time, then time left');
+  assert.ok(!html.includes('<svg') && !html.includes('رویداد بعدی'), 'no icon and no caption');
+  assert.ok(prayerMarkup({ label: 'x', at: 0, timeText: '', countdown: '', city: null }).includes('موقعیت شما'));
 });
 
 // ---------- The question flow ----------
