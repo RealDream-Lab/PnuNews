@@ -66,7 +66,10 @@ if [[ ! -f "$sharp_node" || -z "$libvips_library" ]]; then
 fi
 printf 'باینری‌های sharp/libvips لینوکس x64 حاضرند.\nLinux x64 sharp/libvips binaries are present.\n'
 
-git -C "$worktree" -c core.filemode=true add -f node_modules
+printf 'مهر و زمان بیلد را ثبت می‌کنم...\n'
+node "$worktree/scripts/stamp-build.js" "$worktree/public/build-info.json"
+
+git -C "$worktree" -c core.filemode=true add -f node_modules public/build-info.json
 deploy_tree="$(git -C "$worktree" write-tree)"
 parents=(-p main)
 if git rev-parse --verify --quiet refs/remotes/origin/deploy >/dev/null; then

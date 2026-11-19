@@ -312,6 +312,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .info-sub{margin:.1rem 0 0;font-size:.8rem;color:var(--muted)}
 .info-meta{display:flex;flex-wrap:wrap;gap:.9rem;margin:.2rem 0 0;font-size:.8rem;color:var(--muted)}
 .info-meta span{display:inline-flex;align-items:center;gap:.35rem}
+.info-meta[hidden]{display:none}
 .info-meta .icon{width:.95rem;height:.95rem;color:var(--amber)}
 .info-close{border-radius:50%!important}
 .about-text{margin:.9rem 0 0;font-size:.95rem;line-height:2.1;text-align:justify}
