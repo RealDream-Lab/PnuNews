@@ -1,6 +1,7 @@
-import { initDock } from '/shared/dock.v0.1.126.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.126.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.126.js';
+import { initDock } from '/shared/dock.v0.1.127.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.127.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.127.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.127.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -108,6 +109,9 @@ function showToast(message) {
 }
 
 const dock = initDock({ showToast });
+
+// Saved news (bookmarks) live on this device only; see /shared/bookmarks. Created early because cards read it when they are drawn.
+const bookmarks = createBookmarkStore({ storage: (() => { try { return localStorage; } catch { return null; } })() });
 
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
@@ -315,6 +319,12 @@ function cardShareMarkup() {
   return `<button type="button" class="card-share" data-share-card aria-label="اشتراک‌گذاری خبر" title="اشتراک‌گذاری خبر"><svg class="icon" aria-hidden="true"><use href="${SHARE_ICON}"/></svg></button>`;
 }
 
+// Bookmark icon next to the share icon. The state is drawn from the store when the card is built and kept in step later by syncSavedUi.
+function cardSaveMarkup(item) {
+  const saved = bookmarks.has(item.id);
+  return `<button type="button" class="card-save${saved ? ' is-saved' : ''}" data-save-card aria-pressed="${saved}" aria-label="ذخیرهٔ خبر" title="${saved ? 'حذف از خبرهای ذخیره‌شده' : 'ذخیرهٔ خبر'}"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"/></svg></button>`;
+}
+
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
   return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
@@ -362,9 +372,9 @@ function cardMarkup(item, { featured = false } = {}) {
     const portalSummary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
     const portalBody = hasCover
       ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
-      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}${cardShareMarkup()}</div></div>`;
+      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
     return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div>${cardShareMarkup()}</div>`) : ''}
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`) : ''}
     ${portalBody}
   </article>`;
   }
@@ -379,10 +389,10 @@ function cardMarkup(item, { featured = false } = {}) {
   // With a cover, all meta sits on a translucent black strip over the image; only title and summary stay below it.
   // Always at most two lines: related labels share the first line, source and time share the second.
   const labels = badge || category || urgent ? `<div class="overlay-row">${badge}${category}${urgent}</div>` : '';
-  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}</div>${cardShareMarkup()}</div>`;
+  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`;
   const body = hasCover
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
-    : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}${cardShareMarkup()}</div></div>`;
+    : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
   return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
     ${hasCover ? coverMarkup(item, featured, overlay) : ''}
     ${body}
@@ -890,7 +900,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.126.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.127.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1263,7 +1273,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
     if ('mediaSession' in navigator) dock.setMediaMetadata(item.title, item.publisher_unit);
   } catch (error) {
     const target = initial ? app : newsView;
-    target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><a class="news-back" href="/">بازگشت به خبرها</a></section>`;
+    const unsave = bookmarks.has(id) ? `<button type="button" class="share-button" data-unsave-missing="${Number(id)}">حذف از خبرهای ذخیره‌شده</button>` : '';
+    target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><div class="news-actions">${unsave}<a class="news-back" href="/">بازگشت به خبرها</a></div></section>`;
     target.hidden = false;
   } finally {
     if (initial) finishLoading();
@@ -1271,6 +1282,7 @@ async function loadNewsPage(id, { initial = false } = {}) {
 }
 
 let galleryImages = [];
+let currentNewsItem = null;
 
 // The "full text on the university portal" link of imported portal news opens in the current tab. News imported
 // earlier carries target="_blank" in its stored body, so the attribute is dropped here, whatever the stored form is.
@@ -1284,7 +1296,13 @@ function sameTabPortalLinks(html, sourceUrl) {
   return template.innerHTML;
 }
 
+function pageSaveMarkup(item) {
+  const saved = bookmarks.has(item.id);
+  return `<button type="button" class="share-button save-button${saved ? ' is-saved' : ''}" data-save-page aria-pressed="${saved}"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"/></svg><span>${saved ? 'ذخیره‌شده' : 'ذخیرهٔ خبر'}</span></button>`;
+}
+
 function renderNewsPage(item, initial) {
+  currentNewsItem = item;
   // Two lines: the person, then the university unit (e.g. "دانشگاه پیام‌نور بیجار").
   const signatureParts = [item.publisher_name ? `<strong>${escapeHtml(item.publisher_name)}</strong>` : '', item.publisher_unit ? `<span>${escapeHtml(item.publisher_unit)}</span>` : ''].filter(Boolean);
   const signature = signatureParts.length ? `<p class="news-signature">${signatureParts.join('')}</p>` : '';
@@ -1303,7 +1321,7 @@ function renderNewsPage(item, initial) {
     ${signature}
     ${gallery ? `<section class="news-gallery" aria-label="تصاویر خبر">${gallery}</section>` : ''}
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
-    <div class="news-actions"><button type="button" class="share-button" data-share><svg class="icon"><use href="${SHARE_ICON}"/></svg>اشتراک‌گذاری خبر</button></div>
+    <div class="news-actions">${pageSaveMarkup(item)}<button type="button" class="share-button" data-share><svg class="icon"><use href="${SHARE_ICON}"/></svg>اشتراک‌گذاری خبر</button></div>
     </article>`;
 }
 
@@ -1372,6 +1390,112 @@ if (lightbox) {
     lightboxOpener = null;
   });
 }
+
+// ---------- Saved news ----------
+const savedDialog = document.getElementById('saved-dialog');
+const savedList = document.getElementById('saved-list');
+const savedSub = document.getElementById('saved-sub');
+const savedButton = document.getElementById('saved-button');
+const savedCount = document.getElementById('saved-count');
+
+// The card node of the feed is the only thing a click gives us; the news item it was built from is kept in state.entries.
+function itemForCard(card) {
+  const id = Number(card.dataset.newsId);
+  const entry = state.entries.find((candidate) => Number(candidate.id) === id);
+  return entry?.item ?? { id, title: card.getAttribute('aria-label') ?? '' };
+}
+
+function toggleSaved(item, button) {
+  const result = bookmarks.toggle(item.id, snapFromItem(item));
+  if (!result.ok) {
+    showToast(result.reason === 'limit'
+      ? `حداکثر ${digits.format(MAX_BOOKMARKS)} خبر را می‌توان ذخیره کرد؛ ابتدا چند مورد را حذف کنید.`
+      : 'ذخیرهٔ خبر ممکن نشد.');
+    return;
+  }
+  if (!result.saved) showToast('از خبرهای ذخیره‌شده حذف شد');
+  else showToast(bookmarks.persistent ? 'خبر ذخیره شد' : 'مرورگر اجازهٔ ذخیره‌سازی نمی‌دهد؛ نشانک‌ها فقط تا بستن صفحه می‌مانند.');
+  if (result.saved && button) {
+    button.classList.remove('is-popping');
+    void button.offsetWidth; // restart the animation
+    button.classList.add('is-popping');
+    button.addEventListener('animationend', () => button.classList.remove('is-popping'), { once: true });
+  }
+}
+
+function setSaveState(button, saved) {
+  button.classList.toggle('is-saved', saved);
+  button.setAttribute('aria-pressed', String(saved));
+  if (button.matches('[data-save-card]')) button.title = saved ? 'حذف از خبرهای ذخیره‌شده' : 'ذخیرهٔ خبر';
+  else {
+    const label = button.querySelector('span');
+    if (label) label.textContent = saved ? 'ذخیره‌شده' : 'ذخیرهٔ خبر';
+  }
+}
+
+function savedItemMarkup(record) {
+  const snap = record.snap ?? {};
+  const title = snap.title || 'خبر ذخیره‌شده';
+  const image = snap.cover ? `<img referrerpolicy="no-referrer" src="${escapeHtml(snap.cover)}" width="64" height="64" loading="lazy" decoding="async" alt="">` : '';
+  const when = snap.publishedAt ? `<time datetime="${escapeHtml(snap.publishedAt)}">${relativeDate(snap.publishedAt)}</time>` : '';
+  const unit = snap.unit ? `<span>${escapeHtml(snap.unit)}</span>` : '';
+  return `<li class="saved-item" data-saved-id="${record.id}">
+    <button type="button" class="saved-open" data-saved-open><span class="saved-thumb" style="background-color:#${safeColorCode(snap.color)}">${image}</span><span class="saved-text"><strong>${escapeHtml(title)}</strong><small>${unit}${when}</small></span></button>
+    <button type="button" class="saved-remove" data-saved-remove aria-label="${escapeHtml(`حذف «${title}» از خبرهای ذخیره‌شده`)}" title="حذف از خبرهای ذخیره‌شده"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
+  </li>`;
+}
+
+function renderSaved() {
+  const records = bookmarks.list();
+  if (!bookmarks.persistent) savedSub.textContent = 'مرورگر اجازهٔ ذخیره‌سازی نمی‌دهد؛ نشانک‌ها فقط تا بستن صفحه می‌مانند.';
+  else savedSub.textContent = records.length ? `${digits.format(records.length)} خبر؛ فقط روی همین دستگاه نگهداری می‌شود.` : 'روی همین دستگاه نگهداری می‌شود.';
+  savedList.innerHTML = records.length
+    ? records.map(savedItemMarkup).join('')
+    : '<li class="saved-empty"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"/></svg><p>هنوز خبری ذخیره نکرده‌اید.</p><p>روی نشانک هر خبر بزنید تا برای بعد اینجا بماند.</p></li>';
+}
+
+// Redraws everything that shows the saved state: card buttons, the news page button, the header badge and (when open) the list.
+function syncSavedUi() {
+  for (const button of document.querySelectorAll('[data-save-card]')) {
+    const id = Number(button.closest('[data-news-id]')?.dataset.newsId);
+    setSaveState(button, bookmarks.has(id));
+  }
+  const pageButton = document.querySelector('[data-save-page]');
+  if (pageButton && currentNewsItem) setSaveState(pageButton, bookmarks.has(currentNewsItem.id));
+  const count = bookmarks.count();
+  savedCount.hidden = count === 0;
+  savedCount.textContent = digits.format(count);
+  savedButton.setAttribute('aria-label', count ? `خبرهای ذخیره‌شده، ${digits.format(count)} مورد` : 'خبرهای ذخیره‌شده');
+  if (savedDialog.open) renderSaved();
+}
+
+savedButton.addEventListener('click', () => {
+  renderSaved();
+  savedDialog.showModal();
+});
+savedDialog.addEventListener('click', (event) => {
+  const row = event.target.closest('[data-saved-id]');
+  if (row && event.target.closest('[data-saved-remove]')) {
+    bookmarks.remove(row.dataset.savedId);
+    return;
+  }
+  if (row && event.target.closest('[data-saved-open]')) {
+    const record = bookmarks.list().find((candidate) => String(candidate.id) === row.dataset.savedId);
+    savedDialog.close();
+    if (!record) return;
+    if (record.snap?.sourceUrl?.startsWith('https://')) window.open(record.snap.sourceUrl, '_blank', 'noopener,noreferrer');
+    else navigateToNews(record.id);
+    return;
+  }
+  if (event.target === savedDialog || event.target.closest('[data-dialog-close]')) savedDialog.close();
+});
+
+bookmarks.subscribe(syncSavedUi);
+// Another tab of the reader changed the saved news.
+window.addEventListener('storage', (event) => {
+  if (event.key === BOOKMARKS_KEY || event.key === null) bookmarks.reload();
+});
+syncSavedUi();
 
 // ---------- Settings and about dialogs ----------
 const settingsDialog = document.getElementById('settings-dialog');
@@ -1528,7 +1652,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.126.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.127.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -1812,6 +1936,13 @@ feed.addEventListener('click', (event) => {
     openPicker();
     return;
   }
+  const saveButton = event.target.closest('[data-save-card]');
+  if (saveButton) {
+    event.stopPropagation();
+    const savedCard = saveButton.closest('[data-news-id]');
+    if (savedCard) toggleSaved(itemForCard(savedCard), saveButton);
+    return;
+  }
   const shareButton = event.target.closest('[data-share-card]');
   if (shareButton) {
     event.stopPropagation();
@@ -2000,11 +2131,20 @@ newItemsBanner.addEventListener('click', async () => {
   else { liveDirty = false; rearmSentinel(); }
 });
 
-app.addEventListener('click', (event) => {
+function handleNewsPageClick(event) {
   if (event.target.closest('[data-share]')) shareCurrentNews();
-});
+  const savePage = event.target.closest('[data-save-page]');
+  if (savePage && currentNewsItem) toggleSaved(currentNewsItem, savePage);
+  const unsave = event.target.closest('[data-unsave-missing]');
+  if (unsave) {
+    bookmarks.remove(unsave.dataset.unsaveMissing);
+    showToast('از خبرهای ذخیره‌شده حذف شد');
+    unsave.remove();
+  }
+}
+app.addEventListener('click', handleNewsPageClick);
 newsView.addEventListener('click', (event) => {
-  if (event.target.closest('[data-share]')) shareCurrentNews();
+  handleNewsPageClick(event);
   if (event.target.closest('[data-reader-back]')) {
     event.preventDefault();
     if (history.state?.readerEntry) history.back();
@@ -2090,7 +2230,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.126.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.127.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
