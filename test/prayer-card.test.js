@@ -15,13 +15,17 @@ const tehranClock = (ms) => timeText(ms, 'Asia/Tehran');
 test('events of one day come out in the natural order with plausible gaps (Tehran, 19 Nov 2026)', () => {
   const noon = at('2026-11-19T12:00:00+03:30');
   const today = computeEvents(noon, ...TEHRAN).filter((event) => event.at > at('2026-11-19T00:00:00+03:30') && event.at < at('2026-11-20T00:00:00+03:30'));
-  assert.deepEqual(today.map((event) => event.key), ['fajr', 'sunrise', 'dhuhr', 'sunset', 'maghrib', 'midnight']);
+  assert.deepEqual(today.map((event) => event.key), ['fajr', 'sunrise', 'dhuhr', 'asr', 'sunset', 'maghrib', 'isha', 'midnight']);
   const by = Object.fromEntries(today.map((event) => [event.key, event.at]));
   const minutes = (a, b) => (by[b] - by[a]) / 6e4;
   assert.ok(minutes('fajr', 'sunrise') > 80 && minutes('fajr', 'sunrise') < 100, 'fajr is about 1.5 h before sunrise in November');
   assert.ok(minutes('sunset', 'maghrib') > 14 && minutes('sunset', 'maghrib') < 22, 'Tehran method: maghrib about 18 min after sunset');
   assert.ok(by.dhuhr > at('2026-11-19T11:30:00+03:30') && by.dhuhr < at('2026-11-19T12:15:00+03:30'));
   assert.ok(by.sunset > at('2026-11-19T16:45:00+03:30') && by.sunset < at('2026-11-19T17:30:00+03:30'));
+  assert.ok(minutes('dhuhr', 'asr') > 150 && minutes('dhuhr', 'asr') < 190, 'asr is about 3 h after dhuhr in November');
+  assert.ok(minutes('asr', 'sunset') > 120 && minutes('asr', 'sunset') < 160, 'asr is about 2.3 h before sunset in November');
+  assert.ok(minutes('maghrib', 'isha') > 40 && minutes('maghrib', 'isha') < 60, 'Tehran method: isha (14°) about 50 min after maghrib');
+  assert.ok(by.isha < by.midnight);
   assert.ok(by.midnight > by.maghrib && by.midnight < at('2026-11-20T01:00:00+03:30'));
 });
 
@@ -30,11 +34,59 @@ test('the next event follows the clock, also across midnight', () => {
   assert.equal(key('2026-11-19T03:00:00+03:30'), 'fajr');
   assert.equal(key('2026-11-19T06:00:00+03:30'), 'sunrise');
   assert.equal(key('2026-11-19T09:00:00+03:30'), 'dhuhr');
-  assert.equal(key('2026-11-19T14:00:00+03:30'), 'sunset');
+  assert.equal(key('2026-11-19T14:00:00+03:30'), 'asr');
+  assert.equal(key('2026-11-19T15:30:00+03:30'), 'sunset');
   assert.equal(key('2026-11-19T17:20:00+03:30'), 'maghrib');
+  assert.equal(key('2026-11-19T17:40:00+03:30'), 'isha');
   assert.equal(key('2026-11-19T20:00:00+03:30'), 'midnight');
   assert.equal(key('2026-11-19T23:59:30+03:30'), 'fajr', 'after the Jafari midnight the next one is tomorrow\'s fajr');
   assert.equal(nextEvent(at('2026-11-19T20:00:00+03:30'), ...BIJAR).at > at('2026-11-19T20:00:00+03:30'), true);
+});
+
+test('after the midnight the next event is called "tomorrow\'s fajr"; before dawn the same fajr is just "fajr"', async () => {
+  const label = async (iso) => {
+    const w = world({ state: 'granted', start: at(iso), stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at(iso) - 6e4, city: 'بیجار' }) } });
+    await w.card.start();
+    return w.card.view();
+  };
+  const late = await label('2026-11-19T23:59:30+03:30'); // after the Jafari midnight (about 23:21), before 00:00
+  assert.equal(late.key, 'fajr');
+  assert.equal(late.label, 'اذان صبح فردا');
+  const lateEvening = await label('2026-11-19T20:00:00+03:30');
+  assert.equal(lateEvening.label, 'نیمه‌شب شرعی', 'the midnight never gets "tomorrow"');
+  const beforeDawn = await label('2026-11-20T03:00:00+03:30');
+  assert.equal(beforeDawn.label, 'اذان صبح', 'fajr of the same calendar day');
+  const evening = await label('2026-11-19T17:40:00+03:30');
+  assert.equal(evening.label, 'اذان عشا');
+});
+
+test('the method is the University of Tehran one (fajr 17.7°, maghrib 4.5°, isha 14°, Jafari midnight, standard asr), whatever the library defaults are', async () => {
+  const { PrayTime } = await import('../public/shared/praytime.v3.2.js');
+  const settings = new PrayTime('Tehran').settings;
+  assert.equal(settings.fajr, 17.7);
+  assert.equal(settings.maghrib, 4.5);
+  assert.equal(settings.isha, 14);
+  assert.equal(settings.midnight, 'Jafari');
+  assert.equal(settings.asr, 'Standard');
+  // and the card really uses that method: Bijar, 19 Nov 2026 (fajr 05:32, maghrib 17:30, isha 18:19 by this method)
+  const day = computeEvents(at('2026-11-19T12:00:00+03:30'), ...BIJAR).filter((e) => e.at > at('2026-11-19T00:00:00+03:30') && e.at < at('2026-11-20T00:00:00+03:30'));
+  const clock = Object.fromEntries(day.map((e) => [e.key, tehranClock(e.at)]));
+  assert.deepEqual([clock.fajr, clock.maghrib, clock.isha], ['۰۵:۳۲', '۱۷:۳۰', '۱۸:۱۹']);
+});
+
+test('"tomorrow" is said only before 00:00; from 00:00 the same fajr is plain "اذان صبح", and the word "امروز" is never used', async () => {
+  const view = async (iso) => {
+    const w = world({ state: 'granted', start: at(iso), stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at(iso) - 6e4, city: 'بیجار' }) } });
+    await w.card.start();
+    return w.card.view();
+  };
+  assert.equal((await view('2026-11-19T23:59:59+03:30')).label, 'اذان صبح فردا', 'last second before midnight');
+  assert.equal((await view('2026-11-20T00:00:00+03:30')).label, 'اذان صبح', 'exactly 00:00');
+  assert.equal((await view('2026-11-20T00:00:01+03:30')).label, 'اذان صبح');
+  assert.equal((await view('2026-11-20T04:00:00+03:30')).label, 'اذان صبح', 'any time until the fajr itself');
+  for (const iso of ['2026-11-19T23:59:59+03:30', '2026-11-20T00:30:00+03:30', '2026-11-19T10:00:00+03:30', '2026-11-19T20:00:00+03:30']) {
+    assert.ok(!(await view(iso)).label.includes('امروز'));
+  }
 });
 
 test('an event of yesterday evening that falls after 00:00 is still found (Jafari midnight in summer)', () => {
@@ -223,7 +275,10 @@ test('the countdown moves on with the clock and switches to the next event when 
   assert.notEqual(w.card.view().countdown, first.countdown);
   w.clock.now = at('2026-11-19T13:00:00+03:30');
   w.card.tick();
-  assert.equal(w.card.view().key, 'sunset', 'dhuhr is over: the next event is the sunset');
+  assert.equal(w.card.view().key, 'asr', 'dhuhr is over: the next event is the asr');
+  w.clock.now = at('2026-11-19T15:30:00+03:30');
+  w.card.tick();
+  assert.equal(w.card.view().key, 'sunset');
 });
 
 test('no geolocation API (insecure page, old browser): nothing happens', async () => {
