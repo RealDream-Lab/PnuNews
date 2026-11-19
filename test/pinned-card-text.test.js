@@ -17,3 +17,11 @@ test('the title scales with the reader\'s A+/A− buttons (rem, not px) and the 
   assert.doesNotMatch(rule, /px/);
   assert.doesNotMatch(styles, /\.news-card h2\{[^}]*\.82rem/);
 });
+
+test('the urgent card in the strip has the same frame as the others (only its label is red)', () => {
+  const version = JSON.parse(readFileSync(`${root}package.json`, 'utf8')).version;
+  const styles = readFileSync(`${root}public/reader/styles.v${version}.css`, 'utf8');
+  assert.ok(!/\.pinned-card\.is-urgent\{[^}]*border/.test(styles), 'no red frame');
+  assert.match(styles, /\.pinned-card\.is-urgent \.card-kicker\{color:var\(--urgent\)/);
+  assert.match(styles, /\.pinned-card\{[^}]*border:1px solid var\(--border\)/);
+});
