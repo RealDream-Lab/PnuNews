@@ -103,7 +103,7 @@ scripts/make-deploy-branch.sh
 
 `make-deploy-branch.sh` وابستگی‌های تولید Linux x86_64/glibc را از `main` می‌سازد، باینری‌های sharp را بررسی می‌کند و پیش از push شاخهٔ `deploy` تأیید می‌گیرد. کامیت جدید `deploy` همیشه `origin/deploy` را پدر خود دارد؛ بنابراین push عادی است (بدون force) و روی سرور `git pull --ff-only` کافی است. هرگز `main` را force-push نکنید.
 
-پس از موفقیت build/push، روی سرور:
+تاریخ بیلدی که در «دربارهٔ اخبار پیام‌نور» دیده می‌شود لحظهٔ اجرای همین اسکریپت است (`public/build-info.json` فقط در شاخهٔ `deploy` ساخته می‌شود). پس از موفقیت build/push، روی سرور:
 
 ```sh
 cd /opt/docker/nodejs/workspace/PnuNews

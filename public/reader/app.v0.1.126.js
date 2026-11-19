@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.125.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.125.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.125.js';
+import { initDock } from '/shared/dock.v0.1.126.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.126.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.126.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -890,7 +890,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.125.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.126.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1519,7 +1519,23 @@ document.getElementById('about-button').addEventListener('click', () => {
   const centerCount = (state.config?.provinces ?? []).reduce((sum, province) => sum + province.cities.length, 0);
   document.getElementById('about-centers').textContent = String(centerCount).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[digit]);
   aboutDialog.showModal();
+  showBuildDate();
 });
+
+// The build date (Jalali, Tehran time) is read from /build-info.json the first time the dialog opens; without that file
+// (a copy not built by make-deploy-branch.sh) or offline the line just stays hidden.
+let buildDateShown = false;
+async function showBuildDate() {
+  if (buildDateShown) return;
+  try {
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.126.js');
+    const text = await loadBuildDate();
+    if (!text) return;
+    document.getElementById('about-build').textContent = text;
+    document.getElementById('about-build-row').hidden = false;
+    buildDateShown = true;
+  } catch { /* module or network unavailable: no build line */ }
+}
 
 for (const dialog of [settingsDialog, categoryDialog, aboutDialog]) {
   dialog.addEventListener('click', (event) => {
@@ -2074,7 +2090,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.125.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.126.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
