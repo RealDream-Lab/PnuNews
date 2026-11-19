@@ -25,3 +25,13 @@ test('the urgent card in the strip has the same frame as the others (only its la
   assert.match(styles, /\.pinned-card\.is-urgent \.card-kicker\{color:var\(--urgent\)/);
   assert.match(styles, /\.pinned-card\{[^}]*border:1px solid var\(--border\)/);
 });
+
+test('the important/urgent cards show the summary instead of the title, fall back to the title, and keep the title as the accessible name', () => {
+  const app = readFileSync(`${root}public/reader/app.v${version}.js`, 'utf8');
+  assert.match(app, /<h2>\$\{escapeHtml\(pinnedText\(item\)\)\}<\/h2><\/div><\/article>`;/);
+  assert.match(app, /return summary \|\| item\.title;/);
+  const markup = app.slice(app.indexOf('function pinnedMarkup'), app.indexOf('const PORTAL_LABEL'));
+  assert.match(markup, /aria-label="\$\{escapeHtml\(item\.title\)\}"/, 'the link is still named by the title');
+  assert.match(markup, /data-search-summary="\$\{escapeHtml\(item\.summary \?\? ''\)\}"/, 'search still sees the summary');
+  assert.ok(!/<h2>\$\{escapeHtml\(item\.title\)\}<\/h2>/.test(markup), 'the title is no longer the card text');
+});

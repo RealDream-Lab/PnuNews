@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.124.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.124.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.124.js';
+import { initDock } from '/shared/dock.v0.1.125.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.125.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.125.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -335,12 +335,19 @@ function openCard(card) {
   navigateToNews(card.dataset.newsId);
 }
 
+// The small important/urgent cards show the summary (چکیده) instead of the title; a news without a summary shows its title,
+// so a card is never empty. The title stays the card's accessible name (aria-label) and, like the summary, is searchable.
+function pinnedText(item) {
+  const summary = typeof item.summary === 'string' ? item.summary.trim() : '';
+  return summary || item.title;
+}
+
 function pinnedMarkup(item) {
   const thumbnail = item.cover?.src
     ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
-  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}" data-search-summary="${escapeHtml(item.summary ?? '')}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(item.title)}</h2></div></article>`;
+  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}" data-search-summary="${escapeHtml(item.summary ?? '')}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(pinnedText(item))}</h2></div></article>`;
 }
 
 const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
@@ -883,7 +890,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.124.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.125.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -2067,7 +2074,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.124.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.125.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
