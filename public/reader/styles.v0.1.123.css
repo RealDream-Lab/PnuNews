@@ -495,3 +495,22 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .prayer-name{font-size:.95rem;line-height:1.7;font-weight:700}
 .prayer-time{direction:ltr;unicode-bidi:isolate;font-size:1.05rem;line-height:1.5;font-weight:700;font-variant-numeric:tabular-nums}
 .prayer-left{font-size:.76rem;line-height:1.6;color:var(--muted)}
+
+/* ---------- Page loading layer: a spiral until the first screen is ready, then a soft fade ---------- */
+.page-loader{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:var(--bg);opacity:1;transition:opacity .55s ease,visibility 0s linear .55s;
+  /* Safety net that needs no script: if anything keeps the page from finishing, the layer lifts by itself. */
+  animation:loader-failsafe .01s linear 12s forwards}
+.page-loader.is-leaving{opacity:0;visibility:hidden;pointer-events:none}
+.loader-spiral{width:64px;height:64px;color:var(--primary);fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;animation:loader-spin 1.15s linear infinite}
+.loader-spiral path{stroke-dasharray:150 400;animation:loader-draw 2.3s ease-in-out infinite}
+@keyframes loader-spin{to{transform:rotate(360deg)}}
+@keyframes loader-draw{0%{stroke-dashoffset:0}50%{stroke-dashoffset:-90}100%{stroke-dashoffset:-240}}
+@keyframes loader-failsafe{to{opacity:0;visibility:hidden;pointer-events:none}}
+/* The site-wide reduced-motion rule above switches every animation and transition off with !important; the layer needs
+   its own !important to keep the 12 s safety net and a short fade. A slow pulse of opacity replaces the spinning. */
+@media(prefers-reduced-motion:reduce){
+  .page-loader{animation:loader-failsafe .01s linear 12s forwards!important;transition:opacity .15s ease,visibility 0s linear .15s!important}
+  .loader-spiral{animation:loader-breathe 1.8s ease-in-out infinite!important}
+  .loader-spiral path{animation:none!important;stroke-dasharray:none}
+}
+@keyframes loader-breathe{0%,100%{opacity:.45}50%{opacity:1}}

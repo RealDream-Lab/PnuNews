@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.122.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.122.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.122.js';
+import { initDock } from '/shared/dock.v0.1.123.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.123.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.123.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -26,6 +26,37 @@ const quickSearchCount = document.getElementById('quick-search-count');
 const quickSearchClose = document.getElementById('quick-search-close');
 const searchEmpty = document.getElementById('search-empty');
 const pinnedWrap = document.querySelector('.pinned-wrap');
+
+// ---------- Loading layer ----------
+// The spiral in index.html covers the page until the first screen is really ready (feed or article drawn, fonts and the
+// pictures in view loaded, at most about two seconds of waiting for those), then fades out. It also lifts after 8 s
+// whatever happens, and the stylesheet lifts it by itself after 12 s even if this script never runs.
+const pageLoader = document.getElementById('page-loader');
+let loaderDone = false;
+async function finishLoading() {
+  if (loaderDone || !pageLoader) return;
+  loaderDone = true;
+  const settle = (image) => (image.complete ? Promise.resolve() : new Promise((resolve) => {
+    image.addEventListener('load', resolve, { once: true });
+    image.addEventListener('error', resolve, { once: true });
+  }));
+  const inView = (image) => {
+    const box = image.getBoundingClientRect();
+    return box.width > 0 && box.bottom > 0 && box.top < innerHeight;
+  };
+  const pictures = [...document.querySelectorAll('.news-card img, .pinned-card img, .news-page img')].filter(inView).slice(0, 6);
+  await Promise.race([
+    Promise.all([document.fonts?.ready, ...pictures.map(settle)]),
+    new Promise((resolve) => setTimeout(resolve, 1800)),
+  ]);
+  // Two frames: what shows under the layer when it starts to fade is the finished layout, not a half-drawn one.
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  pageLoader.classList.add('is-leaving');
+  const remove = () => pageLoader.remove();
+  pageLoader.addEventListener('transitionend', remove, { once: true });
+  setTimeout(remove, 900);
+}
+setTimeout(finishLoading, 8000);
 
 const state = {
   config: null,
@@ -617,7 +648,7 @@ async function loadMore() {
     if (state.ended) intersectionObserver?.unobserve(sentinel);
     else rearmSentinel();
     // First page painted (possibly from cache): once the screen is filled, check the server for anything newer.
-    if (isFirstPage) queueFreshCheck();
+    if (isFirstPage) { queueFreshCheck(); finishLoading(); }
     else maybeRunFreshCheck();
   } catch (error) {
     feed.querySelectorAll('.news-skeleton').forEach((node) => node.remove());
@@ -633,6 +664,7 @@ async function loadMore() {
     loadRetryTimer = setTimeout(() => { if (!state.loading && !state.ended && state.city && !state.newsId) rearmSentinel(); }, retryDelay);
     skipNextFreshCheck = false;
     maybeRunFreshCheck();
+    finishLoading(); // the error message is on screen: nothing more to wait for
   }
 }
 
@@ -851,7 +883,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.122.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.123.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1191,12 +1223,14 @@ async function initializeReader({ newsOnly = false } = {}) {
         resetFeed();
         if (savedCityId && !config.provinces?.length) feedMessage.textContent = 'فهرست مراکز دانشگاهی هنوز آماده نیست؛ چند لحظهٔ دیگر صفحه را دوباره بارگذاری کنید.';
         else openPicker();
+        finishLoading(); // no center chosen yet: the picker (or the message) is the first screen
       }
     }
     dock.renderRadio(config.radio);
     if (!newsOnly) maybeAutoplayRadio();
   } catch {
     feedMessage.textContent = 'ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید.';
+    finishLoading();
   }
   state.refreshTimer = setInterval(refreshConfig, 15_000);
   setInterval(syncFeed, 60_000);
@@ -1224,6 +1258,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
     const target = initial ? app : newsView;
     target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><a class="news-back" href="/">بازگشت به خبرها</a></section>`;
     target.hidden = false;
+  } finally {
+    if (initial) finishLoading();
   }
 }
 
@@ -2031,7 +2067,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.122.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.123.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
