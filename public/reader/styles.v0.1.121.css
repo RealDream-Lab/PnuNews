@@ -489,8 +489,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(max-width:560px){.edit-row{grid-template-columns:1fr}.edit-full{margin-inline-start:0;flex:1 1 100%}.edit-body{min-height:180px}}
 .edit-actions{position:sticky;inset-block-end:-1.4rem;z-index:2;margin:0 -1.4rem -1.4rem;padding:.7rem 1.4rem 1.4rem;background:var(--surface);border-top:1px solid var(--border);border-radius:0 0 22px 22px}
 
-/* ---------- Next astronomical / religious event (first card of the important-news strip; narrower than the news cards) ---------- */
-.prayer-card{position:relative;flex:0 0 min(215px,70%);display:grid;gap:.05rem;align-content:center;padding:.65rem .9rem;border:1px solid #EA5C00;border-radius:14px;background:var(--surface);min-width:0;overflow:hidden;cursor:default}
+/* ---------- Next astronomical / religious event (first card of the important-news strip; same look as its other cards, narrower) ---------- */
+.prayer-card{position:relative;flex:0 0 min(215px,70%);display:grid;gap:.05rem;align-content:center;padding:.65rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface);min-width:0;overflow:hidden;cursor:default}
 .prayer-place{font-size:.7rem;line-height:1.5;font-weight:700;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prayer-line{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem}
 .prayer-name{font-size:.95rem;line-height:1.7;font-weight:700}

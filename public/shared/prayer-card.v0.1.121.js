@@ -105,7 +105,9 @@ export function createPrayerCard({
   loadCities = async () => (await (await fetch('/shared/iran-cities.v1.json')).json()).cities,
   timer = true,
 } = {}) {
-  let position = null; // { lat, lon }
+  let position = null; // { lat, lon, city? }: city is the name found last time, so the card is complete before the city list is loaded
+  let positionAt = 0; // when the position was taken (the age of the remembered one is never extended by a city update)
+  let shownRemembered = false;
   let cities = null;
   let citiesRequested = false;
   let current = null; // the event being counted down to
@@ -127,10 +129,15 @@ export function createPrayerCard({
     const stamp = now();
     if (!current || current.at <= stamp) current = nextEvent(stamp, position.lat, position.lon);
     if (!current) { view = null; return; }
-    const place = nearestCity(cities, position.lat, position.lon);
-    const timeZone = place ? 'Asia/Tehran' : undefined; // a place inside Iran shows Iran's clock whatever the device says
+    const place = cities ? nearestCity(cities, position.lat, position.lon) : null;
+    const city = cities ? (place?.name ?? null) : (position.city ?? null);
+    if (cities && (position.city ?? null) !== city) { // remember the name for the next visit
+      position.city = city ?? undefined;
+      write(KEYS.position, JSON.stringify({ lat: position.lat, lon: position.lon, at: positionAt, ...(city ? { city } : {}) }));
+    }
+    const timeZone = city ? 'Asia/Tehran' : undefined; // a place inside Iran shows Iran's clock whatever the device says
     view = {
-      key: current.key, label: current.label, at: current.at, city: place?.name ?? null, province: place?.province ?? null,
+      key: current.key, label: current.label, at: current.at, city, province: place?.province ?? null,
       timeText: timeText(current.at, timeZone), countdown: countdownText(current.at - stamp),
     };
   }
@@ -165,8 +172,12 @@ export function createPrayerCard({
   async function locate() {
     const result = await getPosition();
     if (result.ok) {
-      position = { lat: Math.round(result.lat * 100) / 100, lon: Math.round(result.lon * 100) / 100 }; // about 1 km is plenty for prayer times
-      write(KEYS.position, JSON.stringify({ ...position, at: now() }));
+      const lat = Math.round(result.lat * 100) / 100; // about 1 km is plenty for prayer times
+      const lon = Math.round(result.lon * 100) / 100;
+      const same = position && position.lat === lat && position.lon === lon;
+      position = { lat, lon, ...(same && position.city ? { city: position.city } : {}) };
+      positionAt = now();
+      write(KEYS.position, JSON.stringify({ ...position, at: positionAt }));
       publish();
     } else if (result.code === 1) { // refused (or the question was dismissed): hide the card and ask again tomorrow
       write(KEYS.asked, dayKey(now()));
@@ -216,10 +227,22 @@ export function createPrayerCard({
   }
 
   return {
-    // Shows the remembered position at once (no wait), then runs the permission flow.
-    async start() {
+    // Shows the remembered position at once and synchronously (nothing is awaited), so the page can paint it together
+    // with the rest of the first screen. Returns whether there was one. Safe to call more than once.
+    showRemembered() {
+      if (shownRemembered) return Boolean(position);
+      shownRemembered = true;
       const saved = remembered();
-      if (saved) { position = { lat: saved.lat, lon: saved.lon }; publish(); }
+      if (saved) {
+        position = { lat: saved.lat, lon: saved.lon, ...(typeof saved.city === 'string' && saved.city ? { city: saved.city } : {}) };
+        positionAt = saved.at;
+        publish();
+      }
+      return Boolean(position);
+    },
+    // Then runs the permission flow (this may ask the visitor).
+    async start() {
+      this.showRemembered();
       if (timer && !interval) {
         interval = setInterval(tick, 20_000);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); check(); } });

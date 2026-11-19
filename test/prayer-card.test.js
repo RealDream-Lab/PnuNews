@@ -76,7 +76,7 @@ test('texts: countdown and markup', () => {
 });
 
 // ---------- The question flow ----------
-function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, start = at('2026-11-19T10:00:00+03:30'), stored = {} } = {}) {
+function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, start = at('2026-11-19T10:00:00+03:30'), stored = {}, citiesNever = false } = {}) {
   const clock = { now: start };
   const store = new Map(Object.entries(stored));
   const calls = { position: 0, query: 0 };
@@ -94,7 +94,7 @@ function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, star
     },
     permissions: { query: async () => { calls.query += 1; return status; } },
     now: () => clock.now,
-    loadCities: async () => compactCities(JSON.parse(await readFile('data/IranCities.json', 'utf8'))).cities,
+    loadCities: citiesNever ? () => new Promise(() => {}) : async () => compactCities(JSON.parse(await readFile('data/IranCities.json', 'utf8'))).cities,
     timer: false,
   });
   return { card, clock, store, calls, views, status, listeners, settle: () => new Promise((resolve) => setTimeout(resolve, 20)) };
@@ -177,6 +177,41 @@ test('the visitor changes the permission in the browser settings: the card follo
   assert.equal(w.card.view(), null, 'blocked in the settings: the card goes');
 });
 
+test('a remembered position (with its city) is shown synchronously, before the city list or the permission check', async () => {
+  const savedAt = at('2026-11-19T09:00:00+03:30');
+  const w = world({ state: 'granted', citiesNever: true, stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: savedAt, city: 'بیجار' }) } });
+  const shown = w.card.showRemembered(); // no await: this is what lets the page paint the card with the first screen
+  assert.equal(shown, true);
+  assert.equal(w.views.length, 1);
+  assert.equal(w.card.view().city, 'بیجار', 'complete from the first moment');
+  assert.equal(w.calls.position + w.calls.query, 0, 'nothing asked or awaited');
+  assert.equal(w.card.showRemembered(), true, 'calling it twice changes nothing');
+  assert.equal(w.views.length, 1);
+});
+
+test('without a remembered position showRemembered does nothing', () => {
+  assert.equal(world().card.showRemembered(), false);
+});
+
+test('the city name is remembered for next time without making the position look fresher', async () => {
+  const savedAt = at('2026-11-19T08:00:00+03:30');
+  const w = world({ state: 'granted', stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: savedAt }) } });
+  await w.card.start();
+  await w.settle();
+  const saved = JSON.parse(w.store.get(KEYS.position));
+  assert.equal(saved.city, 'بیجار');
+  assert.equal(saved.at, savedAt, 'the age of the position is unchanged');
+  assert.equal(saved.lat, 35.87);
+});
+
+test('a new position far from the remembered one does not keep the old city name', async () => {
+  const w = world({ state: 'granted', result: { lat: 35.69, lon: 51.39 }, stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T04:00:00+03:30'), city: 'بیجار' }) } });
+  await w.card.start();
+  await w.settle();
+  assert.equal(w.card.view().city, 'تهران');
+  assert.equal(JSON.parse(w.store.get(KEYS.position)).city, 'تهران');
+});
+
 test('the countdown moves on with the clock and switches to the next event when one passes', async () => {
   const w = world({ start: at('2026-11-19T11:00:00+03:30') });
   await w.card.start();
@@ -204,6 +239,11 @@ test('the reader loads the card lazily, keeps clicks away from it and the server
   assert.ok(reader.includes(`import('/shared/prayer-card.v${version}.js')`));
   assert.ok(!/^import .*prayer-card/m.test(reader), 'not a static import: a missing file must not break the reader');
   assert.ok(!/prayer-card[^\n]*data-news-id/.test(reader));
+  const raceAt = reader.indexOf('await Promise.race([prayerReady');
+  const stripAt = reader.indexOf('pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join(\'\');', raceAt);
+  const gateAt = reader.indexOf('openPrayerGate();', stripAt);
+  assert.ok(raceAt > 0 && stripAt > raceAt && gateAt > stripAt, 'the first strip render waits for the card, builds the news cards, then opens the gate for the card in the same step');
+  assert.ok(reader.includes('if (!prayerGate) return;'), 'the card is never put into the strip before the first render');
   const app = await readFile('src/app.js', 'utf8');
   assert.ok(app.includes('geolocation=(self)') && !app.includes('geolocation=()'));
   const sw = await readFile('public/sw.js', 'utf8');

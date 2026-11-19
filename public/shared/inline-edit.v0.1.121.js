@@ -5,7 +5,7 @@
 //
 // This module is loaded only when /api/auth/viewer reports a signed-in user, so ordinary readers never download it.
 // The server is the authority: every save goes through PUT /api/admin/news/:id, which re-checks the permission.
-import { initRichEditor } from '/shared/rich-editor.v0.1.120.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.121.js';
 
 const PENCIL = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Zm9.5-13.5 4 4"/></svg>';
 
