@@ -224,3 +224,15 @@ test('the bookmark and staff edit buttons do not sit on top of each other on a c
   assert.ok(share < save && save < edit, `share ${share} < save ${save} < edit ${edit}`);
   assert.ok(save - share >= 1.8 && edit - save >= 1.8, 'each 26px button has room');
 });
+
+test('on phones the settings button moves to the second row so the saved-news button leaves room for the site name', () => {
+  const phones = /@media\(max-width:639px\)\{([\s\S]*?)\n\}/.exec(styles)?.[1] ?? '';
+  const order = (selector) => Number(new RegExp(`${selector.replaceAll('.', '\\.')}\\{order:(\\d+)`).exec(phones)?.[1]);
+  assert.ok(order('#settings-button') > order('.font-controls'), 'settings comes after the font buttons, at the end of row 2');
+  assert.ok(order('.font-controls') > order('.search-button') && order('.search-button') > order('.city-button'));
+  assert.ok(order('#settings-button') > 9, 'after the line break item (order 9), so it is on the second row');
+  assert.match(phones, /#settings-button\{order:13;margin-top:\.4rem\}/);
+  assert.doesNotMatch(phones, /\.saved-button\{order/, 'the saved-news button stays in the first row');
+  assert.ok(html.indexOf('id="saved-button"') < html.indexOf('id="settings-button"'));
+});
+

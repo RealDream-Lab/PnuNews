@@ -345,7 +345,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
 .site-dock:not(:has(.radio-bar)){display:none}
 /* Whenever the cards are a single column (under 640px) the top bar always has two rows, whatever the width.
-   Row 1: site name + the small icon buttons (category, day/night, settings, about). Row 2: city picker + quick search + font size.
+   Row 1: site name + the small icon buttons (category, saved news, day/night, about). Row 2: city picker + quick search + font size + settings
+   (settings is the least used of the icon buttons; with the saved-news button added, five of them left the site name no room).
    The ::after is a zero-height full-width item that forces the line break. Without it everything could fit
    on one line and the site name would shrink to nothing under the icon buttons. */
 @media(max-width:639px){
@@ -358,6 +359,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .search-button{order:11;margin-top:.4rem}
   .font-controls{order:12;flex:none;margin-top:.4rem}
+  #settings-button{order:13;margin-top:.4rem}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */
