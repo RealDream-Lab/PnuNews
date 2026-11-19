@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام‌نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.126.css">
-  <script src="/shared/theme.v0.1.126.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.127.css">
+  <script src="/shared/theme.v0.1.127.js"></script>
   <title>اخبار پیام‌نور</title>
 </head>
 <body>
@@ -43,6 +43,7 @@
     <symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></symbol><symbol id="icon-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.2"/></symbol>
     <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M5 9h15M4 15h15M10 3 8 21m8-18-2 18"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="icon-bookmark" viewBox="0 0 24 24"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-3.8L6 20V5a1 1 0 0 1 1-1Z"/></symbol>
     <symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m-6.5 6.5L12 5l6.5 6.5"/></symbol>
   </svg>
   <header class="site-header">
@@ -58,6 +59,7 @@
           <button class="font-up" type="button" aria-label="بزرگ کردن اندازهٔ نوشته">A+</button>
         </div>
         <button class="icon-button category-button" id="category-button" type="button" aria-haspopup="dialog" aria-controls="category-dialog" aria-label="دسته‌بندی خبرها" title="دسته‌بندی خبرها" hidden><svg class="icon"><use href="#icon-hash"/></svg></button>
+        <button class="icon-button saved-button" id="saved-button" type="button" aria-haspopup="dialog" aria-controls="saved-dialog" aria-label="خبرهای ذخیره‌شده" title="خبرهای ذخیره‌شده"><svg class="icon"><use href="#icon-bookmark"/></svg><span class="saved-count" id="saved-count" hidden></span></button>
         <button class="icon-button theme-toggle" type="button" aria-label="تغییر حالت روشنایی"><svg class="icon"><use href="#icon-sun"/></svg></button>
         <button class="icon-button" id="settings-button" type="button" aria-haspopup="dialog" aria-controls="settings-dialog" aria-label="تنظیمات" title="تنظیمات"><svg class="icon"><use href="#icon-settings"/></svg></button>
         <button class="icon-button" id="about-button" type="button" aria-haspopup="dialog" aria-controls="about-dialog" aria-label="درباره" title="درباره"><svg class="icon"><use href="#icon-info"/></svg></button>
@@ -120,6 +122,12 @@
       <div class="category-list" id="category-list" role="radiogroup" aria-label="دسته‌بندی خبرها"></div>
     </div>
   </dialog>
+  <dialog id="saved-dialog" class="info-dialog saved-dialog" aria-labelledby="saved-title">
+    <div class="info-panel">
+      <div class="info-header"><div><h2 id="saved-title" class="info-title">خبرهای ذخیره‌شده</h2><p class="info-sub" id="saved-sub"></p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
+      <ul class="saved-list" id="saved-list"></ul>
+    </div>
+  </dialog>
   <dialog id="about-dialog" class="info-dialog" aria-labelledby="about-title">
     <div class="info-panel">
       <div class="info-header"><div><h2 id="about-title" class="info-title">دربارهٔ اخبار پیام‌نور</h2><p class="info-meta"><span><svg class="icon"><use href="#icon-tag"/></svg>نسخه: <b id="about-version"></b></span></p><p class="info-meta" id="about-build-row" hidden><span><svg class="icon"><use href="#icon-calendar"/></svg>تاریخ بیلد: <b id="about-build"></b></span></p><p class="info-meta"><span><svg class="icon"><use href="#icon-location"/></svg>مراکز دانشگاهی فعال: <b id="about-centers"></b></span></p></div><button class="icon-button info-close" type="button" aria-label="بستن" data-dialog-close><svg class="icon"><use href="#icon-close"/></svg></button></div>
@@ -135,6 +143,6 @@
     <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.126.js"></script>
+  <script type="module" src="/reader/app.v0.1.127.js"></script>
 </body>
 </html>

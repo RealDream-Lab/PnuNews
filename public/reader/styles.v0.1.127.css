@@ -399,7 +399,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(prefers-reduced-motion:reduce){.audio-button.is-playing,.audio-button.is-playing:hover{animation:none;box-shadow:0 0 10px 1px rgba(138,92,255,.4)}}
 
 /* With a cover: on the dark strip, vertically centered at its left end (one or two lines of meta), text kept clear of it */
-.card-meta-overlay{padding-inline-end:2.6rem}
+.card-meta-overlay{padding-inline-end:4.7rem}
 .card-meta-overlay .card-share{position:absolute;left:.45rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
 @media(hover:hover){.card-meta-overlay .card-share:hover{color:#8fb8ff}}
 
@@ -435,8 +435,8 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 @media(hover:hover){.card-edit:hover{color:var(--primary)}}
 .card-foot .card-edit{margin-block:-4px;color:var(--muted)}
 .card-foot .card-edit+.card-share{margin-inline-start:.1rem}
-.card-meta-overlay.has-edit,.has-edit .card-meta-overlay{padding-inline-end:5rem}
-.card-meta-overlay .card-edit{position:absolute;left:2.4rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
+.card-meta-overlay.has-edit,.has-edit .card-meta-overlay{padding-inline-end:7rem}
+.card-meta-overlay .card-edit{position:absolute;left:4.35rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
 @media(hover:hover){.card-meta-overlay .card-edit:hover{color:#8fb8ff}}
 .card-edit-pinned{position:absolute;inset-block-end:.35rem;inset-inline-end:.4rem;margin:0;width:28px;height:28px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:50%}
 .pinned-card.has-edit h2{padding-inline-end:1.6rem}
@@ -515,3 +515,43 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .loader-spiral path{animation:none!important;stroke-dasharray:none}
 }
 @keyframes loader-breathe{0%,100%{opacity:.45}50%{opacity:1}}
+
+/* ---------- Saved news: card and page buttons, header badge, list dialog ---------- */
+.card-save{position:relative;flex:none;width:26px;height:26px;margin-inline-start:auto;padding:0;display:grid;place-items:center;border:0;background:transparent;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .12s ease,transform .12s ease}
+.card-save::before{content:"";position:absolute;inset:-8px}
+.card-save .icon{width:16px;height:16px;transition:fill .12s ease}
+@media(hover:hover){.card-save:hover{color:var(--primary)}}
+.card-save:active{transform:scale(.92)}
+.card-save:focus-visible{outline:2px solid currentColor;outline-offset:1px;border-radius:6px}
+.card-save.is-saved,.card-foot .card-save.is-saved{color:var(--primary)}
+.card-save.is-saved .icon,.save-button.is-saved .icon{fill:currentColor}
+.card-foot .card-save{margin-block:-4px;color:var(--muted)}
+.card-foot .card-save~.card-edit,.card-foot .card-save+.card-share{margin-inline-start:.1rem}
+.card-meta-overlay .card-save{position:absolute;left:2.4rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
+.card-meta-overlay .card-save.is-saved{color:#8fb8ff}
+@media(hover:hover){.card-meta-overlay .card-save:hover{color:#8fb8ff}}
+@keyframes save-pop{0%{transform:scale(1)}40%{transform:scale(1.35)}100%{transform:scale(1)}}
+.card-save.is-popping .icon,.save-button.is-popping .icon{animation:save-pop .32s ease-out}
+.save-button.is-saved{background:var(--primary-soft);border-color:var(--primary)}
+.reader-error .news-actions{align-items:center;flex-wrap:wrap}
+.saved-button{position:relative}
+.saved-count{position:absolute;top:-6px;inset-inline-end:-6px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--primary);color:var(--bg);font-size:.68rem;font-weight:700;line-height:18px;text-align:center;pointer-events:none}
+.saved-list{list-style:none;margin:0;padding:0;display:grid;gap:.5rem}
+.saved-item{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);overflow:hidden}
+.saved-open{flex:1;min-width:0;display:flex;align-items:center;gap:.75rem;padding:.55rem .65rem;border:0;background:transparent;color:inherit;text-align:start;cursor:pointer}
+.saved-thumb{flex:none;width:64px;height:64px;border-radius:10px;overflow:hidden;background-color:var(--surface)}
+.saved-thumb img{width:100%;height:100%;display:block;object-fit:cover}
+.saved-text{min-width:0;display:grid;gap:.1rem}
+.saved-text strong{font-size:.95rem;font-weight:500;line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.saved-text small{display:flex;flex-wrap:wrap;gap:0 .8rem;color:var(--muted);font-size:.78rem}
+.saved-remove{flex:none;width:46px;display:grid;place-items:center;border:0;border-inline-start:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+@media(hover:hover){.saved-open:hover strong{color:var(--primary)}.saved-remove:hover{background:var(--surface);color:var(--urgent)}}
+.saved-open:focus-visible,.saved-remove:focus-visible{outline-offset:-3px}
+.saved-empty{display:grid;justify-items:center;gap:.15rem;padding:1.6rem 1rem 1.2rem;text-align:center;color:var(--muted)}
+.saved-empty .icon{width:2rem;height:2rem;margin-bottom:.4rem;color:var(--primary)}
+.saved-empty p{margin:0;font-size:.9rem}
+.saved-empty p:first-of-type{color:var(--text);font-weight:700}
+@media(max-width:767px){
+  .saved-dialog{inset:auto 0 0;width:100%;max-height:88vh;max-height:88dvh;margin:0}
+  .saved-dialog .info-panel{max-height:88vh;max-height:88dvh;border-radius:22px 22px 0 0;border-bottom:0;padding-bottom:calc(1rem + var(--safe-bottom))}
+}
