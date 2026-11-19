@@ -1,6 +1,6 @@
-import { initDock } from '/shared/dock.v0.1.120.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.120.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.120.js';
+import { initDock } from '/shared/dock.v0.1.121.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.121.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.121.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -585,9 +585,11 @@ async function loadMore() {
       const pinned = Array.isArray(data.pinned) ? data.pinned : [];
       state.pinnedIds = new Set(pinned.map((item) => Number(item.id)));
       state.pinnedSig = pinnedSignature(pinned);
+      // The prayer card is waited for (a moment at most) so that it is painted together with the urgent/important cards.
+      await Promise.race([prayerReady, new Promise((resolve) => setTimeout(resolve, 600))]);
       pinnedStrip.hidden = !pinned.length;
       if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
-      syncPrayerCard();
+      openPrayerGate();
     }
     for (const item of data.items) {
       if (state.firstId == null) state.firstId = item.id;
@@ -818,7 +820,10 @@ function animateOut(node) {
 // The module is loaded after the first paint; without it (or without permission) nothing here shows.
 let prayerNode = null;
 let prayerView = null;
+let prayerModule = null;
+let prayerGate = false; // closed until the strip has been built once, so the card never shows up before / apart from the news cards
 function syncPrayerCard() {
+  if (!prayerGate) return;
   if (!prayerView) {
     prayerNode?.remove();
     if (!pinnedStrip.querySelector('[data-news-id]')) pinnedStrip.hidden = true;
@@ -835,14 +840,33 @@ function syncPrayerCard() {
   pinnedStrip.hidden = false;
   updatePinnedNav();
 }
-let prayerModule = null;
-function startPrayerCard() {
-  import('/shared/prayer-card.v0.1.120.js').then((module) => {
-    prayerModule = module;
-    return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } }).start();
-  }).catch(() => { /* offline or an old browser: the strip simply has no prayer card */ });
+function openPrayerGate() {
+  prayerGate = true;
+  syncPrayerCard();
 }
-setTimeout(startPrayerCard, 1200);
+setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
+
+// A visitor who allowed the position before has it remembered: the module is then loaded at once, in parallel with the
+// feed, and the card is ready for the first strip render. Without a remembered position (first visit) the question is
+// asked a moment after the first paint instead.
+let prayerCard = null;
+function loadPrayerCard() {
+  prayerCard ??= import('/shared/prayer-card.v0.1.121.js').then((module) => {
+    prayerModule = module;
+    return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
+  });
+  return prayerCard;
+}
+const prayerPositionRemembered = (() => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pnu.geo.pos'));
+    return Boolean(saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon) && Date.now() - saved.at <= 7 * 864e5);
+  } catch { return false; }
+})();
+const prayerReady = prayerPositionRemembered
+  ? loadPrayerCard().then((card) => card.showRemembered()).catch(() => false) // offline or an old browser: no card, nothing else changes
+  : Promise.resolve(false);
+setTimeout(() => loadPrayerCard().then((card) => card.start()).catch(() => {}), prayerPositionRemembered ? 0 : 1200);
 
 function renderPinnedStrip(pinned) {
   pinnedStrip.hidden = !pinned.length;
@@ -2007,7 +2031,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.120.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.121.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
