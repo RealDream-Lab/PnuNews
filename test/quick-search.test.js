@@ -44,13 +44,14 @@ test('the home page has the search button before the font buttons and a bar that
   assert.equal((html.match(/class="search-field"/g) ?? []).length, 1, 'the city picker keeps the only .search-field');
 });
 
-test('on phones the search button sits in the second header row, between the city button and the font buttons', () => {
+test('on phones the city picker is in the first header row and the search button leads the second row, before the font buttons', () => {
   const phone = styles.slice(styles.indexOf('@media(max-width:639px){\n  .header-inner{flex-wrap:wrap'));
   const order = (selector) => Number(new RegExp(`${selector.replace('.', '\\.')}\\{order:(\\d+)`).exec(phone)?.[1]);
-  assert.equal(order('.city-button'), 10);
-  assert.equal(order('.search-button'), 11);
-  assert.equal(order('.font-controls'), 12);
+  assert.equal(order('.city-button'), 1, 'beside the site name');
+  assert.equal(order('.search-button'), 10);
+  assert.equal(order('.font-controls'), 13);
   assert.ok(order('.search-button') > 9, 'after the line break item, so it is in row 2');
+  assert.ok(order('.search-button') < order('.font-controls'));
 });
 
 test('the filter hides cards without touching the feed data, and keeps working while pages and live updates arrive', () => {

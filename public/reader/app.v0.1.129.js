@@ -1,7 +1,7 @@
-import { initDock } from '/shared/dock.v0.1.128.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.128.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.128.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.128.js';
+import { initDock } from '/shared/dock.v0.1.129.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.129.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.129.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.129.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -112,6 +112,8 @@ const dock = initDock({ showToast });
 
 // Saved news (bookmarks) live on this device only; see /shared/bookmarks. Created early because cards read it when they are drawn.
 const bookmarks = createBookmarkStore({ storage: (() => { try { return localStorage; } catch { return null; } })() });
+// The important/urgent items currently in the strip, so a tap on the bookmark of one of those small cards can save its snapshot.
+const pinnedItems = new Map();
 
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
@@ -353,11 +355,12 @@ function pinnedText(item) {
 }
 
 function pinnedMarkup(item) {
+  pinnedItems.set(Number(item.id), item);
   const thumbnail = item.cover?.src
     ? `<div class="pinned-cover-frame">${placeholderMarkup(item.cover.dominant_color)}<img referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" width="104" height="59" loading="lazy" alt=""></div>`
     : '';
   const classes = ['pinned-card', item.is_urgent ? 'is-urgent' : '', thumbnail ? '' : 'no-thumb'].filter(Boolean).join(' ');
-  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}" data-search-summary="${escapeHtml(item.summary ?? '')}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span></div><h2>${escapeHtml(pinnedText(item))}</h2></div></article>`;
+  return `<article class="${classes}" data-news-id="${item.id}"${externalAttributes(item)} tabindex="0" role="link" aria-label="${escapeHtml(item.title)}" data-search-summary="${escapeHtml(item.summary ?? '')}">${thumbnail}<div><div class="card-meta"><span class="card-kicker">${item.is_urgent ? 'خبر فوری' : 'خبر مهم'}</span>${cardSaveMarkup(item)}</div><h2>${escapeHtml(pinnedText(item))}</h2></div></article>`;
 }
 
 const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
@@ -900,7 +903,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.128.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.129.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1402,7 +1405,7 @@ const savedCount = document.getElementById('saved-count');
 function itemForCard(card) {
   const id = Number(card.dataset.newsId);
   const entry = state.entries.find((candidate) => Number(candidate.id) === id);
-  return entry?.item ?? { id, title: card.getAttribute('aria-label') ?? '' };
+  return entry?.item ?? pinnedItems.get(id) ?? { id, title: card.getAttribute('aria-label') ?? '' };
 }
 
 function toggleSaved(item, button) {
@@ -1652,7 +1655,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.128.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.129.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2029,6 +2032,13 @@ pinnedStrip.addEventListener('wheel', (event) => {
 updatePinnedNav();
 
 pinnedStrip.addEventListener('click', (event) => {
+  const saveButton = event.target.closest('[data-save-card]');
+  if (saveButton) {
+    event.stopPropagation();
+    const savedCard = saveButton.closest('[data-news-id]');
+    if (savedCard) toggleSaved(itemForCard(savedCard), saveButton);
+    return;
+  }
   const card = event.target.closest('[data-news-id]');
   if (card) openCard(card);
 });
@@ -2230,7 +2240,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.128.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.129.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

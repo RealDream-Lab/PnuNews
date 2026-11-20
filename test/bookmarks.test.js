@@ -225,14 +225,30 @@ test('the bookmark and staff edit buttons do not sit on top of each other on a c
   assert.ok(save - share >= 1.8 && edit - save >= 1.8, 'each 26px button has room');
 });
 
-test('on phones the settings button moves to the second row so the saved-news button leaves room for the site name', () => {
+test('on phones the city picker sits beside the site name and all the buttons share the second row', () => {
   const phones = /@media\(max-width:639px\)\{([\s\S]*?)\n\}/.exec(styles)?.[1] ?? '';
-  const order = (selector) => Number(new RegExp(`${selector.replaceAll('.', '\\.')}\\{order:(\\d+)`).exec(phones)?.[1]);
-  assert.ok(order('#settings-button') > order('.font-controls'), 'settings comes after the font buttons, at the end of row 2');
-  assert.ok(order('.font-controls') > order('.search-button') && order('.search-button') > order('.city-button'));
-  assert.ok(order('#settings-button') > 9, 'after the line break item (order 9), so it is on the second row');
-  assert.match(phones, /#settings-button\{order:13;margin-top:\.4rem\}/);
-  assert.doesNotMatch(phones, /\.saved-button\{order/, 'the saved-news button stays in the first row');
+  const order = (selector) => Number(new RegExp(`(?:^|[\\n,}])\\s*${selector.replaceAll('.', '\\.')}\\{order:(\\d+)`).exec(phones)?.[1]);
+  const buttons = ['.search-button', '.category-button', '.saved-button', '.font-controls', '.theme-toggle', '#settings-button', '#about-button'];
+  const orders = buttons.map(order);
+  assert.ok(orders.every((value) => value > 9), `every button is after the line break item (order 9): ${orders}`);
+  assert.deepEqual([...orders].sort((a, b) => a - b), orders, 'the buttons keep this order: search, category, saved, font, day/night, settings, about');
+  assert.equal(new Set(orders).size, orders.length);
+  assert.ok(order('.city-button') < 9, 'the city picker is in the first row');
+  assert.match(phones, /\.city-button\{order:1;flex:1 1 0;min-width:0/, 'and takes the room the name leaves');
+  assert.match(phones, /\.brand\{flex:none;order:0\}/, 'the site name is never squeezed');
+  assert.match(phones, /\.header-actions\{display:contents\}/);
+  assert.match(phones, /justify-content:space-between/);
+  assert.match(styles, /@media\(max-width:359px\)\{[^@]*\.icon-button\{width:34px/, 'smaller buttons on 320px phones');
   assert.ok(html.indexOf('id="saved-button"') < html.indexOf('id="settings-button"'));
+});
+
+test('the small important/urgent cards have the bookmark button too, in the kicker row, and save from the strip', () => {
+  const markup = script.slice(script.indexOf('function pinnedMarkup'), script.indexOf('const PORTAL_LABEL'));
+  assert.match(markup, /<span class="card-kicker">[^]*?<\/span>\$\{cardSaveMarkup\(item\)\}<\/div><h2>/, 'the button sits next to the kicker, so the text keeps its full width');
+  assert.match(markup, /pinnedItems\.set\(Number\(item\.id\), item\)/, 'the item is kept for the snapshot');
+  const strip = script.slice(script.indexOf("pinnedStrip.addEventListener('click'"));
+  assert.ok(strip.indexOf('[data-save-card]') > -1 && strip.indexOf('[data-save-card]') < strip.indexOf("closest('[data-news-id]')"), 'the save tap is handled before the card opens');
+  assert.match(script, /entry\?\.item \?\? pinnedItems\.get\(id\)/);
+  assert.match(styles, /\.pinned-card \.card-save\{/);
 });
 

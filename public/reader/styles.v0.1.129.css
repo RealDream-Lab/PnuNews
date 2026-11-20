@@ -345,21 +345,31 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* The footer only carries the radio player: no radio, no footer. About/settings live in the header. */
 .site-dock:not(:has(.radio-bar)){display:none}
 /* Whenever the cards are a single column (under 640px) the top bar always has two rows, whatever the width.
-   Row 1: site name + the small icon buttons (category, saved news, day/night, about). Row 2: city picker + quick search + font size + settings
-   (settings is the least used of the icon buttons; with the saved-news button added, five of them left the site name no room).
-   The ::after is a zero-height full-width item that forces the line break. Without it everything could fit
-   on one line and the site name would shrink to nothing under the icon buttons. */
+   Row 1: site name + city picker (the picker takes all the room the name leaves). Row 2: every button, spread across the width:
+   search, category, saved news, font size, day/night, settings, about.
+   The ::after is a zero-height full-width item that forces the line break (order 9, between the two rows). */
 @media(max-width:639px){
-  .header-inner{flex-wrap:wrap;row-gap:0;padding-block:.4rem}
+  .header-inner{flex-wrap:wrap;row-gap:0;padding-block:.4rem;justify-content:space-between}
   .header-inner::after{content:"";order:9;flex:0 0 100%;height:0}
   .header-actions{display:contents}
-  .brand{flex:1 1 0;min-width:0}
+  .brand{flex:none;order:0}
   .brand-name{overflow:visible;text-overflow:clip}
-  .city-button{order:10;flex:1 1 0;min-width:0;margin-inline-end:0;margin-top:.4rem}
+  .city-button{order:1;flex:1 1 0;min-width:0;margin-inline-end:0}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .search-button{order:11;margin-top:.4rem}
-  .font-controls{order:12;flex:none;margin-top:.4rem}
-  #settings-button{order:13;margin-top:.4rem}
+  .search-button,.category-button,.saved-button,.font-controls,.theme-toggle,#settings-button,#about-button{margin-top:.4rem}
+  .search-button{order:10}
+  .category-button{order:11}
+  .saved-button{order:12}
+  .font-controls{order:13;flex:none}
+  .theme-toggle{order:14}
+  #settings-button{order:15}
+  #about-button{order:16}
+}
+/* Seven buttons (299px) do not fit in the 288px of a 320px phone: make them a little smaller there. */
+@media(max-width:359px){
+  .icon-button{width:34px;height:34px}
+  .font-controls{height:34px}
+  .font-controls button{min-width:30px}
 }
 
 /* ---------- Radio: no box, full width, one piece with the footer ---------- */
@@ -528,6 +538,9 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .card-save.is-saved,.card-foot .card-save.is-saved{color:var(--primary)}
 .card-save.is-saved .icon,.save-button.is-saved .icon{fill:currentColor}
 .card-foot .card-save{margin-block:-4px;color:var(--muted)}
+.pinned-card .card-save{margin-block:-5px;color:var(--muted)}
+.pinned-card .card-save.is-saved{color:var(--primary)}
+@media(hover:hover){.pinned-card .card-save:hover{color:var(--primary)}}
 .card-foot .card-save~.card-edit,.card-foot .card-save+.card-share{margin-inline-start:.1rem}
 .card-meta-overlay .card-save{position:absolute;left:2.4rem;top:50%;translate:0 -50%;margin:0;color:rgba(255,255,255,.92);pointer-events:auto}
 .card-meta-overlay .card-save.is-saved{color:#8fb8ff}
