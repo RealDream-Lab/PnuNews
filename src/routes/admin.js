@@ -14,6 +14,7 @@ import { createNewsAdminRouter } from './news-admin.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
 import { createDomainAdminRouter } from './domains-admin.js';
+import { createReaderAdminRouter } from './readers-admin.js';
 
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]{3,80}$/u;
 const VISIBILITY_VALUES = new Set(['auto', 'show', 'hide']);
@@ -146,6 +147,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
   router.use('/attachments', createAttachmentDeleteRouter({ pool, uploadRoot }));
   router.use('/categories', createCategoryAdminRouter({ pool }));
   router.use('/domains', createDomainAdminRouter({ pool }));
+  router.use('/readers', createReaderAdminRouter({ pool }));
 
   // internal = the app's own timer (every 3 minutes); external = an OS scheduler runs scripts/fetch-portal-news.sh
   const portalMode = () => (process.env.PORTAL_FETCH_MODE === 'external' ? 'external' : 'internal');

@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.128.css">
-<script src="/shared/theme.v0.1.128.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.129.css">
+<script src="/shared/theme.v0.1.129.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.128.js"></script>
+<script type="module" src="/reader/app.v0.1.129.js"></script>
 </body>
 </html>`;
 }
@@ -362,7 +362,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     try {
       const result = await cache.get('config', async () => {
         const [settings, provinces] = await Promise.all([
-          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url']),
+          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url', 'reader_signup_enabled']),
           visibleRegions(pool),
         ]);
         let radio = { enabled: false };
@@ -380,7 +380,9 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
             }
           } catch {}
         }
-        return { site_title: settings.site_title || 'اخبار پیام نور', radio, provinces };
+        // Whether readers can sign up and log in (switch of the main admin). Off: the reader hides every login screen and keeps bookmarks on the device.
+        const reader = { signup_enabled: settings.reader_signup_enabled === '1' };
+        return { site_title: settings.site_title || 'اخبار پیام نور', radio, reader, provinces };
       });
       response.setHeader('Cache-Control', 'public, max-age=15');
       return response.json(result);
