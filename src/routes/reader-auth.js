@@ -212,10 +212,8 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
     }
   });
 
-  router.get('/me', authenticate, (request, response) => {
-    if (!request.reader) return fail(response, 401, 'signIn');
-    return response.json({ user: request.reader });
-  });
+  // Not signed in is an ordinary answer here ({ user: null }), not an error: the reader asks once on every visit.
+  router.get('/me', authenticate, (request, response) => response.json({ user: request.reader }));
 
   router.patch('/me', authenticate, async (request, response, next) => {
     try {

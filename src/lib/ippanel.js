@@ -7,7 +7,7 @@ import { readLimitedText } from './net-guard.js';
 //
 // A send is never repeated here, whatever happens: after a timeout the SMS may still have been delivered and charged.
 export function createIppanelClient({
-  baseUrl = 'https://edge.ippanel.com/v1', apiKey = '', patternCode = '', fromNumber = '',
+  baseUrl = 'https://edge.ippanel.com/v1', apiKey = '', patternCode = '', patternVariable = 'OPT', fromNumber = '',
   dryRun = false, fetchImpl = fetch, timeoutMs = 8000, logger = console,
 } = {}) {
   const configured = dryRun || Boolean(apiKey && patternCode && fromNumber);
@@ -41,7 +41,8 @@ export function createIppanelClient({
     configured,
     dryRun,
 
-    // phone: E.164 (+98912...). Success is meta.status === true together with an outbox id; the HTTP status alone is not enough.
+    // phone: E.164 (+98912...). The code goes into the pattern's variable (OPT by default, a number-type variable).
+    // Success is meta.status === true together with an outbox id; the HTTP status alone is not enough.
     async sendPattern(phone, code) {
       if (dryRun) {
         logger.info(`[ippanel dry-run] code for ${phone}: ${code}`);
@@ -50,7 +51,7 @@ export function createIppanelClient({
       if (!configured) return { ok: false, kind: 'not_configured' };
       const result = await request('/api/send', {
         method: 'POST',
-        body: { sending_type: 'pattern', from_number: fromNumber, code: patternCode, recipients: [phone], params: { code: String(code) } },
+        body: { sending_type: 'pattern', from_number: fromNumber, code: patternCode, recipients: [phone], params: { [patternVariable]: String(code) } },
       });
       if (result.transport) return { ok: false, kind: result.transport };
       const ids = result.parsed?.data?.message_outbox_ids;

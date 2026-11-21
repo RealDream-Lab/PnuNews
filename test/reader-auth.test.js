@@ -7,7 +7,7 @@ import { createApp } from '../src/app.js';
 import { loadIppanelConfig } from '../src/config.js';
 import { createIppanelClient } from '../src/lib/ippanel.js';
 import {
-  cleanOtpInput, cleanPersonName, cleanStudentNumber, hashOtp, maskPhone, normalizeDigits, normalizePhone, readSignupToken, signSignupToken,
+  cleanOtpInput, cleanPersonName, cleanStudentNumber, hashOtp, maskPhone, generateOtp, normalizeDigits, normalizePhone, readSignupToken, signSignupToken,
 } from '../src/lib/reader-auth.js';
 import { createSmsBudget } from '../src/lib/sms-budget.js';
 import { createReaderAdminRouter } from '../src/routes/readers-admin.js';
@@ -41,6 +41,10 @@ test('names, student numbers and codes are checked and normalised', () => {
   for (const bad of ['12345', '1234567', 'abcdef', '', null, 123456.5]) assert.equal(cleanOtpInput(bad), null, String(bad));
 });
 
+test('the code has six digits and never starts with 0 (the pattern variable is a number type)', () => {
+  for (let i = 0; i < 3000; i += 1) assert.match(generateOtp(), /^[1-9]\d{5}$/);
+});
+
 test('the code is stored as a hash that is bound to the phone number, and the signup token is signed, short-lived and tamper-proof', () => {
   const a = hashOtp(SECRET, '+989121234567', '123456');
   assert.match(a, /^[0-9a-f]{64}$/);
@@ -62,7 +66,7 @@ test('the code is stored as a hash that is bound to the phone number, and the si
 // ---------- configuration ----------
 
 test('ippanel configuration: optional, strict about the address, and dry-run is for development only', () => {
-  assert.deepEqual({ ...loadIppanelConfig({}) }, { baseUrl: 'https://edge.ippanel.com/v1', apiKey: '', patternCode: '', fromNumber: '', dryRun: false });
+  assert.deepEqual({ ...loadIppanelConfig({}) }, { baseUrl: 'https://edge.ippanel.com/v1', apiKey: '', patternCode: '', patternVariable: 'OPT', fromNumber: '', dryRun: false });
   const full = loadIppanelConfig({ IPPANEL_BASE_URL: 'https://edge.ippanel.com/v1/', IPPANEL_API_KEY: ' key ', IPPANEL_PATTERN_CODE: 'abc', IPPANEL_FROM_NUMBER: '+983000505', NODE_ENV: 'production' });
   assert.equal(full.baseUrl, 'https://edge.ippanel.com/v1', 'no trailing slash');
   assert.equal(full.apiKey, 'key');
@@ -71,6 +75,8 @@ test('ippanel configuration: optional, strict about the address, and dry-run is 
   assert.throws(() => loadIppanelConfig({ IPPANEL_BASE_URL: 'http://localhost:9000', NODE_ENV: 'production' }), /https/);
   assert.doesNotThrow(() => loadIppanelConfig({ IPPANEL_BASE_URL: 'http://localhost:9000', NODE_ENV: 'development' }));
   assert.throws(() => loadIppanelConfig({ IPPANEL_FROM_NUMBER: '3000505' }), /E\.164|\+983000505/);
+  assert.equal(loadIppanelConfig({ IPPANEL_PATTERN_VARIABLE: 'otp_code' }).patternVariable, 'otp_code');
+  for (const bad of ['%OPT%', 'OPT code', '1x', 'عدد']) assert.throws(() => loadIppanelConfig({ IPPANEL_PATTERN_VARIABLE: bad }), /PATTERN_VARIABLE/, bad);
   assert.equal(loadIppanelConfig({ IPPANEL_DRY_RUN: '1', NODE_ENV: 'development' }).dryRun, true);
   assert.throws(() => loadIppanelConfig({ IPPANEL_DRY_RUN: '1', NODE_ENV: 'production' }), /DRY_RUN/, 'codes must never be printed in production');
 });
@@ -103,9 +109,12 @@ test('ippanel send: the request is exactly the documented one, and success needs
   assert.equal(call.init.headers.Authorization, 'SECRET-KEY', 'the raw key, no Bearer');
   assert.equal(call.init.headers['Content-Type'], 'application/json');
   assert.equal(call.init.redirect, 'error', 'the key never follows a redirect');
-  assert.deepEqual(call.body, { sending_type: 'pattern', from_number: '+983000505', code: 'pat123', recipients: ['+989121234567'], params: { code: '654321' } });
+  assert.deepEqual(call.body, { sending_type: 'pattern', from_number: '+983000505', code: 'pat123', recipients: ['+989121234567'], params: { OPT: '654321' } });
   assert.equal(call.body.recipients.length, 1, 'one recipient per request');
   assert.ok(!('phonebook' in call.body));
+  const custom = mockFetch(() => SUCCESS);
+  await createIppanelClient({ ...CLIENT, patternVariable: 'otp_code', fetchImpl: custom }).sendPattern('+989121234567', '111222');
+  assert.deepEqual(custom.calls[0].body.params, { otp_code: '111222' }, 'the variable name is configurable');
 });
 
 test('ippanel send: every kind of failure is told apart, and nothing secret is in the result', async () => {
@@ -253,7 +262,7 @@ async function withReaderApp({ settings = { reader_signup_enabled: '1' }, ippane
   const quiet = console.warn;
   console.warn = () => {};
   try {
-    const sentCodes = () => fetchImpl.calls.filter((call) => call.url.endsWith('/api/send')).map((call) => call.body.params.code);
+    const sentCodes = () => fetchImpl.calls.filter((call) => call.url.endsWith('/api/send')).map((call) => call.body.params.OPT);
     const call = (path, options) => httpCall(server, path, options);
     const requestCode = (phone = '09121234567') => call('/api/reader/auth/request-code', { method: 'POST', body: { phone } });
     const verify = (code, phone = '09121234567') => call('/api/reader/auth/verify', { method: 'POST', body: { phone, code } });
@@ -418,8 +427,8 @@ test('a new reader: code, verification, signup form, session; the same number la
     assert.equal(me.status, 200);
     assert.equal(me.json.user.first_name, 'علی');
     assert.equal(me.headers['cache-control'], 'no-store');
-    assert.equal((await call('/api/reader/me')).status, 401);
-    assert.equal((await call('/api/reader/me', { cookie: 'pnu_reader=wrong' })).status, 401);
+    assert.deepEqual((await call('/api/reader/me')).json, { user: null }, 'not signed in is an ordinary answer');
+    assert.deepEqual((await call('/api/reader/me', { cookie: 'pnu_reader=wrong' })).json, { user: null });
 
     clock.now += 61_000;
     await requestCode();
@@ -433,7 +442,7 @@ test('a new reader: code, verification, signup form, session; the same number la
 
     const out = await call('/api/reader/auth/logout', { method: 'POST', body: {}, cookie: second.cookie });
     assert.equal(out.status, 200);
-    assert.equal((await call('/api/reader/me', { cookie: second.cookie })).status, 401, 'the signed-out session is gone');
+    assert.equal((await call('/api/reader/me', { cookie: second.cookie })).json.user, null, 'the signed-out session is gone');
     assert.equal((await call('/api/reader/me', { cookie: signed.cookie })).status, 200, 'the other device stays signed in');
   });
 });
@@ -539,7 +548,7 @@ test('profile: the reader can change the name, the center and the student number
     assert.ok(renewed.cookie, 'the cookie is set again');
     assert.equal(db.sessions[0].expires_at - before, 2 * 24 * 3600_000, 'the 90 days start again');
     clock.now += 91 * 24 * 3600_000;
-    assert.equal((await call('/api/reader/me', { cookie })).status, 401, 'an unused session ends after 90 days');
+    assert.equal((await call('/api/reader/me', { cookie })).json.user, null, 'an unused session ends after 90 days');
   });
 });
 

@@ -24,7 +24,7 @@ const why = (result) => `${KIND[result.kind] ?? result.kind}${result.messageCode
 try {
   const config = loadIppanelConfig();
   const client = createIppanelClient(config);
-  console.info(`آدرس: ${config.baseUrl}  | کلید: ${config.apiKey ? 'تنظیم شده' : 'تنظیم نشده'}  | پترن: ${config.patternCode ? 'تنظیم شده' : 'تنظیم نشده'}  | فرستنده: ${config.fromNumber || 'تنظیم نشده'}${config.dryRun ? '  | حالت آزمایشی (DRY_RUN)' : ''}`);
+  console.info(`آدرس: ${config.baseUrl}  | کلید: ${config.apiKey ? 'تنظیم شده' : 'تنظیم نشده'}  | پترن: ${config.patternCode ? 'تنظیم شده' : 'تنظیم نشده'} (متغیر ${config.patternVariable})  | فرستنده: ${config.fromNumber || 'تنظیم نشده'}${config.dryRun ? '  | حالت آزمایشی (DRY_RUN)' : ''}`);
   if (!client.configured) throw new Error(KIND.not_configured);
 
   const credit = await client.getCredit();
@@ -37,7 +37,7 @@ try {
   if (target !== undefined) {
     const phone = normalizePhone(target);
     if (!phone) throw new Error('شمارهٔ --send معتبر نیست؛ مثلاً 09121234567.');
-    console.info(`در حال ارسال یک پیامک آزمایشی (کد 123456) به ${maskPhone(phone)} ...`);
+    console.info(`در حال ارسال یک پیامک آزمایشی (کد 123456 در متغیر ${config.patternVariable}) به ${maskPhone(phone)} ...`);
     const sent = await client.sendPattern(phone, '123456');
     if (!sent.ok) throw new Error(`ارسال ناموفق بود: ${why(sent)}`);
     console.info(`OK: پیامک پذیرفته شد (شناسهٔ ارسال ${sent.outboxId}).`);

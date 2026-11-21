@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.130.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.130.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.130.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.130.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.130.js';
+import { initDock } from '/shared/dock.v0.1.131.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.131.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.131.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.131.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.131.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -910,7 +910,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.130.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.131.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1185,6 +1185,7 @@ async function refreshConfig() {
     const nextConfig = await getJson('/api/public/config');
     const regionsChanged = JSON.stringify(nextConfig.provinces) !== JSON.stringify(state.config?.provinces);
     state.config = nextConfig;
+    syncAccountUi();
     const currentNewsTitle = state.newsId ? document.querySelector('#news-view h1')?.textContent : null;
     document.title = currentNewsTitle ? `${currentNewsTitle} — ${nextConfig.site_title || 'اخبار پیام‌نور'}` : nextConfig.site_title || 'اخبار پیام‌نور';
     document.getElementById('site-title').textContent = nextConfig.site_title || 'اخبار پیام‌نور';
@@ -1227,6 +1228,7 @@ async function initializeReader({ newsOnly = false } = {}) {
   try {
     const config = await getJson('/api/public/config');
     state.config = config;
+    syncAccountUi();
     document.title = config.site_title || 'اخبار پیام‌نور';
     document.getElementById('site-title').textContent = config.site_title || 'اخبار پیام‌نور';
     if (newsOnly) {
@@ -1511,6 +1513,49 @@ window.addEventListener('storage', (event) => {
 });
 syncSavedUi();
 
+// ---------- Reader account (login by SMS code) ----------
+// The button exists only while the main admin has reader signup switched on (/api/public/config: reader.signup_enabled).
+// Everything behind it (the dialog, the steps) is a separate module, loaded on the first tap.
+const accountButton = document.getElementById('account-button');
+let readerUser = null;
+let readerChecked = false;
+let accountModule = null;
+
+function syncAccountUi() {
+  const enabled = state.config?.reader?.signup_enabled === true;
+  accountButton.hidden = !enabled;
+  accountButton.classList.toggle('is-signed-in', enabled && Boolean(readerUser));
+  const label = enabled && readerUser ? `حساب من، ${readerUser.first_name}` : 'ورود یا ثبت‌نام';
+  accountButton.setAttribute('aria-label', label);
+  accountButton.title = label;
+  if (!enabled) {
+    accountModule?.then((module) => module.closeAccount()).catch(() => {});
+    return;
+  }
+  if (!readerChecked) { // one quiet question: is this browser already signed in?
+    readerChecked = true;
+    getJson('/api/reader/me').then(({ user }) => { readerUser = user; syncAccountUi(); }).catch(() => { readerChecked = false; });
+  }
+}
+
+accountButton.addEventListener('click', async () => {
+  accountModule ??= import('/shared/reader-account.v0.1.131.js');
+  try {
+    const module = await accountModule;
+    module.openAccount({
+      user: readerUser,
+      provinces: state.config?.provinces ?? [],
+      defaultUnitId: state.city?.id ?? null,
+      showToast,
+      onUser: (user) => { readerUser = user; syncAccountUi(); },
+      onDisabled: () => { state.config = { ...state.config, reader: { signup_enabled: false } }; syncAccountUi(); },
+    });
+  } catch {
+    accountModule = null;
+    showToast('بارگذاری بخش حساب ممکن نشد؛ اتصال اینترنت را بررسی کنید.');
+  }
+});
+
 // ---------- Settings and about dialogs ----------
 const settingsDialog = document.getElementById('settings-dialog');
 const aboutDialog = document.getElementById('about-dialog');
@@ -1666,7 +1711,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.130.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.131.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2251,7 +2296,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.130.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.131.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

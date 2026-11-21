@@ -39,7 +39,12 @@ export function loadIppanelConfig(env = process.env) {
   if (fromNumber && !/^\+\d{6,15}$/.test(fromNumber)) {
     throw new Error('IPPANEL_FROM_NUMBER باید با قالب بین‌المللی باشد، مثل +983000505.\nIPPANEL_FROM_NUMBER must be in E.164 format.');
   }
-  return Object.freeze({ baseUrl, apiKey: text('IPPANEL_API_KEY'), patternCode: text('IPPANEL_PATTERN_CODE'), fromNumber, dryRun });
+  // The name of the variable in the pattern text (a pattern says «%OPT%», not «%code%»); the owner's pattern uses OPT.
+  const patternVariable = text('IPPANEL_PATTERN_VARIABLE') || 'OPT';
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,30}$/.test(patternVariable)) {
+    throw new Error('IPPANEL_PATTERN_VARIABLE باید فقط حروف انگلیسی، رقم و _ باشد، مثل OPT.\nIPPANEL_PATTERN_VARIABLE must be letters, digits and underscore only.');
+  }
+  return Object.freeze({ baseUrl, apiKey: text('IPPANEL_API_KEY'), patternCode: text('IPPANEL_PATTERN_CODE'), patternVariable, fromNumber, dryRun });
 }
 
 export function loadConfig(env = process.env) {

@@ -355,6 +355,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .brand{flex:none;order:0}
   .brand-name{overflow:visible;text-overflow:clip}
   .city-button{order:1;flex:1 1 0;min-width:0;margin-inline-end:0}
+  .account-button{order:2}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .search-button,.category-button,.saved-button,.font-controls,.theme-toggle,#settings-button,#about-button{margin-top:.4rem}
   .search-button{order:10}
@@ -570,3 +571,51 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .saved-dialog{inset:auto 0 0;width:100%;max-height:88vh;max-height:88dvh;margin:0}
   .saved-dialog .info-panel{max-height:88vh;max-height:88dvh;border-radius:22px 22px 0 0;border-bottom:0;padding-bottom:calc(1rem + var(--safe-bottom))}
 }
+
+/* ---------- Reader account: login by SMS code, signup and profile ---------- */
+.account-button.is-signed-in{color:var(--primary);border-color:var(--primary);background:var(--primary-soft)}
+.account-button.is-signed-in .icon{fill:currentColor}
+.account-body{display:grid;gap:1rem}
+.account-form{display:grid;gap:.9rem}
+.account-two{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.account-field{display:grid;gap:.35rem;min-width:0}
+.account-field>span,.account-phone>span{font-size:.84rem;color:var(--muted)}
+.account-field input,.account-field select{width:100%;min-height:48px;padding:0 .9rem;border:1px solid var(--border);border-radius:12px;background:var(--surface-soft);color:var(--text);font:inherit;font-size:1rem;transition:border-color .15s ease,box-shadow .15s ease}
+.account-field select{padding-inline-end:.6rem}
+.account-field input:focus,.account-field select:focus,.account-code:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.account-field input[dir=ltr]{text-align:left}
+.account-field input[dir=ltr]::placeholder{text-align:left}
+.account-lead{margin:0;line-height:1.9;color:var(--text)}
+.account-code{width:100%;min-height:58px;padding:0 .9rem;padding-inline-start:calc(.9rem + .45em);border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);color:var(--text);font:inherit;font-size:1.7rem;font-weight:700;letter-spacing:.45em;text-align:center;direction:ltr;font-variant-numeric:tabular-nums;transition:border-color .15s ease,box-shadow .15s ease}
+.account-code::placeholder{color:var(--muted);font-weight:400}
+.account-error{margin:0;padding:.65rem .85rem;border-radius:12px;background:var(--urgent-soft,rgba(220,38,38,.1));color:var(--urgent);font-size:.88rem;line-height:1.8}
+.account-error[hidden]{display:none}
+.account-primary,.account-secondary{min-height:50px;border-radius:14px;font:inherit;font-size:1rem;font-weight:700;cursor:pointer;transition:filter .15s ease,background .15s ease,opacity .15s ease}
+.account-primary{border:0;background:var(--primary);color:var(--bg)}
+.account-primary:disabled{opacity:.6;cursor:progress}
+.account-secondary{border:1px solid var(--border);background:transparent;color:var(--urgent)}
+@media(hover:hover){.account-primary:hover:not(:disabled){filter:brightness(1.08)}.account-secondary:hover{background:var(--surface-soft)}}
+.account-primary:focus-visible,.account-secondary:focus-visible,.account-link:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.account-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.4rem .8rem}
+.account-link{min-height:40px;padding:0 .2rem;border:0;background:transparent;color:var(--primary);font:inherit;font-size:.88rem;cursor:pointer}
+.account-link:disabled{color:var(--muted);cursor:default}
+.account-benefit{margin:0;padding:.9rem 1rem;border-radius:14px;border-inline-start:3px solid var(--primary);background:var(--primary-soft);font-size:.88rem;line-height:2}
+.account-phone{display:grid;gap:.15rem;padding:.75rem .9rem;border-radius:12px;background:var(--surface-soft)}
+.account-phone strong{font-size:1.05rem;text-align:right;letter-spacing:.02em}
+.account-phone small{color:var(--muted);font-size:.78rem}
+.account-switch{position:relative;display:flex;align-items:center;gap:.7rem;min-height:44px;cursor:pointer}
+.account-switch input{position:absolute;opacity:0;width:1px;height:1px}
+.account-switch-track{position:relative;flex:none;width:44px;height:26px;border-radius:13px;background:var(--border);transition:background .2s ease}
+.account-switch-track::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:inset-inline-start .2s ease}
+.account-switch input:checked+.account-switch-track{background:var(--primary)}
+.account-switch input:checked+.account-switch-track::after{inset-inline-start:21px}
+.account-switch input:focus-visible+.account-switch-track{outline:2px solid var(--primary);outline-offset:2px}
+.account-reveal{display:grid;grid-template-rows:0fr;transition:grid-template-rows .22s ease}
+.account-reveal.is-open{grid-template-rows:1fr}
+.account-reveal-inner{overflow:hidden;min-height:0}
+.account-reveal.is-open .account-reveal-inner{padding:.1rem .1rem .2rem}
+@media(max-width:767px){
+  .account-dialog{inset:auto 0 0;width:100%;max-height:92vh;max-height:92dvh;margin:0}
+  .account-dialog .info-panel{max-height:92vh;max-height:92dvh;overflow:auto;border-radius:22px 22px 0 0;border-bottom:0;padding-bottom:calc(1rem + var(--safe-bottom))}
+}
+@media(max-width:379px){.account-two{grid-template-columns:1fr}}
