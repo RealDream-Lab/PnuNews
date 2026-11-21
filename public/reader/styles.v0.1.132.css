@@ -619,3 +619,5 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
   .account-dialog .info-panel{max-height:92vh;max-height:92dvh;overflow:auto;border-radius:22px 22px 0 0;border-bottom:0;padding-bottom:calc(1rem + var(--safe-bottom))}
 }
 @media(max-width:379px){.account-two{grid-template-columns:1fr}}
+.saved-login{display:block;width:100%;margin-top:.7rem;padding:.7rem .5rem;border:1px dashed var(--border);border-radius:12px;text-align:center;line-height:1.8}
+.saved-login[hidden]{display:none}
