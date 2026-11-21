@@ -63,6 +63,10 @@ test('sanitizer keeps only uploaded images and hardens links', () => {
   // The javascript: link loses its href but every remaining <a> carries the hardened rel.
   assert.equal((html.match(/<a /g) ?? []).length, (html.match(/rel="noopener noreferrer nofollow"/g) ?? []).length);
   assert.ok(html.includes('target="_blank"'));
+  // A link to another address opens in a new tab even when the author gave no target (or another one); other links get none.
+  const links = sanitizeBodyHtml('<a href="https://pnu.ac.ir/x">a</a><a href="http://x.example" target="_self">b</a><a href="/n/5">c</a><a href="mailto:a@b.ir">d</a>');
+  assert.equal((links.match(/target="_blank"/g) ?? []).length, 2);
+  assert.ok(/<a href="\/n\/5" rel=/.test(links) && /<a href="mailto:a@b\.ir" rel=/.test(links));
 });
 
 test('CSP forbids plugins, base tag and foreign form targets', () => {

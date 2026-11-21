@@ -5,6 +5,9 @@ import { createAuthRouter } from './routes/auth.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createMediaRouter } from './routes/media.js';
 import { createPublicRouter } from './routes/public.js';
+import { createReaderRouter } from './routes/reader-auth.js';
+import { createIppanelClient } from './lib/ippanel.js';
+import { createSmsBudget } from './lib/sms-budget.js';
 import { createStaticMiddleware } from './lib/static.js';
 
 // connectOrigins: the radio server, so the player can read "now playing" straight from the visitor's browser
@@ -75,7 +78,7 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
     next();
   });
   // Authentication and admin responses (sessions state, temporary passwords, audit log) must never be cached.
-  app.use(['/api/auth', '/api/admin'], (request, response, next) => {
+  app.use(['/api/auth', '/api/admin', '/api/reader'], (request, response, next) => {
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader('Pragma', 'no-cache');
     next();
@@ -86,7 +89,11 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
 
   app.get('/healthz', (request, response) => response.type('text/plain').send('ok'));
   app.use('/api/auth', createAuthRouter({ pool, config, clock }));
-  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter, fetchImpl }));
+  // SMS login codes of the reader accounts (ippanel) and the budget that guards them.
+  const ippanel = createIppanelClient({ ...(config.ippanel ?? {}), fetchImpl });
+  const smsBudget = createSmsBudget({ pool, ippanel, clock });
+  app.use('/api/admin', createAdminRouter({ pool, config, clock, uploadRoot: config.uploadDir, portalImporter, fetchImpl, smsBudget }));
+  app.use('/api/reader', createReaderRouter({ pool, config, clock, ippanel, smsBudget }));
   app.use(createPublicRouter({ pool, config, clock, fetchImpl, staticAssets }));
   app.use(createMediaRouter({ pool, uploadRoot: config.uploadDir }));
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));

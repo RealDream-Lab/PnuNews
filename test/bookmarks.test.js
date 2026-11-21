@@ -183,11 +183,11 @@ test('listeners are told about real changes only, and can unsubscribe', () => {
   assert.equal(calls, 1);
 });
 
-test('the local copy keeps only short text fields of a news item', () => {
+test('the local copy keeps only short text fields of a news item: title, summary, cover, color, date, unit, source', () => {
   const snap = snapFromItem({
     id: 1,
     title: `  ${'ع'.repeat(500)}  `,
-    summary: 'نباید ذخیره شود',
+    summary: `  ${'خ'.repeat(700)}  `,
     body_html: '<p>نباید ذخیره شود</p>',
     cover: { src: '/media/a.jpg', dominant_color: '#112233', srcset: 'x' },
     published_at: '2026-11-01T08:00:00.000Z',
@@ -196,8 +196,34 @@ test('the local copy keeps only short text fields of a news item', () => {
     view_count: 12,
   });
   assert.equal(snap.title.length, 240);
-  assert.deepEqual(Object.keys(snap).sort(), ['color', 'cover', 'publishedAt', 'sourceUrl', 'title', 'unit']);
+  assert.equal(snap.summary.length, 300, 'the summary is cut to what a list row can show');
+  assert.deepEqual(Object.keys(snap).sort(), ['color', 'cover', 'publishedAt', 'sourceUrl', 'summary', 'title', 'unit']);
   assert.deepEqual(snapFromItem({ id: 2 }), {}, 'a bare item gives an empty copy');
+  assert.equal(snapFromItem({ id: 3, title: 'عنوان', summary: '   ' }).summary, undefined, 'an empty summary is left out');
+});
+
+test('the saved list shows the summary, and the title only when there is no summary (older bookmarks)', () => {
+  const row = script.slice(script.indexOf('function savedItemMarkup'), script.indexOf('function renderSaved'));
+  assert.match(row, /const text = snap\.summary \|\| title;/);
+  assert.match(row, /<strong>\$\{escapeHtml\(text\)\}<\/strong>/);
+  assert.match(row, /aria-label="\$\{escapeHtml\(`حذف «\$\{title\}» از خبرهای ذخیره‌شده`\)\}"/, 'the remove button is still named by the title');
+  assert.match(styles, /\.saved-text strong\{[^}]*-webkit-line-clamp:3/);
+});
+
+test('links in the article text open in a new tab, whatever the stored body says', () => {
+  const helper = script.slice(script.indexOf('function newTabLinks'), script.indexOf('function pageSaveMarkup'));
+  assert.match(helper, /querySelectorAll\('a\[href\]'\)/);
+  assert.match(helper, /\^https\?:/);
+  assert.match(helper, /setAttribute\('target', '_blank'\)/);
+  assert.match(helper, /noopener noreferrer/);
+  assert.match(script, /<div class="news-body">\$\{newTabLinks\(item\.body_html\)\}<\/div>/);
+  assert.ok(!script.includes('sameTabPortalLinks'), 'the old same-tab rule for the portal link is gone');
+});
+
+test('the loading layer cannot stay up after the back button: an article opened by address lifts it, and a missing animation frame does not stall it', () => {
+  assert.match(script, /initializeReader\(\{ newsOnly: true \}\)\.then\(\(\) => loadNewsPage\(initialNewsMatch\[1\]\)\)\.finally\(finishLoading\)/);
+  assert.match(script, /Promise\.race\(\[\s*new Promise\(\(resolve\) => requestAnimationFrame\(\(\) => requestAnimationFrame\(resolve\)\)\),\s*new Promise\(\(resolve\) => setTimeout\(resolve, 250\)\),\s*\]\)/);
+  assert.match(script, /addEventListener\('pageshow', \(event\) => \{ if \(event\.persisted\) pageLoader\?\.remove\(\); \}\)/);
 });
 
 test('the reader wires bookmarks into the page, the cards, the news page and the service worker', () => {

@@ -1,7 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.129.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.129.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.129.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.129.js';
+import { initDock } from '/shared/dock.v0.1.130.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.130.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.130.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.130.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.130.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -51,13 +52,19 @@ async function finishLoading() {
     new Promise((resolve) => setTimeout(resolve, 1800)),
   ]);
   // Two frames: what shows under the layer when it starts to fade is the finished layout, not a half-drawn one.
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // A page that is hidden or being restored by the browser delivers no frames, so the wait is capped.
+  await Promise.race([
+    new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    new Promise((resolve) => setTimeout(resolve, 250)),
+  ]);
   pageLoader.classList.add('is-leaving');
   const remove = () => pageLoader.remove();
   pageLoader.addEventListener('transitionend', remove, { once: true });
   setTimeout(remove, 900);
 }
 setTimeout(finishLoading, 8000);
+// Coming back with the browser's back button can hand the page over as it was left: whatever is left of the layer goes at once.
+addEventListener('pageshow', (event) => { if (event.persisted) pageLoader?.remove(); });
 
 const state = {
   config: null,
@@ -160,7 +167,7 @@ if (siteDock && 'ResizeObserver' in window) {
 }
 
 async function getJson(url) {
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
+  const response = await fetchOrExplain(url, { headers: { accept: 'application/json' } });
   let body;
   try { body = await response.json(); } catch { body = {}; }
   if (!response.ok) {
@@ -903,7 +910,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.129.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.130.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1277,7 +1284,8 @@ async function loadNewsPage(id, { initial = false } = {}) {
   } catch (error) {
     const target = initial ? app : newsView;
     const unsave = bookmarks.has(id) ? `<button type="button" class="share-button" data-unsave-missing="${Number(id)}">حذف از خبرهای ذخیره‌شده</button>` : '';
-    target.innerHTML = `<section class="reader-error"><h1>خبر پیدا نشد</h1><p>${escapeHtml(error.message)}</p><div class="news-actions">${unsave}<a class="news-back" href="/">بازگشت به خبرها</a></div></section>`;
+    // No connection is not «news not found»: the heading says what happened.
+    target.innerHTML = `<section class="reader-error"><h1>${error.network ? 'ارتباط برقرار نشد' : 'خبر پیدا نشد'}</h1><p>${escapeHtml(error.message)}</p><div class="news-actions">${unsave}<a class="news-back" href="/">بازگشت به خبرها</a></div></section>`;
     target.hidden = false;
   } finally {
     if (initial) finishLoading();
@@ -1287,14 +1295,16 @@ async function loadNewsPage(id, { initial = false } = {}) {
 let galleryImages = [];
 let currentNewsItem = null;
 
-// The "full text on the university portal" link of imported portal news opens in the current tab. News imported
-// earlier carries target="_blank" in its stored body, so the attribute is dropped here, whatever the stored form is.
-function sameTabPortalLinks(html, sourceUrl) {
-  if (typeof sourceUrl !== 'string' || !sourceUrl.startsWith('https://')) return html;
+// Every link to another address inside the article text (the portal's «full text» link included) opens in a new tab,
+// so the article stays open behind it and the browser's back button never has to rebuild the reader. The stored
+// bodies of older news carry no target (or none for the portal link), so it is set here whatever the stored form is.
+function newTabLinks(html) {
   const template = document.createElement('template');
   template.innerHTML = html;
-  for (const link of template.content.querySelectorAll('a[target]')) {
-    if (link.getAttribute('href') === sourceUrl) link.removeAttribute('target');
+  for (const link of template.content.querySelectorAll('a[href]')) {
+    if (!/^https?:\/\//i.test(link.getAttribute('href') ?? '')) continue;
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer nofollow');
   }
   return template.innerHTML;
 }
@@ -1320,7 +1330,7 @@ function renderNewsPage(item, initial) {
   return `${initial ? '' : '<a class="news-back" href="/" data-reader-back><svg class="icon"><use href="#icon-chevron"/></svg>بازگشت به خبرها</a>'}
     <article class="news-page" data-news-page-id="${item.id}">${cover}<h1>${escapeHtml(item.title)}</h1>
     <div class="news-details">${category}<time datetime="${escapeHtml(item.published_at)}">${fullDate}</time><span>${digits.format(item.view_count)} بازدید</span></div>
-    <div class="news-body">${sameTabPortalLinks(item.body_html, item.source_url)}</div>
+    <div class="news-body">${newTabLinks(item.body_html)}</div>
     ${signature}
     ${gallery ? `<section class="news-gallery" aria-label="تصاویر خبر">${gallery}</section>` : ''}
     ${files ? `<section class="attachment-list"><h2>پیوست‌ها</h2>${files}</section>` : ''}
@@ -1438,12 +1448,13 @@ function setSaveState(button, saved) {
 
 function savedItemMarkup(record) {
   const snap = record.snap ?? {};
-  const title = snap.title || 'خبر ذخیره‌شده';
+  const title = snap.title || snap.summary || 'خبر ذخیره‌شده';
+  const text = snap.summary || title; // the summary is what the list shows; news saved before the summary was kept show their title
   const image = snap.cover ? `<img referrerpolicy="no-referrer" src="${escapeHtml(snap.cover)}" width="64" height="64" loading="lazy" decoding="async" alt="">` : '';
   const when = snap.publishedAt ? `<time datetime="${escapeHtml(snap.publishedAt)}">${relativeDate(snap.publishedAt)}</time>` : '';
   const unit = snap.unit ? `<span>${escapeHtml(snap.unit)}</span>` : '';
   return `<li class="saved-item" data-saved-id="${record.id}">
-    <button type="button" class="saved-open" data-saved-open><span class="saved-thumb" style="background-color:#${safeColorCode(snap.color)}">${image}</span><span class="saved-text"><strong>${escapeHtml(title)}</strong><small>${unit}${when}</small></span></button>
+    <button type="button" class="saved-open" data-saved-open><span class="saved-thumb" style="background-color:#${safeColorCode(snap.color)}">${image}</span><span class="saved-text"><strong>${escapeHtml(text)}</strong><small>${unit}${when}</small></span></button>
     <button type="button" class="saved-remove" data-saved-remove aria-label="${escapeHtml(`حذف «${title}» از خبرهای ذخیره‌شده`)}" title="حذف از خبرهای ذخیره‌شده"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
   </li>`;
 }
@@ -1655,7 +1666,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.129.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.130.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2240,7 +2251,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.129.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.130.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
@@ -2258,7 +2269,8 @@ addEventListener('pageshow', (event) => { if (event.persisted) refreshViewer(); 
 
 const initialNewsMatch = /^\/n\/(\d+)$/.exec(location.pathname);
 if (initialNewsMatch) {
-  initializeReader({ newsOnly: true }).then(() => loadNewsPage(initialNewsMatch[1]));
+  // An article opened by its address (a shared link, or the back button returning to it) lifts the loading layer as soon as the article is drawn.
+  initializeReader({ newsOnly: true }).then(() => loadNewsPage(initialNewsMatch[1])).finally(finishLoading);
 } else {
   initializeReader();
 }

@@ -2,6 +2,7 @@ import express from 'express';
 import { canManageRegion } from '../auth/policy.js';
 import { appEvents } from '../events.js';
 import { loadReaderSettings, readerSettingKey, storedValue, validateReaderSettingsUpdate } from '../lib/reader-settings.js';
+import { SIGNUP_DISABLED_INFO_KEY } from '../lib/sms-budget.js';
 
 function writeAudit(connection, actorId, action, request, meta) {
   return connection.execute(
@@ -13,7 +14,7 @@ function writeAudit(connection, actorId, action, request, meta) {
 
 // Reader accounts and the SMS budget belong to the main admin alone. The caller mounts this behind the admin
 // authentication, which sets request.user.
-export function createReaderAdminRouter({ pool, events = appEvents }) {
+export function createReaderAdminRouter({ pool, events = appEvents, smsBudget = null }) {
   const router = express.Router();
 
   router.use((request, response, next) => {
@@ -24,6 +25,17 @@ export function createReaderAdminRouter({ pool, events = appEvents }) {
   router.get('/settings', async (request, response, next) => {
     try {
       return response.json({ settings: await loadReaderSettings(pool) });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // The SMS budget: credit, estimate of the SMS left, the last 24 hours, recent failures and why signup was switched off.
+  // ?refresh=1 reads the credit from ippanel now instead of using the last reading (at most 5 minutes old).
+  router.get('/sms-status', async (request, response, next) => {
+    if (!smsBudget) return response.status(503).json({ error: 'سرویس پیامک در این اجرا فعال نیست.' });
+    try {
+      return response.json({ status: await smsBudget.status({ force: request.query.refresh === '1' }) });
     } catch (error) {
       return next(error);
     }
@@ -44,6 +56,10 @@ export function createReaderAdminRouter({ pool, events = appEvents }) {
             'INSERT INTO settings (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)',
             [readerSettingKey(name), storedValue(name, value)],
           );
+        }
+        // Switching signup on again by hand clears the notice of an automatic switch-off.
+        if (changed.some(([name, value]) => name === 'signup_enabled' && value === true)) {
+          await connection.execute('DELETE FROM settings WHERE k = ?', [SIGNUP_DISABLED_INFO_KEY]);
         }
         await writeAudit(connection, request.user.id, 'reader.settings.update', request, {
           changed: Object.fromEntries(changed.map(([name, value]) => [name, { from: current[name], to: value }])),

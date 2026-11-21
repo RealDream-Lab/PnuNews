@@ -193,7 +193,7 @@ test('behind the real admin login: no session means 401, and the route is mounte
   });
   const admin = await read('src/routes/admin.js');
   const auth = admin.indexOf('router.use(createAuthMiddleware(pool, config), requirePasswordChanged)');
-  const mount = admin.indexOf("router.use('/readers', createReaderAdminRouter({ pool }))");
+  const mount = admin.indexOf("router.use('/readers', createReaderAdminRouter({ pool, smsBudget }))");
   assert.ok(auth > -1 && mount > auth, 'every reader route sits behind the admin authentication');
 });
 

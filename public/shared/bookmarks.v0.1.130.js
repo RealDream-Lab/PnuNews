@@ -14,6 +14,7 @@ const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, 
 export function cleanSnap(snap) {
   const clean = {
     title: text(snap?.title, 240),
+    summary: text(snap?.summary, 300),
     cover: text(snap?.cover, 600),
     color: text(snap?.color, 16),
     publishedAt: text(snap?.publishedAt, 40),
@@ -26,6 +27,7 @@ export function cleanSnap(snap) {
 export function snapFromItem(item) {
   return cleanSnap({
     title: item?.title,
+    summary: item?.summary,
     cover: item?.cover?.src,
     color: item?.cover?.dominant_color,
     publishedAt: item?.published_at,
