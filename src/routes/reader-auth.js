@@ -1,5 +1,6 @@
 import express from 'express';
 import { createRateLimiter } from '../lib/ratelimit.js';
+import { createBookmarkRouter } from './reader-bookmarks.js';
 import {
   OTP_MAX_ATTEMPTS, OTP_RESEND_GAP_MS, OTP_TTL_MS, cleanOtpInput, cleanPersonName, cleanStudentNumber, generateOtp, hashOtp,
   maskPhone, normalizePhone, readSignupToken, sameHex, signSignupToken,
@@ -72,6 +73,7 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
   const authLimit = createRateLimiter({ limit: 60, windowMs: 60_000, clock });
   const authenticate = readerAuth({ pool, config, clock });
   router.use('/auth', authLimit);
+  router.use('/bookmarks', createBookmarkRouter({ pool, clock, authenticate }));
 
   async function unitExists(unitId) {
     const [rows] = await pool.execute("SELECT id FROM regions WHERE id = ? AND type = 'city' AND visibility_override <> 'hide' LIMIT 1", [unitId]);

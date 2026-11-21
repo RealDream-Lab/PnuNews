@@ -84,7 +84,7 @@ test('the account button is in the header, hidden until the main admin switches 
   assert.ok(html.indexOf('id="saved-button"') < html.indexOf('id="account-button"') && html.indexOf('id="account-button"') < html.indexOf('class="icon-button theme-toggle"'));
   assert.match(app, /const enabled = state\.config\?\.reader\?\.signup_enabled === true;/);
   assert.match(app, /accountButton\.hidden = !enabled;/);
-  assert.equal(app.split('syncAccountUi();').length - 1, 5, 'after the first config, after every refreshed config, after the answer of /me, and after the two callbacks of the dialog');
+  assert.equal(app.split('syncAccountUi();').length - 1, 6, 'after the first config, after every refreshed config, after the answer of /me, after the two callbacks of the dialog, and when the sync finds the session gone');
   assert.match(app, /getJson\('\/api\/reader\/me'\)/);
 });
 

@@ -87,19 +87,22 @@ export function createBookmarkStore({ storage = null, now = Date.now, max = MAX_
     }
   }
 
-  function emit() {
+  // kind tells the listeners what happened: 'local' (this reader saved or removed something), 'merge' (the server's
+  // changes were taken in), 'snap' (a local copy of a news was filled in) or 'reload' (another tab changed the storage).
+  // Only 'local' is something the server has not heard of yet.
+  function emit(kind) {
     for (const listener of listeners) {
-      try { listener(); } catch { /* a broken listener must not stop the others */ }
+      try { listener({ kind }); } catch { /* a broken listener must not stop the others */ }
     }
   }
 
   // Every change starts from what is stored now, so a change made in another tab is not overwritten.
-  function change(apply) {
+  function change(apply, kind = 'local') {
     records = readStorage();
     const result = apply();
     if (result.changed) {
       write();
-      emit();
+      emit(kind);
     }
     return result;
   }
@@ -154,7 +157,48 @@ export function createBookmarkStore({ storage = null, now = Date.now, max = MAX_
     // Another tab changed the storage: take its version and tell the listeners.
     reload() {
       records = readStorage();
-      emit();
+      emit('reload');
+    },
+
+    // The server's answer to a sync: [{ newsId, savedAt, deletedAt }]. The newest change of each news wins and a tie keeps
+    // the local record, the same rule the server applies. A bookmark that came from another device has no local copy of the
+    // news yet (see needSnapshots).
+    mergeRemote(items) {
+      return change(() => {
+        let changed = false;
+        for (const raw of Array.isArray(items) ? items : []) {
+          const id = Number(raw?.newsId);
+          const savedAt = Number(raw?.savedAt);
+          if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(savedAt) || savedAt <= 0) continue;
+          const deletedAt = Number(raw.deletedAt) > 0 ? Number(raw.deletedAt) : null;
+          const local = records.get(id);
+          if (local && updatedAt(local) >= (deletedAt ?? savedAt)) continue;
+          records.set(id, deletedAt === null ? { id, savedAt, deletedAt: null, snap: local?.snap ?? {} } : { id, savedAt, deletedAt });
+          changed = true;
+        }
+        return { ok: true, changed };
+      }, 'merge');
+    },
+
+    // Ids of the live bookmarks that have nothing to show yet (they came from another device), except `skip`.
+    needSnapshots(skip = new Set()) {
+      return live().filter((record) => !record.snap?.title && !record.snap?.summary && !skip.has(record.id)).map((record) => record.id);
+    },
+
+    // snaps: Map of id -> snapshot. Fills only the bookmarks that have nothing yet.
+    setSnaps(snaps) {
+      return change(() => {
+        let changed = false;
+        for (const [id, snap] of snaps) {
+          const record = records.get(Number(id));
+          if (!record || record.deletedAt !== null || record.snap?.title || record.snap?.summary) continue;
+          const clean = cleanSnap(snap);
+          if (!clean.title && !clean.summary) continue;
+          record.snap = clean;
+          changed = true;
+        }
+        return { ok: true, changed };
+      }, 'snap');
     },
   };
   return store;

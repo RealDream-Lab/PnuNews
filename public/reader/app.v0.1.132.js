@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.131.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.131.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.131.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.131.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.131.js';
+import { initDock } from '/shared/dock.v0.1.132.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.132.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.132.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.132.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.132.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -910,7 +910,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.131.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.132.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1412,6 +1412,7 @@ const savedList = document.getElementById('saved-list');
 const savedSub = document.getElementById('saved-sub');
 const savedButton = document.getElementById('saved-button');
 const savedCount = document.getElementById('saved-count');
+const savedLogin = document.getElementById('saved-login');
 
 // The card node of the feed is the only thing a click gives us; the news item it was built from is kept in state.entries.
 function itemForCard(card) {
@@ -1463,8 +1464,12 @@ function savedItemMarkup(record) {
 
 function renderSaved() {
   const records = bookmarks.list();
+  const accountsOn = state.config?.reader?.signup_enabled === true;
+  const where = accountsOn && readerUser ? 'با حساب شما در همهٔ دستگاه‌ها همگام می‌شود.' : 'فقط روی همین دستگاه نگهداری می‌شود.';
   if (!bookmarks.persistent) savedSub.textContent = 'مرورگر اجازهٔ ذخیره‌سازی نمی‌دهد؛ نشانک‌ها فقط تا بستن صفحه می‌مانند.';
-  else savedSub.textContent = records.length ? `${digits.format(records.length)} خبر؛ فقط روی همین دستگاه نگهداری می‌شود.` : 'روی همین دستگاه نگهداری می‌شود.';
+  else savedSub.textContent = records.length ? `${digits.format(records.length)} خبر؛ ${where}` : where;
+  // Signed out while accounts are on: one quiet line that explains what signing in gives.
+  savedLogin.hidden = !(accountsOn && !readerUser);
   savedList.innerHTML = records.length
     ? records.map(savedItemMarkup).join('')
     : '<li class="saved-empty"><svg class="icon" aria-hidden="true"><use href="#icon-bookmark"/></svg><p>هنوز خبری ذخیره نکرده‌اید.</p><p>روی نشانک هر خبر بزنید تا برای بعد اینجا بماند.</p></li>';
@@ -1488,6 +1493,11 @@ function syncSavedUi() {
 savedButton.addEventListener('click', () => {
   renderSaved();
   savedDialog.showModal();
+  hydrateSavedSnapshots();
+});
+savedLogin.addEventListener('click', () => {
+  savedDialog.close();
+  accountButton.click();
 });
 savedDialog.addEventListener('click', (event) => {
   const row = event.target.closest('[data-saved-id]');
@@ -1506,6 +1516,27 @@ savedDialog.addEventListener('click', (event) => {
   if (event.target === savedDialog || event.target.closest('[data-dialog-close]')) savedDialog.close();
 });
 
+// Bookmarks that came from another device have no title yet: ask the server for a few lines about each (40 at a time).
+// A news the server does not give back (expired, taken down) is not asked for again during this visit.
+const unavailableSnapshots = new Set();
+let hydratingSnapshots = false;
+async function hydrateSavedSnapshots() {
+  if (hydratingSnapshots) return;
+  hydratingSnapshots = true;
+  try {
+    for (let round = 0; round < 15; round += 1) {
+      const ids = bookmarks.needSnapshots(unavailableSnapshots).slice(0, 40);
+      if (!ids.length) break;
+      const { items } = await getJson(`/api/public/news-snapshots?ids=${ids.join(',')}`);
+      const given = new Set(items.map((item) => Number(item.id)));
+      for (const id of ids) if (!given.has(id)) unavailableSnapshots.add(id);
+      bookmarks.setSnaps(new Map(items.map((item) => [Number(item.id), snapFromItem(item)])));
+    }
+  } catch { /* offline: the placeholders stay and the next sync or opening tries again */ } finally {
+    hydratingSnapshots = false;
+  }
+}
+
 bookmarks.subscribe(syncSavedUi);
 // Another tab of the reader changed the saved news.
 window.addEventListener('storage', (event) => {
@@ -1520,6 +1551,38 @@ const accountButton = document.getElementById('account-button');
 let readerUser = null;
 let readerChecked = false;
 let accountModule = null;
+let bookmarkSync = null; // the sync controller (a promise), alive only while accounts are on and a reader is signed in
+
+function startBookmarkSync() {
+  if (bookmarkSync) return;
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.132.js').then(({ createBookmarkSync }) => {
+    const controller = createBookmarkSync({
+      store: bookmarks,
+      isActive: () => state.config?.reader?.signup_enabled === true && Boolean(readerUser),
+      send: async (items) => {
+        const response = await fetchOrExplain('/api/reader/bookmarks/sync', {
+          method: 'POST',
+          headers: { accept: 'application/json', 'content-type': 'application/json' },
+          body: JSON.stringify({ items }),
+        });
+        let body = null;
+        try { body = await response.json(); } catch { body = null; }
+        return { status: response.status, body };
+      },
+      onUnauthorized: () => { readerUser = null; syncAccountUi(); },
+      onDisabled: () => stopBookmarkSync(),
+      onMerged: () => hydrateSavedSnapshots(),
+    });
+    controller.start();
+    return controller;
+  });
+}
+
+function stopBookmarkSync() {
+  const running = bookmarkSync;
+  bookmarkSync = null;
+  running?.then((controller) => controller.stop()).catch(() => {});
+}
 
 function syncAccountUi() {
   const enabled = state.config?.reader?.signup_enabled === true;
@@ -1528,6 +1591,9 @@ function syncAccountUi() {
   const label = enabled && readerUser ? `حساب من، ${readerUser.first_name}` : 'ورود یا ثبت‌نام';
   accountButton.setAttribute('aria-label', label);
   accountButton.title = label;
+  if (!enabled || !readerUser) stopBookmarkSync();
+  else startBookmarkSync();
+  if (savedDialog.open) renderSaved();
   if (!enabled) {
     accountModule?.then((module) => module.closeAccount()).catch(() => {});
     return;
@@ -1539,7 +1605,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.131.js');
+  accountModule ??= import('/shared/reader-account.v0.1.132.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1711,7 +1777,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.131.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.132.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2296,7 +2362,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.131.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.132.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

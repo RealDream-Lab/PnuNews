@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.131.css">
-<script src="/shared/theme.v0.1.131.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.132.css">
+<script src="/shared/theme.v0.1.132.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.131.js"></script>
+<script type="module" src="/reader/app.v0.1.132.js"></script>
 </body>
 </html>`;
 }
@@ -458,6 +458,37 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       });
       response.setHeader('Cache-Control', 'public, max-age=15');
       return response.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // A few lines about each of several news (title, summary, cover...): what the saved-news list needs for bookmarks that
+  // came from another device and have nothing stored locally yet. Only news a reader may see; the others are left out.
+  router.get('/api/public/news-snapshots', feedRateLimit, async (request, response, next) => {
+    const ids = [...new Set(String(request.query.ids ?? '').split(',').map((part) => idValue(part.trim())).filter(Boolean))];
+    if (!ids.length || ids.length > 40) return response.status(400).json({ error: 'فهرست خبرها معتبر نیست.' });
+    try {
+      const [rows] = await pool.query(
+        `SELECT n.id, n.title, n.summary, n.news_type, n.published_at, n.publisher_unit, n.source_url, n.source_image_url,
+                cover.stored_name AS cover_stored_name, cover.dominant_color AS cover_dominant_color
+         FROM news n LEFT JOIN attachments cover ON cover.id = n.cover_attachment_id
+         WHERE n.id IN (?) AND n.status = 'published' AND n.published_at <= UTC_TIMESTAMP()
+           AND n.deleted_at IS NULL AND (n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())
+           AND EXISTS (SELECT 1 FROM news_targets target WHERE target.news_id = n.id)`,
+        [ids],
+      );
+      const items = rows.map((row) => {
+        const image = imageUrls(row.cover_stored_name);
+        const external = !image && row.source_image_url ? { src: row.source_image_url, srcset: '', external: true } : null;
+        return {
+          id: Number(row.id), title: row.title, summary: row.summary, published_at: row.published_at.toISOString(),
+          publisher_unit: row.publisher_unit, source_url: row.source_url || null,
+          cover: image ? { ...image, dominant_color: row.cover_dominant_color } : (external ?? defaultCover(row.news_type)),
+        };
+      });
+      response.setHeader('Cache-Control', 'public, max-age=30');
+      return response.json({ items });
     } catch (error) {
       return next(error);
     }
