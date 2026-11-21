@@ -557,7 +557,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .saved-thumb{flex:none;width:64px;height:64px;border-radius:10px;overflow:hidden;background-color:var(--surface)}
 .saved-thumb img{width:100%;height:100%;display:block;object-fit:cover}
 .saved-text{min-width:0;display:grid;gap:.1rem}
-.saved-text strong{font-size:.95rem;font-weight:500;line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.saved-text strong{font-size:.92rem;font-weight:500;line-height:1.75;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .saved-text small{display:flex;flex-wrap:wrap;gap:0 .8rem;color:var(--muted);font-size:.78rem}
 .saved-remove{flex:none;width:46px;display:grid;place-items:center;border:0;border-inline-start:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
 @media(hover:hover){.saved-open:hover strong{color:var(--primary)}.saved-remove:hover{background:var(--surface);color:var(--urgent)}}

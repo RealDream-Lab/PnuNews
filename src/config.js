@@ -18,6 +18,30 @@ const KNOWN_DEV_SECRETS = new Set([
   'root_dev_only',
 ]);
 
+// ippanel (SMS login codes of the reader accounts). Everything here is optional: without the key the reader accounts simply cannot send
+// codes (the main admin sees why), and the rest of the site is not affected. A value that still says CHANGE_ME counts as not set.
+export function loadIppanelConfig(env = process.env) {
+  const production = env.NODE_ENV === 'production';
+  const text = (key) => {
+    const value = String(env[key] ?? '').trim();
+    return value.includes('CHANGE_ME') ? '' : value;
+  };
+  const baseUrl = (text('IPPANEL_BASE_URL') || 'https://edge.ippanel.com/v1').replace(/\/+$/, '');
+  const localDev = !production && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(baseUrl);
+  if (!baseUrl.startsWith('https://') && !localDev) {
+    throw new Error('IPPANEL_BASE_URL باید با https:// شروع شود (کلید API در هدر ارسال می‌شود).\nIPPANEL_BASE_URL must start with https://.');
+  }
+  const dryRun = text('IPPANEL_DRY_RUN') === '1';
+  if (dryRun && production) {
+    throw new Error('IPPANEL_DRY_RUN=1 فقط برای توسعه است (کد در لاگ چاپ می‌شود و پیامکی نمی‌رود)؛ آن را از .autostart حذف کنید.\nIPPANEL_DRY_RUN=1 is for development only.');
+  }
+  const fromNumber = text('IPPANEL_FROM_NUMBER');
+  if (fromNumber && !/^\+\d{6,15}$/.test(fromNumber)) {
+    throw new Error('IPPANEL_FROM_NUMBER باید با قالب بین‌المللی باشد، مثل +983000505.\nIPPANEL_FROM_NUMBER must be in E.164 format.');
+  }
+  return Object.freeze({ baseUrl, apiKey: text('IPPANEL_API_KEY'), patternCode: text('IPPANEL_PATTERN_CODE'), fromNumber, dryRun });
+}
+
 export function loadConfig(env = process.env) {
   const missing = required.filter((key) => !env[key] || env[key].includes('CHANGE_ME'));
   if (missing.length) {
@@ -64,6 +88,7 @@ export function loadConfig(env = process.env) {
       password: env.DB_PASSWORD,
     }),
     appSecret: env.APP_SECRET,
+    ippanel: loadIppanelConfig(env),
     uploadDir: env.UPLOAD_DIR,
     // Host names that may resolve to private addresses for the radio "now playing" request (set by the server operator).
     radioTrustedHosts: Object.freeze(String(env.RADIO_TRUSTED_HOSTS ?? '').split(',').map((host) => host.trim().toLowerCase()).filter(Boolean)),

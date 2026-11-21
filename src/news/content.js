@@ -42,15 +42,16 @@ const sanitizerOptions = {
     ul: alignable,
     ol: alignable,
     blockquote: alignable,
-    // Every link is opened without access to the opener and without leaking the referrer;
-    // only the _blank target is kept.
+    // Every link is opened without access to the opener and without leaking the referrer. A link to another address
+    // (http or https) always opens in a new tab, so the article stays open behind it; any other target is dropped.
     a: (tagName, attributes) => {
       const { target, ...rest } = attributes;
+      const toAnotherAddress = /^https?:\/\//i.test(String(rest.href ?? ''));
       return {
         tagName,
         attribs: {
           ...rest,
-          ...(target === '_blank' ? { target: '_blank' } : {}),
+          ...(target === '_blank' || toAnotherAddress ? { target: '_blank' } : {}),
           rel: 'noopener noreferrer nofollow',
         },
       };
