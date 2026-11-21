@@ -47,7 +47,8 @@ export function cleanOtpInput(value) {
   return new RegExp(`^\\d{${OTP_LENGTH}}$`).test(digits) ? digits : null;
 }
 
-export const generateOtp = () => String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0');
+// Never starts with 0: the pattern's variable is a number type, and a number would lose its leading zero.
+export const generateOtp = () => String(randomInt(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH));
 
 // Only this hash is stored. It includes the phone number, so a hash cannot be reused for another number.
 export function hashOtp(secret, phone, code) {
