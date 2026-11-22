@@ -437,3 +437,31 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .unit-user.is-inactive strong{color:var(--muted)}
 .unit-user .compact-actions{display:flex;flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;gap:.35rem}
 @media(max-width:767px){.unit-user{flex-wrap:wrap}.unit-user .compact-actions{flex:1 1 100%;justify-content:flex-start}}
+
+/* ---------- Reader accounts (the main admin) ---------- */
+.notice-banner{margin:0 0 1rem;padding:.85rem 1rem;border-radius:var(--radius);border:1px solid var(--border);background:var(--soft);line-height:1.9;font-size:.9rem}
+.notice-banner[hidden]{display:none}
+.notice-banner[data-level=danger]{border-color:var(--danger);color:var(--danger);background:color-mix(in srgb,var(--danger) 9%,var(--surface))}
+.notice-banner[data-level=warning]{border-color:var(--amber);color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,var(--surface))}
+.notice-banner[data-level=info]{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
+.readers-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-bottom:1rem;align-items:start}
+.readers-credit{display:grid;gap:.45rem}
+.credit-number{font-size:2rem;line-height:1.3;font-weight:800;font-variant-numeric:tabular-nums}
+.credit-number small{font-size:.9rem;font-weight:500;color:var(--muted)}
+.credit-sub{color:var(--muted);font-size:.9rem;margin-top:-.3rem}
+.credit-estimate{margin:.2rem 0 0;font-size:.95rem}
+.credit-estimate small{display:block;color:var(--muted);font-size:.8rem;margin-top:.15rem}
+.credit-estimate[data-level=ok] b{color:var(--success)}
+.credit-estimate[data-level=warning] b{color:var(--amber)}
+.credit-estimate[data-level=danger] b{color:var(--danger)}
+.credit-day{margin:.2rem 0 0;font-size:.86rem;color:var(--muted)}
+.portal-status.is-error{background:color-mix(in srgb,var(--danger) 10%,var(--surface));color:var(--danger)}
+.readers-failures{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
+.readers-failures li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.3rem .8rem;padding:.5rem .7rem;border-radius:10px;background:var(--soft);font-size:.86rem}
+.readers-failures span:nth-child(2){color:var(--danger)}
+.readers-list-panel{margin-bottom:.6rem}
+.readers-search{margin-bottom:.8rem}
+.readers-search label{max-width:26rem}
+.readers-table td small,.readers-table th small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
+@media(max-width:900px){.readers-grid{grid-template-columns:1fr}}
+
