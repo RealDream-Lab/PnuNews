@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.134.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.134.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.134.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.134.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.134.js';
+import { initDock } from '/shared/dock.v0.1.135.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.135.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.135.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.135.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.135.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -910,7 +910,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.134.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.135.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1509,13 +1509,37 @@ savedDialog.addEventListener('click', (event) => {
   if (row && event.target.closest('[data-saved-open]')) {
     const record = bookmarks.list().find((candidate) => String(candidate.id) === row.dataset.savedId);
     savedDialog.close();
-    if (!record) return;
-    if (record.snap?.sourceUrl?.startsWith('https://')) window.open(record.snap.sourceUrl, '_blank', 'noopener,noreferrer');
-    else navigateToNews(record.id);
+    if (record) openSavedNews(record);
     return;
   }
   if (event.target === savedDialog || event.target.closest('[data-dialog-close]')) savedDialog.close();
 });
+
+// Opens a saved news the way its card would: the original article in a new tab for portal news, this site's page for the rest.
+// The address is used from the local copy when that has it whole. When it does not (a bookmark from an older version whose
+// address was cut, an address too long to keep, or a kind of news not yet known) the server is asked, and the answer is kept so the
+// next time needs no question.
+async function openSavedNews(record) {
+  const snap = record.snap ?? {};
+  if (snap.sourceUrl) {
+    window.open(snap.sourceUrl, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (snap.link === 'internal') {
+    navigateToNews(record.id);
+    return;
+  }
+  try {
+    const { items } = await getJson(`/api/public/news-snapshots?ids=${record.id}`);
+    const item = items.find((candidate) => Number(candidate.id) === Number(record.id));
+    const address = typeof item?.source_url === 'string' && item.source_url.startsWith('https://') ? item.source_url : '';
+    if (item) bookmarks.patchSnap(record.id, { link: address ? 'external' : 'internal', sourceUrl: address || undefined });
+    if (address) window.open(address, '_blank', 'noopener,noreferrer');
+    else navigateToNews(record.id);
+  } catch {
+    navigateToNews(record.id); // offline or unknown: this site's page is the safe place to go
+  }
+}
 
 // Bookmarks that came from another device have no title yet: ask the server for a few lines about each (40 at a time).
 // A news the server does not give back (expired, taken down) is not asked for again during this visit.
@@ -1556,7 +1580,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.134.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.135.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1611,7 +1635,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.134.js');
+  accountModule ??= import('/shared/reader-account.v0.1.135.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1783,7 +1807,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.134.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.135.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2368,7 +2392,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.134.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.135.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

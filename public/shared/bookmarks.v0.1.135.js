@@ -10,22 +10,47 @@ export const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, max) : '');
 
+export const MAX_ADDRESS_LENGTH = 2000;
+// Older versions cut every address at 600 characters. An address of exactly that length is a cut one (see addressText).
+const OLD_CUT_LENGTH = 600;
+
+// An address is kept whole or not at all. Cut in the middle it is a different address: a «%» left over from «%D8%A7» once
+// opened the wrong page. So an address that is too long, has a half percent-sequence, contains a space or is not an address
+// is left out, never shortened. `secureOnly`: https only (what a card opens). `relative`: a path on this site also counts
+// (the cover pictures).
+function addressText(value, { relative = false, secureOnly = false } = {}) {
+  if (typeof value !== 'string') return '';
+  const address = value.trim();
+  if (!address || address.length > MAX_ADDRESS_LENGTH || address.length === OLD_CUT_LENGTH || /\s/.test(address) || /%(?![0-9a-f]{2})/i.test(address)) return '';
+  if (relative && address.startsWith('/') && !address.startsWith('//')) return address;
+  if (!(secureOnly ? /^https:\/\//i : /^https?:\/\//i).test(address)) return '';
+  try { new URL(address); } catch { return ''; }
+  return address;
+}
+
+// 'external': the card opens the original article (portal news); 'internal': it opens the page of this site. Missing: not
+// known (a bookmark from an older version, or one whose address was cut), so the server is asked when it is opened.
+const LINKS = new Set(['external', 'internal']);
+
 // Keeps only the short text fields the saved list uses; anything else in a news item is left out.
 export function cleanSnap(snap) {
   const clean = {
     title: text(snap?.title, 240),
     summary: text(snap?.summary, 300),
-    cover: text(snap?.cover, 600),
+    cover: addressText(snap?.cover, { relative: true }),
     color: text(snap?.color, 16),
     publishedAt: text(snap?.publishedAt, 40),
     unit: text(snap?.unit, 120),
-    sourceUrl: text(snap?.sourceUrl, 600),
+    sourceUrl: addressText(snap?.sourceUrl, { secureOnly: true }),
+    link: LINKS.has(snap?.link) ? snap.link : '',
   };
   return Object.fromEntries(Object.entries(clean).filter(([, value]) => value));
 }
 
 export function snapFromItem(item) {
+  const external = typeof item?.source_url === 'string' && item.source_url.startsWith('https://');
   return cleanSnap({
+    link: external ? 'external' : 'internal',
     title: item?.title,
     summary: item?.summary,
     cover: item?.cover?.src,
@@ -178,6 +203,18 @@ export function createBookmarkStore({ storage = null, now = Date.now, max = MAX_
         }
         return { ok: true, changed };
       }, 'merge');
+    },
+
+    // Adds to the local copy of one bookmark (the address of a portal news, what kind of news it is) once it is known.
+    patchSnap(id, patch) {
+      return change(() => {
+        const record = records.get(Number(id));
+        if (!record || record.deletedAt !== null) return { ok: true, changed: false };
+        const merged = cleanSnap({ ...record.snap, ...patch });
+        if (JSON.stringify(merged) === JSON.stringify(record.snap)) return { ok: true, changed: false };
+        record.snap = merged;
+        return { ok: true, changed: true };
+      }, 'snap');
     },
 
     // Ids of the live bookmarks that have nothing to show yet (they came from another device), except `skip`.

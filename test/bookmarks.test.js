@@ -7,9 +7,11 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const version = JSON.parse(readFileSync(`${root}package.json`, 'utf8')).version;
 const html = readFileSync(`${root}public/index.html`, 'utf8');
 const script = readFileSync(`${root}public/reader/app.v${version}.js`, 'utf8');
+const app = script;
+const read = (relative) => readFileSync(`${root}${relative}`, 'utf8');
 const styles = readFileSync(`${root}public/reader/styles.v${version}.css`, 'utf8');
 const worker = readFileSync(`${root}public/sw.js`, 'utf8');
-const { BOOKMARKS_KEY, MAX_BOOKMARKS, TOMBSTONE_TTL_MS, createBookmarkStore, snapFromItem, updatedAt } = await import(`${root}public/shared/bookmarks.v${version}.js`);
+const { BOOKMARKS_KEY, MAX_BOOKMARKS, TOMBSTONE_TTL_MS, cleanSnap, createBookmarkStore, snapFromItem, updatedAt } = await import(`${root}public/shared/bookmarks.v${version}.js`);
 
 // A Storage stand-in. `fail` makes every write throw like a blocked or full browser storage.
 function fakeStorage({ fail = false } = {}) {
@@ -197,9 +199,142 @@ test('the local copy keeps only short text fields of a news item: title, summary
   });
   assert.equal(snap.title.length, 240);
   assert.equal(snap.summary.length, 300, 'the summary is cut to what a list row can show');
-  assert.deepEqual(Object.keys(snap).sort(), ['color', 'cover', 'publishedAt', 'sourceUrl', 'summary', 'title', 'unit']);
-  assert.deepEqual(snapFromItem({ id: 2 }), {}, 'a bare item gives an empty copy');
+  assert.deepEqual(Object.keys(snap).sort(), ['color', 'cover', 'link', 'publishedAt', 'sourceUrl', 'summary', 'title', 'unit']);
+  assert.equal(snap.link, 'external');
+  assert.deepEqual(snapFromItem({ id: 2 }), { link: 'internal' }, 'a bare item gives an almost empty copy: only the kind of news');
   assert.equal(snapFromItem({ id: 3, title: 'عنوان', summary: '   ' }).summary, undefined, 'an empty summary is left out');
+});
+
+// A real address of a portal news: Persian title in the path, percent-encoded, longer than the 600 characters an older version kept.
+const LONG = `https://pnu.ac.ir/portal/news/${'%D8%A7%D8%AE%D8%A8%D8%A7%D8%B1'.repeat(26)}?id=987654`;
+
+test('an address is kept whole or not at all, never cut: a long portal address survives, and a cut one is left out', () => {
+  assert.ok(LONG.length > 600 && LONG.length < 2000, String(LONG.length));
+  const whole = snapFromItem({ id: 1, title: 'خبر', source_url: LONG });
+  assert.equal(whole.sourceUrl, LONG, 'the full address, as the card has it');
+  assert.equal(whole.link, 'external');
+  const tooLong = snapFromItem({ id: 1, title: 'خبر', source_url: `https://pnu.ac.ir/${'a'.repeat(2100)}` });
+  assert.equal(tooLong.sourceUrl, undefined, 'too long to keep: left out, not shortened');
+  assert.equal(tooLong.link, 'external', 'but it is still known to be a portal news');
+  const cutInTheMiddle = LONG.slice(0, 600);
+  assert.ok(cutInTheMiddle.endsWith('%') || /%[0-9A-F]?$/.test(cutInTheMiddle) || cutInTheMiddle.length === 600);
+  for (const bad of [cutInTheMiddle, `${LONG.slice(0, 40)}%`, `${LONG.slice(0, 40)}%D`, 'https://pnu.ac.ir/a b', 'http://pnu.ac.ir/x', 'ftp://x.ir/a', 'javascript:alert(1)', '//evil.example/x', '/n/5', 'x'.repeat(10), `https://pnu.ac.ir/${'b'.repeat(582)}`]) {
+    assert.equal(cleanSnap({ title: 'خبر', sourceUrl: bad }).sourceUrl, undefined, bad.slice(0, 50));
+  }
+  assert.equal(`https://pnu.ac.ir/${'b'.repeat(582)}`.length, 600, 'exactly the length an older version cut at is not trusted');
+  assert.equal(cleanSnap({ title: 'خبر', sourceUrl: 'https://pnu.ac.ir/n/5?q=%D8%A7' }).sourceUrl, 'https://pnu.ac.ir/n/5?q=%D8%A7', 'a whole percent-sequence is fine');
+  assert.equal(cleanSnap({ title: 'خبر', cover: '/media/a.jpg' }).cover, '/media/a.jpg');
+  assert.equal(cleanSnap({ title: 'خبر', cover: 'https://cdn.example/a.jpg' }).cover, 'https://cdn.example/a.jpg');
+  assert.equal(cleanSnap({ title: 'خبر', cover: `/media/${'c'.repeat(2100)}` }).cover, undefined);
+  assert.equal(cleanSnap({ title: 'خبر', link: 'sideways' }).link, undefined, 'only external or internal');
+});
+
+test('bookmarks saved by an older version with a cut address are repaired when they are read: the cut address is dropped, the rest stays', () => {
+  const storage = fakeStorage();
+  const cut = LONG.slice(0, 600);
+  const midSequence = `${LONG.slice(0, 590)}%D8%`;
+  storage.data.set(BOOKMARKS_KEY, JSON.stringify({ v: 1, items: [
+    { id: 1, savedAt: 1700000000000, deletedAt: null, snap: { title: 'قدیمی', summary: 'چکیده', sourceUrl: cut } },
+    { id: 2, savedAt: 1700000000001, deletedAt: null, snap: { title: 'قدیمی ۲', sourceUrl: midSequence } },
+    { id: 3, savedAt: 1700000000002, deletedAt: null, snap: { title: 'سالم', sourceUrl: 'https://pnu.ac.ir/n/3' } },
+    { id: 4, savedAt: 1700000000003, deletedAt: null, snap: { title: 'داخلی' } },
+  ] }));
+  const store = createBookmarkStore({ storage, now: clock() });
+  const byId = Object.fromEntries(store.list().map((record) => [record.id, record.snap]));
+  assert.equal(byId[1].sourceUrl, undefined);
+  assert.equal(byId[1].title, 'قدیمی');
+  assert.equal(byId[1].summary, 'چکیده');
+  assert.equal(byId[1].link, undefined, 'the kind is not known: the server is asked when it is opened');
+  assert.equal(byId[2].sourceUrl, undefined);
+  assert.equal(byId[3].sourceUrl, 'https://pnu.ac.ir/n/3');
+  assert.equal(byId[4].link, undefined);
+});
+
+test('patchSnap adds what became known to one bookmark, keeps the rest, and ignores what is not valid', () => {
+  const store = createBookmarkStore({ storage: fakeStorage(), now: clock() });
+  store.add(1, { title: 'خبر', summary: 'چکیده' });
+  const kinds = [];
+  store.subscribe(({ kind }) => kinds.push(kind));
+  assert.equal(store.patchSnap(1, { link: 'external', sourceUrl: LONG }).changed, true);
+  assert.deepEqual(kinds, ['snap']);
+  const snap = store.list()[0].snap;
+  assert.deepEqual([snap.title, snap.link, snap.sourceUrl], ['خبر', 'external', LONG]);
+  assert.equal(store.patchSnap(1, { link: 'external', sourceUrl: LONG }).changed, false, 'nothing new: nobody is told');
+  assert.equal(store.patchSnap(1, { sourceUrl: LONG.slice(0, 600) }).changed, true, 'a cut address replaces nothing: the field is dropped');
+  assert.equal(store.list()[0].snap.sourceUrl, undefined);
+  assert.equal(store.patchSnap(99, { link: 'internal' }).changed, false);
+  store.remove(1);
+  assert.equal(store.patchSnap(1, { link: 'internal' }).changed, false, 'a removed bookmark is left alone');
+});
+
+// The function that opens a saved news, taken out of the reader's script and run with stand-ins for the page.
+function savedOpener({ snapshots, store }) {
+  const source = app.slice(app.indexOf('async function openSavedNews'), app.indexOf('// Bookmarks that came from another device have no title yet'));
+  const log = { opened: [], navigated: [], asked: [] };
+  const run = new Function('window', 'navigateToNews', 'getJson', 'bookmarks', `${source}\nreturn openSavedNews;`);
+  const open = run(
+    { open: (...args) => { log.opened.push(args); return {}; } },
+    (id) => log.navigated.push(String(id)),
+    async (url) => { log.asked.push(url); const answer = await snapshots(url); return answer; },
+    store,
+  );
+  return { open, log };
+}
+
+test('opening a saved news: the whole address from the local copy, this site\'s page for ordinary news, and the server for what is not known', async () => {
+  const store = createBookmarkStore({ storage: fakeStorage(), now: clock() });
+  store.add(1, { title: 'پورتال', link: 'external', sourceUrl: LONG });
+  store.add(2, { title: 'داخلی', link: 'internal' });
+  const never = async () => { throw new Error('the server must not be asked'); };
+  const quick = savedOpener({ snapshots: never, store });
+  await quick.open(store.list().find((r) => r.id === 1));
+  assert.deepEqual(quick.log.opened, [[LONG, '_blank', 'noopener,noreferrer']], 'the full address, not a cut one');
+  await quick.open(store.list().find((r) => r.id === 2));
+  assert.deepEqual(quick.log.navigated, ['2']);
+  assert.equal(quick.log.asked.length, 0);
+});
+
+test('opening a saved news whose address was lost: the server gives the whole address once and it is kept', async () => {
+  const store = createBookmarkStore({ storage: fakeStorage(), now: clock() });
+  store.add(5, { title: 'قدیمی' }); // an older bookmark: no address, no kind
+  store.add(6, { title: 'قدیمیِ داخلی' });
+  const answers = { 5: { items: [{ id: 5, source_url: LONG }] }, 6: { items: [{ id: 6, source_url: null }] } };
+  const { open, log } = savedOpener({ snapshots: async (url) => answers[/ids=(\d+)/.exec(url)[1]], store });
+  await open(store.list().find((r) => r.id === 5));
+  assert.deepEqual(log.asked, ['/api/public/news-snapshots?ids=5']);
+  assert.deepEqual(log.opened, [[LONG, '_blank', 'noopener,noreferrer']]);
+  assert.equal(store.list().find((r) => r.id === 5).snap.sourceUrl, LONG);
+  assert.equal(store.list().find((r) => r.id === 5).snap.link, 'external');
+  await open(store.list().find((r) => r.id === 5));
+  assert.equal(log.asked.length, 1, 'the second time needs no question');
+  assert.equal(log.opened.length, 2);
+
+  await open(store.list().find((r) => r.id === 6));
+  assert.deepEqual(log.navigated, ['6']);
+  assert.equal(store.list().find((r) => r.id === 6).snap.link, 'internal');
+  await open(store.list().find((r) => r.id === 6));
+  assert.equal(log.asked.length, 2, 'and an ordinary news is not asked about twice');
+});
+
+test('opening a saved news when the server cannot help: this site\'s page, and nothing is remembered wrongly', async () => {
+  const store = createBookmarkStore({ storage: fakeStorage(), now: clock() });
+  store.add(7, { title: 'ناشناخته' });
+  store.add(8, { title: 'برداشته‌شده' });
+  const down = savedOpener({ snapshots: async () => { throw new Error('Failed to fetch'); }, store });
+  await down.open(store.list().find((r) => r.id === 7));
+  assert.deepEqual(down.log.navigated, ['7']);
+  assert.equal(down.log.opened.length, 0);
+  assert.equal(store.list().find((r) => r.id === 7).snap.link, undefined, 'still not known');
+  const gone = savedOpener({ snapshots: async () => ({ items: [] }), store });
+  await gone.open(store.list().find((r) => r.id === 8));
+  assert.deepEqual(gone.log.navigated, ['8'], 'its page tells the reader it is gone, and offers to remove it');
+  assert.equal(store.list().find((r) => r.id === 8).snap.link, undefined, 'a news the server does not know is not marked ordinary');
+});
+
+test('the saved list opens a news through that function and keeps no address-opening logic of its own', () => {
+  assert.match(app, /savedDialog\.close\(\);\s*if \(record\) openSavedNews\(record\);/);
+  assert.ok(!/record\.snap\?\.sourceUrl\?\.startsWith/.test(app));
+  assert.ok(!/text\(snap\?\.sourceUrl/.test(read('public/shared/bookmarks.v' + version + '.js')), 'the address is not cut by the generic text limit');
 });
 
 test('the saved list shows the summary, and the title only when there is no summary (older bookmarks)', () => {
