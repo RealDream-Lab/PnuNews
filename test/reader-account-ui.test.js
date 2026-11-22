@@ -83,7 +83,9 @@ test('the account button is in the header, hidden until the main admin switches 
   assert.match(html, /<symbol id="icon-user"/);
   assert.ok(html.indexOf('id="saved-button"') < html.indexOf('id="account-button"') && html.indexOf('id="account-button"') < html.indexOf('class="icon-button theme-toggle"'));
   assert.match(app, /const enabled = state\.config\?\.reader\?\.signup_enabled === true;/);
-  assert.match(app, /accountButton\.hidden = !enabled;/);
+  assert.match(app, /accountButton\.hidden = !\(enabled \|\| signedIn\);/, 'a signed-in reader keeps the button when signup is switched off');
+  assert.match(app, /accountButton\.classList\.toggle\('is-signed-in', signedIn\)/);
+  assert.match(app, /if \(state\.config && !readerChecked\)/, 'the question «am I signed in?» is asked once per visit, signup switch or not');
   assert.equal(app.split('syncAccountUi();').length - 1, 6, 'after the first config, after every refreshed config, after the answer of /me, after the two callbacks of the dialog, and when the sync finds the session gone');
   assert.match(app, /getJson\('\/api\/reader\/me'\)/);
 });
@@ -128,6 +130,7 @@ test('the dialog is a bottom sheet on phones and a centred dialog elsewhere, and
   assert.match(styles, /\.account-dialog \.info-panel\{max-height:92vh;max-height:92dvh;overflow:auto;border-radius:22px 22px 0 0/);
   assert.match(styles, /\.account-field input,\.account-field select\{[^}]*font-size:1rem/, '16px inputs: no zoom when a field is focused on iOS');
   assert.match(styles, /\.account-code\{[^}]*direction:ltr/);
+  assert.match(styles, /\.account-benefit\{[^}]*text-align:justify;text-justify:inter-word/, 'the benefit paragraph is justified');
   assert.match(styles, /\.account-switch input:focus-visible\+\.account-switch-track/, 'the switch shows keyboard focus');
   const phones = /@media\(max-width:639px\)\{([\s\S]*?)\n\}/.exec(styles)?.[1] ?? '';
   assert.match(phones, /\.account-button\{order:2\}/, 'after the city picker, in row 1 (order 9 is the line break)');

@@ -599,7 +599,7 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 .account-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.4rem .8rem}
 .account-link{min-height:40px;padding:0 .2rem;border:0;background:transparent;color:var(--primary);font:inherit;font-size:.88rem;cursor:pointer}
 .account-link:disabled{color:var(--muted);cursor:default}
-.account-benefit{margin:0;padding:.9rem 1rem;border-radius:14px;border-inline-start:3px solid var(--primary);background:var(--primary-soft);font-size:.88rem;line-height:2}
+.account-benefit{margin:0;padding:.9rem 1rem;border-radius:14px;border-inline-start:3px solid var(--primary);background:var(--primary-soft);font-size:.88rem;line-height:2;text-align:justify;text-justify:inter-word}
 .account-phone{display:grid;gap:.15rem;padding:.75rem .9rem;border-radius:12px;background:var(--surface-soft)}
 .account-phone strong{font-size:1.05rem;text-align:right;letter-spacing:.02em}
 .account-phone small{color:var(--muted);font-size:.78rem}

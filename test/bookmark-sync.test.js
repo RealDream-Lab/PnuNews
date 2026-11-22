@@ -10,7 +10,7 @@ import { createPublicRouter } from '../src/routes/public.js';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const version = JSON.parse(readFileSync(`${root}package.json`, 'utf8')).version;
 const { createBookmarkStore } = await import(`${root}public/shared/bookmarks.v${version}.js`);
-const { createBookmarkSync, RETRY_STEPS_MS, SYNC_DEBOUNCE_MS, SYNC_REFRESH_MS } = await import(`${root}public/shared/bookmark-sync.v${version}.js`);
+const { createBookmarkSync, RETRY_STEPS_MS, SYNC_DEBOUNCE_MS, SYNC_POLL_MS, SYNC_REFRESH_MS } = await import(`${root}public/shared/bookmark-sync.v${version}.js`);
 const read = (relative) => readFileSync(`${root}${relative}`, 'utf8');
 const app = read(`public/reader/app.v${version}.js`);
 const html = read('public/index.html');
@@ -93,7 +93,10 @@ test('the store tells its listeners what kind of change it was', () => {
 
 // ---------- the sync controller ----------
 
-function harness({ answers = [], active = true } = {}) {
+// The poll gets a delay of its own here, so it can be told from a retry (which may also be two minutes).
+const POLL = 7_777_777;
+
+function harness({ answers = [], pullAnswers = [], active = true } = {}) {
   const now = clock();
   const store = createBookmarkStore({ storage: fakeStorage(), now });
   const timers = [];
@@ -103,36 +106,52 @@ function harness({ answers = [], active = true } = {}) {
   const visibility = Object.assign(new EventEmitter(), { visibilityState: 'visible' });
   visibility.addEventListener = (type, handler) => visibility.on(type, handler);
   visibility.removeEventListener = (type, handler) => visibility.off(type, handler);
-  const log = { sent: [], unauthorized: 0, disabled: 0, merged: 0 };
+  const log = { sent: [], pulled: 0, unauthorized: 0, disabled: 0, merged: 0 };
   const state = { active };
   const queue = [...answers];
+  const pullQueue = [...pullAnswers];
+  const next = (list) => (list.length > 1 ? list.shift() : list[0]);
   const controller = createBookmarkSync({
     store,
     isActive: () => state.active,
     send: async (items) => {
       log.sent.push(items);
-      const next = queue.length > 1 ? queue.shift() : queue[0];
-      const answer = typeof next === 'function' ? next(items) : next;
+      const answer = (() => { const value = next(queue); return typeof value === 'function' ? value(items) : value; })();
       if (answer === 'network') throw new Error('Failed to fetch');
       return answer;
+    },
+    pull: async () => {
+      log.pulled += 1;
+      const value = next(pullQueue) ?? { status: 200, body: { items: [] } };
+      if (value === 'network') throw new Error('Failed to fetch');
+      return typeof value === 'function' ? value() : value;
     },
     onUnauthorized: () => { log.unauthorized += 1; },
     onDisabled: () => { log.disabled += 1; },
     onMerged: () => { log.merged += 1; },
     clock: now,
+    pollMs: POLL,
     schedule: (fn, delay) => { const timer = { fn, delay }; timers.push(timer); return timer; },
     cancel: (timer) => { const index = timers.indexOf(timer); if (index >= 0) timers.splice(index, 1); },
     events,
     visibility,
   });
-  // Runs the timer that is due first and waits for the sync it starts.
+  // The timers that are not the two-minute poll (that one has its own tests).
+  const pending = () => timers.filter((timer) => timer.delay !== POLL);
+  // Runs the pending timer that is due first and waits for the sync it starts.
   const fire = async () => {
-    timers.sort((a, b) => a.delay - b.delay);
-    const timer = timers.shift();
+    const [timer] = pending().sort((a, b) => a.delay - b.delay);
+    timers.splice(timers.indexOf(timer), 1);
     await timer.fn();
     return timer.delay;
   };
-  return { store, controller, timers, events, visibility, log, state, fire, now };
+  // Runs the poll's timer the way a clock would: it is gone from the list once it has fired.
+  const firePoll = async () => {
+    const timer = timers.find((candidate) => candidate.delay === POLL);
+    timers.splice(timers.indexOf(timer), 1);
+    await timer.fn();
+  };
+  return { store, controller, timers, events, visibility, log, state, fire, firePoll, now, get pending() { return pending(); } };
 }
 const OK = (items = []) => ({ status: 200, body: { items } });
 
@@ -143,7 +162,7 @@ test('the sync sends everything the device has, tombstones included, and takes i
   h.store.remove(2);
   const [one] = h.store.records().filter((r) => r.id === 1);
   h.controller.start();
-  assert.equal(h.timers.length, 1);
+  assert.equal(h.pending.length, 1);
   assert.equal(await h.fire(), 0, 'the first sync starts at once');
   assert.equal(h.log.sent.length, 1);
   assert.deepEqual(h.log.sent[0].map((i) => [i.newsId, i.deletedAt === null]).sort(), [[1, true], [2, false]]);
@@ -162,18 +181,18 @@ test('a local change starts a sync after two seconds; many changes make one; tak
   const h = harness({ answers: [OK()] });
   h.controller.start();
   await h.fire();
-  assert.equal(h.timers.length, 0);
+  assert.equal(h.pending.length, 0);
   h.store.add(1, snap('یک'));
   h.store.add(2, snap('دو'));
   h.store.remove(1);
-  assert.equal(h.timers.length, 1, 'one sync is planned, not three');
-  assert.equal(h.timers[0].delay, SYNC_DEBOUNCE_MS);
+  assert.equal(h.pending.length, 1, 'one sync is planned, not three');
+  assert.equal(h.pending[0].delay, SYNC_DEBOUNCE_MS);
   await h.fire();
   assert.deepEqual(h.log.sent.at(-1).map((i) => i.newsId).sort(), [1, 2]);
   h.store.mergeRemote([{ newsId: 5, savedAt: 9999, deletedAt: null }]);
   h.store.setSnaps(new Map([[5, snap('پنج')]]));
   h.store.reload();
-  assert.equal(h.timers.length, 0, 'the server\'s own changes are not sent back');
+  assert.equal(h.pending.length, 0, 'the server\'s own changes are not sent back');
 });
 
 test('a failed sync loses nothing and is retried later with growing pauses, up to ten minutes; a success starts over', async () => {
@@ -181,26 +200,26 @@ test('a failed sync loses nothing and is retried later with growing pauses, up t
   h.store.add(1, snap('یک'));
   h.controller.start();
   const delays = [];
-  for (let i = 0; i < 6; i += 1) { await h.fire(); delays.push(h.timers[0].delay); }
+  for (let i = 0; i < 6; i += 1) { await h.fire(); delays.push(h.pending[0].delay); }
   assert.deepEqual(delays, [30_000, 60_000, 120_000, 300_000, 600_000, 600_000]);
   assert.deepEqual(RETRY_STEPS_MS, [30_000, 60_000, 120_000, 300_000, 600_000]);
   assert.deepEqual(h.store.list().map((r) => r.id), [1], 'the local bookmark is still there');
   await h.fire();
-  assert.equal(h.timers.length, 0, 'the seventh try worked: nothing more is planned');
+  assert.equal(h.pending.length, 0, 'the seventh try worked: nothing more is planned');
   h.answers = null;
   h.store.add(2, snap('دو'));
-  assert.equal(h.timers[0].delay, SYNC_DEBOUNCE_MS);
+  assert.equal(h.pending[0].delay, SYNC_DEBOUNCE_MS);
 });
 
 test('no session or accounts switched off: no retry; nothing is sent while the sync is not active', async () => {
   const unauthorized = harness({ answers: [{ status: 401, body: {} }] });
   unauthorized.controller.start();
   await unauthorized.fire();
-  assert.deepEqual([unauthorized.log.unauthorized, unauthorized.timers.length], [1, 0]);
+  assert.deepEqual([unauthorized.log.unauthorized, unauthorized.pending.length], [1, 0]);
   const disabled = harness({ answers: [{ status: 403, body: { code: 'disabled' } }] });
   disabled.controller.start();
   await disabled.fire();
-  assert.deepEqual([disabled.log.disabled, disabled.timers.length], [1, 0]);
+  assert.deepEqual([disabled.log.disabled, disabled.pending.length], [1, 0]);
   const inactive = harness({ answers: [OK()], active: false });
   inactive.store.add(1, snap('یک'));
   inactive.controller.start();
@@ -209,7 +228,7 @@ test('no session or accounts switched off: no retry; nothing is sent while the s
   const odd = harness({ answers: [{ status: 200, body: { items: 'x' } }] });
   odd.controller.start();
   await odd.fire();
-  assert.equal(odd.timers[0].delay, 30_000, 'an answer that makes no sense is a failure');
+  assert.equal(odd.pending[0].delay, 30_000, 'an answer that makes no sense is a failure');
 });
 
 test('a change made while a sync is out is sent by the next one', async () => {
@@ -220,12 +239,12 @@ test('a change made while a sync is out is sent by the next one', async () => {
   const first = h.fire();
   h.store.add(1, snap('یک'));
   h.timers.sort((a, b) => a.delay - b.delay);
-  const during = h.timers.shift(); // the debounced sync fires while the first is still out
+  const during = h.timers.shift(); // the debounced sync (the earliest) fires while the first is still out
   await during.fn();
   assert.equal(h.log.sent.length, 1, 'only one at a time');
   release();
   await first;
-  assert.equal(h.timers.length, 1, 'and another one is planned');
+  assert.equal(h.pending.length, 1, 'and another one is planned');
   await h.fire();
   assert.equal(h.log.sent.length, 2);
   assert.deepEqual(h.log.sent[1].map((i) => i.newsId), [1]);
@@ -236,38 +255,107 @@ test('it syncs when the connection comes back and when the page is shown again a
   h.controller.start();
   await h.fire();
   h.events.emit('online');
-  assert.equal(h.timers[0].delay, 1000);
+  assert.equal(h.pending[0].delay, 1000);
   await h.fire();
   h.visibility.emit('visibilitychange');
-  assert.equal(h.timers.length, 0, 'shown again soon after a sync: nothing to do');
+  assert.equal(h.pending.length, 0, 'shown again soon after a sync: nothing to do');
   h.now.advance(SYNC_REFRESH_MS + 1000);
   h.visibility.visibilityState = 'hidden';
   h.visibility.emit('visibilitychange');
-  assert.equal(h.timers.length, 0, 'hidden: nothing');
+  assert.equal(h.pending.length, 0, 'hidden: nothing');
   h.visibility.visibilityState = 'visible';
   h.visibility.emit('visibilitychange');
-  assert.equal(h.timers[0].delay, 500);
+  assert.equal(h.pending[0].delay, 500);
   h.controller.stop();
-  assert.equal(h.timers.length, 0);
+  assert.equal(h.timers.length, 0, 'the poll is cancelled too');
   h.store.add(1, snap('یک'));
   h.events.emit('online');
   h.visibility.emit('visibilitychange');
-  assert.equal(h.timers.length, 0, 'stopped means stopped');
+  assert.equal(h.pending.length, 0, 'stopped means stopped');
   h.controller.start();
-  assert.equal(h.timers.length, 1, 'and it can start again');
+  assert.equal(h.pending.length, 1, 'and it can start again');
+});
+
+test('with nothing new to send the server\'s list is only fetched, and it still brings in what another device did', async () => {
+  const h = harness({ answers: [OK()], pullAnswers: [{ status: 200, body: { items: [{ newsId: 9, savedAt: 5000, deletedAt: null }] } }] });
+  h.controller.start();
+  await h.fire(); // the first sync always sends
+  assert.deepEqual([h.log.sent.length, h.log.pulled], [1, 0]);
+  h.controller.syncNow();
+  await h.fire();
+  assert.deepEqual([h.log.sent.length, h.log.pulled], [1, 1], 'clean: a fetch, not an upload');
+  assert.deepEqual(h.store.list().map((r) => r.id), [9], 'the other device\'s bookmark arrived');
+  h.store.add(1, snap('یک'));
+  await h.fire();
+  assert.deepEqual([h.log.sent.length, h.log.pulled], [2, 1], 'a local change goes back to a full sync');
+  h.controller.syncNow();
+  await h.fire();
+  assert.deepEqual([h.log.sent.length, h.log.pulled], [2, 2], 'and once it went through, fetching again');
+});
+
+test('a change made while only a fetch was out is not forgotten: the next sync sends it', async () => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const h = harness({ answers: [OK(), OK()], pullAnswers: [async () => { await gate; return OK(); }] });
+  h.controller.start();
+  await h.fire();
+  h.controller.syncNow();
+  const fetching = h.fire();
+  h.store.add(1, snap('یک'));
+  release();
+  await fetching;
+  await h.fire();
+  assert.equal(h.log.sent.length, 2, 'the new bookmark was uploaded');
+  assert.deepEqual(h.log.sent[1].map((i) => i.newsId), [1]);
+});
+
+test('an open page asks the server every two minutes while it is visible, and not while it is in the background', async () => {
+  const h = harness({ answers: [OK()] });
+  h.controller.start();
+  const polls = () => h.timers.filter((timer) => timer.delay === POLL);
+  assert.equal(polls().length, 1, 'a poll is planned');
+  assert.equal(SYNC_POLL_MS, 120_000, 'and in real life it is every two minutes');
+  await h.fire();
+  await h.firePoll();
+  assert.equal(h.pending.length, 1, 'visible: a sync is planned');
+  assert.equal(h.pending[0].delay, 0);
+  assert.equal(polls().length, 1, 'and the next poll is already planned');
+  await h.fire();
+  assert.equal(h.log.pulled, 1, 'with nothing to send it is a fetch');
+  h.visibility.visibilityState = 'hidden';
+  await h.firePoll();
+  assert.equal(h.pending.length, 0, 'hidden: no request');
+  assert.equal(polls().length, 1, 'but the poll goes on');
+  h.controller.stop();
+  assert.equal(h.timers.length, 0);
+});
+
+test('a window that gets the reader\'s attention again syncs if it has been a while, like a tab that becomes visible', async () => {
+  const h = harness({ answers: [OK()] });
+  h.controller.start();
+  await h.fire();
+  h.events.emit('focus');
+  assert.equal(h.pending.length, 0, 'just synced: nothing to do');
+  h.now.advance(SYNC_REFRESH_MS + 1000);
+  h.events.emit('focus');
+  assert.equal(h.pending[0].delay, 500);
+  assert.equal(SYNC_REFRESH_MS, 20_000);
 });
 
 // ---------- wired into the reader ----------
 
-test('the reader starts the sync only for a signed-in reader while accounts are on, loads it lazily, and stops it otherwise', () => {
+test('the reader syncs for a signed-in reader whatever the signup switch says, loads it lazily, and stops it when nobody is signed in', () => {
   assert.match(app, new RegExp(`import\\('/shared/bookmark-sync\\.v${version.replaceAll('.', '\\.')}\\.js'\\)`));
   assert.ok(!/^import .*bookmark-sync/m.test(app), 'not loaded at the start');
-  assert.match(app, /isActive: \(\) => state\.config\?\.reader\?\.signup_enabled === true && Boolean\(readerUser\)/);
-  assert.match(app, /if \(!enabled \|\| !readerUser\) stopBookmarkSync\(\);\s*else startBookmarkSync\(\);/);
+  assert.match(app, /isActive: \(\) => Boolean\(readerUser\)/);
+  assert.ok(!/isActive:[^\n]*signup_enabled/.test(app), 'switching signup off does not stop a signed-in reader\'s sync');
+  assert.match(app, /if \(signedIn\) startBookmarkSync\(\);\s*else stopBookmarkSync\(\);/);
   assert.match(app, /fetchOrExplain\('\/api\/reader\/bookmarks\/sync', \{\s*method: 'POST'/);
+  assert.match(app, /pull: async \(\) => \{\s*const response = await fetchOrExplain\('\/api\/reader\/bookmarks', \{ headers: \{ accept: 'application\/json' \} \}\);/);
   assert.match(app, /onUnauthorized: \(\) => \{ readerUser = null; syncAccountUi\(\); \}/);
-  assert.match(app, /onDisabled: \(\) => stopBookmarkSync\(\)/);
+  assert.ok(!app.includes('onDisabled: () => stopBookmarkSync()'));
   assert.match(app, /onMerged: \(\) => hydrateSavedSnapshots\(\)/);
+  assert.match(app, /hydrateSavedSnapshots\(\);\s*bookmarkSync\?\.then\(\(controller\) => controller\.syncNow\(\)\)/, 'opening the saved list refreshes it');
 });
 
 test('bookmarks from other devices get their titles from the server: 40 at a time, retried never for news it does not give back', () => {

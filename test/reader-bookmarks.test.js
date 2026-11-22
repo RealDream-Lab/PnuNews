@@ -90,24 +90,20 @@ async function withRouter(db, run) {
 const item = (newsId, savedAt, deletedAt = null) => ({ newsId, savedAt: t(savedAt), deletedAt: deletedAt === null ? null : t(deletedAt) });
 const shape = (items) => items.map((i) => [i.newsId, i.deletedAt === null ? 'live' : 'removed']).sort((a, b) => a[0] - b[0]);
 
-test('signup off: 403 for everyone and nothing is read or written; on, a reader who is not signed in gets 401', async () => {
-  const off = fakeDatabase({ signupEnabled: false });
-  await withRouter(off, async ({ call, sync }) => {
-    for (const reader of [undefined, 1]) {
-      const response = await call('/api/reader/bookmarks', { reader });
-      assert.equal(response.status, 403);
-      assert.equal(response.json.code, 'disabled');
-      assert.equal((await sync(reader, [item(1, 10)])).status, 403);
-    }
-  });
-  assert.equal(off.rows.size, 0);
-  assert.equal(off.log.began, 0);
-  const on = fakeDatabase();
-  await withRouter(on, async ({ call, sync }) => {
-    assert.equal((await call('/api/reader/bookmarks')).status, 401);
-    assert.equal((await sync(undefined, [item(1, 10)])).status, 401);
-  });
-  assert.equal(on.log.began, 0);
+test('signup off stops only new logins: a signed-in reader still syncs, and a reader who is not signed in gets 401 either way', async () => {
+  for (const signupEnabled of [true, false]) {
+    const db = fakeDatabase({ signupEnabled });
+    await withRouter(db, async ({ call, sync }) => {
+      assert.equal((await call('/api/reader/bookmarks')).status, 401, `signup ${signupEnabled}`);
+      assert.equal((await sync(undefined, [item(1, 10)])).status, 401);
+      assert.equal(db.log.began, 0, 'nothing is touched for someone who is not signed in');
+      const answer = await sync(1, [item(1, 10)]);
+      assert.equal(answer.status, 200, `signup ${signupEnabled}`);
+      assert.deepEqual(shape(answer.json.items), [[1, 'live']]);
+      assert.deepEqual(shape((await call('/api/reader/bookmarks', { reader: 1 })).json.items), [[1, 'live']]);
+    });
+    assert.equal(db.rows.size, 1);
+  }
 });
 
 test('a device sends what it has and gets the merged list; news that do not exist are left out; readers are separate', async () => {

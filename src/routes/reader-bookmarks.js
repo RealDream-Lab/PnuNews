@@ -1,7 +1,6 @@
 import express from 'express';
 import { MAX_BOOKMARKS_PER_READER, TOMBSTONE_TTL_MS, mergeBookmarks, parseSyncItems } from '../lib/bookmark-merge.js';
 import { createRateLimiter } from '../lib/ratelimit.js';
-import { loadReaderSettings } from '../lib/reader-settings.js';
 
 const toRecord = (row) => ({
   newsId: Number(row.news_id),
@@ -13,21 +12,13 @@ const toRecord = (row) => ({
 const publicRecord = (record) => ({ newsId: record.newsId, savedAt: record.savedAt, deletedAt: record.deletedAt, updatedAt: record.updatedAt });
 
 // The reader's bookmarks on the server, kept in step with the device (see /shared/bookmark-sync). Mounted by the reader
-// router, behind its session middleware (`authenticate` sets request.reader). Everything here needs reader signup to be on:
-// switched off, the answer is 403 and the devices keep their bookmarks locally until it is switched on again.
+// router, behind its session middleware (`authenticate` sets request.reader). Switching reader signup off (by hand, or by
+// itself when the SMS budget runs out) stops only new logins and signups, which need SMS; a reader who is already signed
+// in keeps syncing.
 export function createBookmarkRouter({ pool, clock = Date.now, authenticate }) {
   const router = express.Router();
   router.use(createRateLimiter({ limit: 30, windowMs: 60_000, clock }));
 
-  router.use(async (request, response, next) => {
-    try {
-      const settings = await loadReaderSettings(pool);
-      if (!settings.signup_enabled) return response.status(403).json({ error: 'همگام‌سازی نشانک‌ها فعلاً غیرفعال است.', code: 'disabled' });
-      return next();
-    } catch (error) {
-      return next(error);
-    }
-  });
   router.use(authenticate);
   router.use((request, response, next) => {
     if (request.reader) return next();
