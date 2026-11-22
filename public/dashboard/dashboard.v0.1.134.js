@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.133.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.134.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -704,6 +704,8 @@ const FEED_ROLES = ["super_admin", "country_admin"];
 function goToView(view) {
   // «مراکز و واحدها» and «مدیریت کاربران» are one page now.
   if (view === "regions") view = "users";
+  // The reader accounts are the main admin's alone.
+  if (view === "readers" && state.user?.role !== "super_admin") view = "dashboard";
   // Domain users manage nobody and have no event log.
   if (
     (view === "users" || view === "audit") &&
@@ -743,6 +745,7 @@ function goToView(view) {
   else if (actualView === "users") loadStructure();
   else if (actualView === "categories") loadCategories();
   else if (actualView === "domains") loadDomains();
+  else if (actualView === "readers") loadReaders();
   else if (actualView === "settings") loadSettings();
   else if (actualView === "audit") loadAudit(1);
   else if (actualView === "stats") loadStats();
@@ -3395,6 +3398,242 @@ async function loadAudit(page = state.auditPage) {
   }
 }
 
+// ---------- Reader accounts (the main admin only) ----------
+// Reader signup on or off, the SMS credit and its limits, and the list of readers. The server (/api/admin/readers/*) decides
+// everything; this only shows it. Nothing here can change or delete a reader's account.
+
+const READER_SMS_ERRORS = {
+  timeout: "پاسخی نرسید",
+  network: "اتصال برقرار نشد",
+  invalid_response: "پاسخ قابل فهم نبود",
+  rejected: "ippanel نپذیرفت",
+  not_configured: "ippanel تنظیم نشده",
+};
+
+function readerSmsError(error) {
+  const label = READER_SMS_ERRORS[error?.kind] || "خطای نامشخص";
+  return error?.message_code || error?.code ? `${label}، کد ${error.message_code || error.code}` : label;
+}
+
+// +989121234567 -> 0912 123 4567
+function readerPhone(phone) {
+  const national = String(phone ?? "").replace(/^\+98/, "0");
+  return /^\d{11}$/.test(national)
+    ? `${national.slice(0, 4)} ${national.slice(4, 7)} ${national.slice(7)}`
+    : national;
+}
+
+function renderReadersBanner(settings, status) {
+  const banner = document.getElementById("readers-banner");
+  const info = status.signup_disabled;
+  let level = "";
+  let text = "";
+  if (!settings.signup_enabled && info) {
+    level = "danger";
+    const when = formatDate(info.at);
+    if (info.reason === "low_credit") {
+      text = `ثبت‌نام خودش خاموش شد (${when}): اعتبار پیامک رو به پایان بود و فقط حدود ${faDigits.format(info.remaining ?? 0)} پیامک باقی مانده بود. اعتبار را شارژ کنید و ثبت‌نام را دوباره روشن کنید.`;
+    } else if (info.reason === "send_failures") {
+      text = `ثبت‌نام خودش خاموش شد (${when}): ${faDigits.format(info.failures ?? 5)} ارسال پیامک در ۱۰ دقیقه ناموفق بود (آخرین نشانهٔ خطا: ${info.last ?? "نامشخص"}). اتصال به ippanel، کلید و اعتبار را بررسی کنید و ثبت‌نام را دوباره روشن کنید.`;
+    } else text = `ثبت‌نام خودش خاموش شد (${when}).`;
+  } else if (settings.signup_enabled && !status.configured) {
+    level = "warning";
+    text =
+      "ثبت‌نام روشن است، اما ippanel تنظیم نشده (IPPANEL_API_KEY، IPPANEL_PATTERN_CODE و IPPANEL_FROM_NUMBER در .autostart)؛ خوانندگان نمی‌توانند کد بگیرند.";
+  } else if (status.dry_run) {
+    level = "info";
+    text =
+      "حالت آزمایشی (IPPANEL_DRY_RUN) روشن است: پیامکی فرستاده نمی‌شود و کد در کنسول سرور چاپ می‌شود.";
+  }
+  banner.hidden = !text;
+  banner.dataset.level = level;
+  banner.textContent = text; // text only: the reason comes from the server's notice
+}
+
+function renderReadersCredit(status) {
+  const target = document.getElementById("readers-credit");
+  if (!status.configured) {
+    target.innerHTML =
+      '<p class="empty-panel">ippanel هنوز تنظیم نشده است؛ اعتبار خوانده نمی‌شود.</p>';
+    return;
+  }
+  const parts = [];
+  if (status.credit_rial !== null) {
+    const rial = Math.floor(status.credit_rial);
+    const level =
+      status.remaining < status.min_remaining
+        ? "danger"
+        : status.remaining < status.min_remaining * 2
+          ? "warning"
+          : "ok";
+    parts.push(
+      `<strong class="credit-number">${faDigits.format(rial)} <small>ریال</small></strong><span class="credit-sub">${faDigits.format(Math.floor(rial / 10))} تومان</span>`,
+      `<p class="credit-estimate" data-level="${level}">حدود <b>${faDigits.format(status.remaining)}</b> پیامک باقی است <small>(با هزینهٔ ${faDigits.format(status.cost_rial)} ریال برای هر پیامک؛ زیر ${faDigits.format(status.min_remaining)} پیامک، ثبت‌نام خودکار خاموش می‌شود)</small></p>`,
+      `<p class="card-hint">آخرین خواندن اعتبار: ${formatDate(status.credit_checked_at)}</p>`,
+    );
+  } else {
+    parts.push('<p class="empty-panel">اعتبار هنوز خوانده نشده است.</p>');
+  }
+  if (status.credit_error) {
+    parts.push(
+      `<p class="portal-status is-error">خواندن اعتبار از ippanel ناموفق بود (${escapeHtml(readerSmsError(status.credit_error))})${status.credit_rial !== null ? "؛ آخرین مقدار شناخته‌شده نمایش داده شده است" : ""}.</p>`,
+    );
+  }
+  parts.push(
+    `<p class="credit-day">در ۲۴ ساعت گذشته ${faDigits.format(status.sent_24h)} پیامک از سقف ${faDigits.format(status.daily_cap)} ارسال شده است.</p>`,
+  );
+  target.innerHTML = parts.join("");
+}
+
+function renderReadersFailures(status) {
+  const target = document.getElementById("readers-failures");
+  target.innerHTML = status.recent_failures.length
+    ? `<ul class="readers-failures">${status.recent_failures
+        .map(
+          (item) =>
+            `<li><span dir="ltr">${escapeHtml(item.phone)}</span><span>${escapeHtml(item.code || "—")}</span><time>${formatDate(item.at)}</time></li>`,
+        )
+        .join("")}</ul>`
+    : '<p class="empty-panel">ارسال ناموفقی ثبت نشده است.</p>';
+}
+
+async function loadReaderStatus({ refresh = false } = {}) {
+  const [{ settings }, { status }] = await Promise.all([
+    api("/api/admin/readers/settings"),
+    api(`/api/admin/readers/sms-status${refresh ? "?refresh=1" : ""}`),
+  ]);
+  state.readerStatus = status;
+  document.getElementById("readers-signup-switch").checked = settings.signup_enabled;
+  document.getElementById("readers-signup-state").textContent = settings.signup_enabled
+    ? "روشن است."
+    : status.signup_disabled
+      ? "خاموش است (به‌طور خودکار؛ دلیلش بالای صفحه نوشته شده)."
+      : "خاموش است.";
+  const form = document.getElementById("readers-limits-form");
+  if (!form.contains(document.activeElement)) {
+    for (const name of ["sms_cost_rial", "sms_min_remaining", "sms_daily_cap"]) {
+      form.elements[name].value = String(settings[name]);
+    }
+  }
+  renderReadersBanner(settings, status);
+  renderReadersCredit(status);
+  renderReadersFailures(status);
+}
+
+async function loadReaderUsers(page = state.readersPage ?? 1) {
+  state.readersPage = page;
+  const ticket = (state.readersTicket = (state.readersTicket ?? 0) + 1);
+  const list = document.getElementById("readers-list");
+  const query = document.getElementById("readers-search").value.trim();
+  const params = new URLSearchParams({ page: String(page), limit: "25" });
+  if (query) params.set("q", query);
+  try {
+    const data = await api(`/api/admin/readers/users?${params}`);
+    if (ticket !== state.readersTicket) return; // a newer search has taken over
+    state.readersPage = data.page;
+    document.getElementById("readers-totals").textContent =
+      `${faDigits.format(data.totals.readers)} خواننده، ${faDigits.format(data.totals.students)} دانشجو${query ? ` · ${faDigits.format(data.total)} نتیجه` : ""}`;
+    list.innerHTML = data.items.length
+      ? `<table class="table readers-table"><thead><tr><th>نام</th><th>شمارهٔ موبایل</th><th>مرکز</th><th>شمارهٔ دانشجویی <small>(اعلام‌شدهٔ کاربر)</small></th><th>ثبت‌نام</th></tr></thead><tbody>${data.items
+          .map(
+            (item) =>
+              `<tr><td><strong>${escapeHtml(`${item.first_name} ${item.last_name}`)}</strong></td><td dir="ltr">${escapeHtml(readerPhone(item.phone))}</td><td>${item.unit ? `${escapeHtml(item.unit.name)}${item.unit.province ? `<small>${escapeHtml(item.unit.province)}</small>` : ""}` : "—"}</td><td dir="ltr">${item.student_no ? escapeHtml(item.student_no) : "—"}</td><td>${formatDate(item.created_at)}</td></tr>`,
+          )
+          .join("")}</tbody></table>`
+      : `<p class="empty-panel">${query ? `نتیجه‌ای برای «${escapeHtml(query)}» پیدا نشد.` : "هنوز کسی ثبت‌نام نکرده است."}</p>`;
+    renderPager(document.getElementById("readers-pager"), data);
+  } catch (error) {
+    if (ticket === state.readersTicket) list.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function loadReaders() {
+  try {
+    await loadReaderStatus();
+  } catch (error) {
+    showToast(error.message);
+  }
+  await loadReaderUsers(1);
+}
+
+function initReadersPanel() {
+  const signup = document.getElementById("readers-signup-switch");
+  signup.addEventListener("change", async () => {
+    const wanted = signup.checked;
+    if (wanted && state.readerStatus && !state.readerStatus.configured) {
+      const sure = await confirmDialog({
+        title: "ippanel تنظیم نشده است",
+        text: "کلید و پترن پیامک در سرور نیست و خوانندگان نمی‌توانند کد بگیرند. با این حال روشن شود؟",
+        tone: "warning",
+        confirmText: "بله، روشن شود",
+        cancelText: "انصراف",
+      });
+      if (!sure) {
+        signup.checked = false;
+        return;
+      }
+    }
+    signup.disabled = true;
+    try {
+      await api("/api/admin/readers/settings", { method: "PUT", body: { signup_enabled: wanted } });
+      showToast(wanted ? "ثبت‌نام خوانندگان روشن شد." : "ثبت‌نام خوانندگان خاموش شد.");
+      await loadReaderStatus();
+    } catch (error) {
+      signup.checked = !wanted;
+      showToast(error.message);
+    } finally {
+      signup.disabled = false;
+    }
+  });
+
+  document.getElementById("readers-refresh").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await loadReaderStatus({ refresh: true });
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  const form = document.getElementById("readers-limits-form");
+  const problem = document.getElementById("readers-limits-error");
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    problem.hidden = true;
+    const body = {};
+    for (const name of ["sms_cost_rial", "sms_min_remaining", "sms_daily_cap"]) {
+      const text = normalizeDigits(form.elements[name].value).replace(/[\s,٬]/g, "");
+      if (!/^\d+$/.test(text)) {
+        problem.textContent = "هر سه مقدار را فقط با رقم وارد کنید.";
+        problem.hidden = false;
+        return;
+      }
+      body[name] = Number(text);
+    }
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await api("/api/admin/readers/settings", { method: "PUT", body });
+      showToast("هزینه و سقف‌ها ذخیره شد.");
+      await loadReaderStatus();
+    } catch (error) {
+      problem.textContent = error.message;
+      problem.hidden = false;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  let searchTimer = null;
+  document.getElementById("readers-search").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadReaderUsers(1), 300);
+  });
+}
+
 function entityLabel(entity) {
   return (
     {
@@ -3402,6 +3641,7 @@ function entityLabel(entity) {
       user: "کاربر",
       region: "مرکز یا واحد",
       settings: "تنظیمات",
+      reader_settings: "حساب خوانندگان",
       category: "دسته‌بندی",
     }[entity] || "سامانه"
   );
@@ -3428,6 +3668,8 @@ function auditAction(action) {
     "user.activate": "فعال‌سازی کاربر",
     "user.delete": "حذف کاربر",
     "settings.update": "تغییر تنظیمات",
+    "reader.settings.update": "تغییر تنظیمات حساب خوانندگان",
+    "reader.signup.auto_disabled": "خاموش‌شدن خودکار ثبت‌نام خوانندگان",
     "region.update": "ویرایش مرکز یا واحد",
     "region.create": "افزودن مرکز یا واحد",
     "category.create": "افزودن دسته‌بندی",
@@ -3898,9 +4140,11 @@ function bindEvents() {
   document
     .getElementById("news-filter-button")
     .addEventListener("click", () => loadNewsList(1));
+  initReadersPanel();
   const pagerHandlers = {
     "news-pager": (page) => loadNewsList(page),
     "audit-pager": (page) => loadAudit(page),
+    "readers-pager": (page) => loadReaderUsers(page),
     "mobile-recent-pager": (page) => loadMobileNews("mine", page),
     "mobile-feed-pager": (page) => loadMobileNews("all", page),
   };
