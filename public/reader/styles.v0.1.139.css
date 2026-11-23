@@ -305,7 +305,10 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* ---------- Settings and about dialogs ---------- */
 .info-dialog{position:fixed;inset:0;margin:auto;width:min(calc(100% - 1.5rem),520px);max-width:none;max-height:calc(100dvh - 2rem);padding:0;border:0;background:transparent;color:var(--text);overflow:visible}
 .info-dialog::backdrop{background:rgba(7,16,31,.55);backdrop-filter:blur(3px)}
-.info-panel{max-height:calc(100dvh - 2rem);overflow:auto;padding:1.3rem 1.4rem 1.4rem;border:1px solid var(--border);border-radius:22px;background:var(--surface);box-shadow:0 20px 60px rgba(0,0,0,.35);direction:rtl}
+/* While any dialog (saved news, settings, search, centers...) is open the page behind it must not move: not by touch on the
+   backdrop and not by a list reaching its end and handing the scroll on. The gutter keeps the layout from jumping on desktop. */
+html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
+.info-panel{max-height:calc(100dvh - 2rem);overflow:auto;overscroll-behavior:contain;padding:1.3rem 1.4rem 1.4rem;border:1px solid var(--border);border-radius:22px;background:var(--surface);box-shadow:0 20px 60px rgba(0,0,0,.35);direction:rtl}
 .info-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.8rem}
 .info-header>div{flex:1;min-width:0}
 .info-title{margin:0;font-size:1.3rem;line-height:1.6;color:var(--amber)}
