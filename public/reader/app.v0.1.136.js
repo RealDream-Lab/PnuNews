@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.135.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.135.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.135.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.135.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.135.js';
+import { initDock } from '/shared/dock.v0.1.136.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.136.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.136.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.136.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.136.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -910,7 +910,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.135.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.136.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1453,11 +1453,15 @@ function savedItemMarkup(record) {
   const snap = record.snap ?? {};
   const title = snap.title || snap.summary || 'خبر ذخیره‌شده';
   const text = snap.summary || title; // the summary is what the list shows; news saved before the summary was kept show their title
-  const image = snap.cover ? `<img referrerpolicy="no-referrer" src="${escapeHtml(snap.cover)}" width="64" height="64" loading="lazy" decoding="async" alt="">` : '';
+  // No inline style here: the page's content-security-policy does not allow style attributes, so a news without a picture shows the
+  // coloured placeholder image, like the cards do.
+  const image = snap.cover
+    ? `<img referrerpolicy="no-referrer" src="${escapeHtml(snap.cover)}" width="64" height="64" loading="lazy" decoding="async" alt="">`
+    : placeholderMarkup(snap.color, 'saved-placeholder');
   const when = snap.publishedAt ? `<time datetime="${escapeHtml(snap.publishedAt)}">${relativeDate(snap.publishedAt)}</time>` : '';
   const unit = snap.unit ? `<span>${escapeHtml(snap.unit)}</span>` : '';
   return `<li class="saved-item" data-saved-id="${record.id}">
-    <button type="button" class="saved-open" data-saved-open><span class="saved-thumb" style="background-color:#${safeColorCode(snap.color)}">${image}</span><span class="saved-text"><strong>${escapeHtml(text)}</strong><small>${unit}${when}</small></span></button>
+    <button type="button" class="saved-open" data-saved-open><span class="saved-thumb">${image}</span><span class="saved-text"><strong>${escapeHtml(text)}</strong><small>${unit}${when}</small></span></button>
     <button type="button" class="saved-remove" data-saved-remove aria-label="${escapeHtml(`حذف «${title}» از خبرهای ذخیره‌شده`)}" title="حذف از خبرهای ذخیره‌شده"><svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg></button>
   </li>`;
 }
@@ -1580,7 +1584,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.135.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.136.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1635,7 +1639,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.135.js');
+  accountModule ??= import('/shared/reader-account.v0.1.136.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1807,7 +1811,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.135.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.136.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2392,7 +2396,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.135.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.136.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
