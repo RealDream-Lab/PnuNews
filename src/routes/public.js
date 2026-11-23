@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.140.css">
-<script src="/shared/theme.v0.1.140.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.141.css">
+<script src="/shared/theme.v0.1.141.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.140.js"></script>
+<script type="module" src="/reader/app.v0.1.141.js"></script>
 </body>
 </html>`;
 }
