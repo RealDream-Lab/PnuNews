@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.136.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.136.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.136.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.136.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.136.js';
+import { initDock } from '/shared/dock.v0.1.137.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.137.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.137.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.137.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.137.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -124,12 +124,22 @@ const pinnedItems = new Map();
 
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
-const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: true, country: true, province: true, siblings: false });
+const AUTOPLAY_RESET_KEY = 'pnu.autoplay-off';
+const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: false, country: true, province: true, siblings: false });
 const prefs = { ...DEFAULT_PREFS };
 try {
   const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
   if (saved && typeof saved === 'object') {
     for (const key of Object.keys(DEFAULT_PREFS)) if (typeof saved[key] === 'boolean') prefs[key] = saved[key];
+  }
+  // Autoplay used to be on by default, so a stored "true" may never have been the reader's own choice. Once per
+  // device it is switched off; after that the stored value is respected again.
+  if (localStorage.getItem(AUTOPLAY_RESET_KEY) !== '1') {
+    localStorage.setItem(AUTOPLAY_RESET_KEY, '1');
+    if (prefs.autoplay) {
+      prefs.autoplay = false;
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    }
   }
 } catch {}
 
@@ -910,7 +920,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.136.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.137.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1584,7 +1594,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.136.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.137.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1639,7 +1649,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.136.js');
+  accountModule ??= import('/shared/reader-account.v0.1.137.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1811,7 +1821,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.136.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.137.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2396,7 +2406,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.136.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.137.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
