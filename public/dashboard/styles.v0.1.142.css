@@ -447,6 +447,9 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .notice-banner[data-level=warning]{border-color:var(--amber);color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,var(--surface))}
 .notice-banner[data-level=info]{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
 .readers-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-bottom:1rem;align-items:start}
+/* Two independent stacks: the cards of one column never wait for the height of the card beside them, so no gap opens between them. */
+.readers-col{display:grid;gap:1rem;align-content:start;min-width:0}
+.readers-card-1{order:1}.readers-card-2{order:2}.readers-card-3{order:3}.readers-card-4{order:4}
 .readers-credit{display:grid;gap:.45rem}
 .credit-number{font-size:2rem;line-height:1.3;font-weight:800;font-variant-numeric:tabular-nums}
 .credit-number small{font-size:.9rem;font-weight:500;color:var(--muted)}
@@ -465,5 +468,5 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .readers-search{margin-bottom:.8rem}
 .readers-search label{max-width:26rem}
 .readers-table td small,.readers-table th small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
-@media(max-width:900px){.readers-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.readers-grid{grid-template-columns:1fr}.readers-col{display:contents}}
 

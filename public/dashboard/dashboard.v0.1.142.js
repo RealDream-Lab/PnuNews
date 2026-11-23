@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.141.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.142.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3497,7 +3497,7 @@ function renderReadersFailures(status) {
     ? `<ul class="readers-failures">${status.recent_failures
         .map(
           (item) =>
-            `<li><span dir="ltr">${escapeHtml(item.phone)}</span><span>${escapeHtml(item.code || "—")}</span><time>${formatDate(item.at)}</time></li>`,
+            `<li><span dir="ltr">${escapeHtml(readerPhone(item.phone))}</span><span>${escapeHtml(toFaDigits(item.code) || "—")}</span><time>${formatDate(item.at)}</time></li>`,
         )
         .join("")}</ul>`
     : '<p class="empty-panel">ارسال ناموفقی ثبت نشده است.</p>';
@@ -3543,7 +3543,7 @@ async function loadReaderUsers(page = state.readersPage ?? 1) {
       ? `<table class="table readers-table"><thead><tr><th>نام</th><th>شمارهٔ موبایل</th><th>مرکز</th><th>شمارهٔ دانشجویی <small>(اعلام‌شدهٔ کاربر)</small></th><th>ثبت‌نام</th></tr></thead><tbody>${data.items
           .map(
             (item) =>
-              `<tr><td><strong>${escapeHtml(`${item.first_name} ${item.last_name}`)}</strong></td><td dir="ltr">${escapeHtml(readerPhone(item.phone))}</td><td>${item.unit ? `${escapeHtml(item.unit.name)}${item.unit.province ? `<small>${escapeHtml(item.unit.province)}</small>` : ""}` : "—"}</td><td dir="ltr">${item.student_no ? escapeHtml(item.student_no) : "—"}</td><td>${formatDate(item.created_at)}</td></tr>`,
+              `<tr><td><strong>${escapeHtml(`${item.first_name} ${item.last_name}`)}</strong></td><td dir="ltr">${escapeHtml(readerPhone(item.phone))}</td><td>${item.unit ? `${escapeHtml(item.unit.name)}${item.unit.province ? `<small>${escapeHtml(item.unit.province)}</small>` : ""}` : "—"}</td><td dir="ltr">${item.student_no ? escapeHtml(toFaDigits(item.student_no)) : "—"}</td><td>${formatDate(item.created_at)}</td></tr>`,
           )
           .join("")}</tbody></table>`
       : `<p class="empty-panel">${query ? `نتیجه‌ای برای «${escapeHtml(query)}» پیدا نشد.` : "هنوز کسی ثبت‌نام نکرده است."}</p>`;

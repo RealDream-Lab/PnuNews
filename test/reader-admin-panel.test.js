@@ -35,11 +35,11 @@ test('the page has the switch, the credit, the limits, the failures, the search 
 test('what the server sends is shown as text; the list escapes every name, number and center', () => {
   assert.match(panel, /banner\.textContent = text;/);
   assert.ok(!/banner\.innerHTML/.test(panel));
-  for (const field of ['`${item.first_name} ${item.last_name}`', 'readerPhone(item.phone)', 'item.unit.name', 'item.unit.province', 'item.student_no']) {
+  for (const field of ['`${item.first_name} ${item.last_name}`', 'readerPhone(item.phone)', 'item.unit.name', 'item.unit.province', 'toFaDigits(item.student_no)', 'toFaDigits(item.code)']) {
     assert.ok(panel.includes(`escapeHtml(${field}`) || panel.includes(`escapeHtml(${field})`), field);
   }
-  assert.match(panel, /escapeHtml\(item\.phone\)/);
-  assert.match(panel, /escapeHtml\(item\.code \|\| "—"\)/);
+  assert.match(panel, /escapeHtml\(readerPhone\(item\.phone\)\)/);
+  assert.match(panel, /escapeHtml\(toFaDigits\(item\.code\) \|\| "—"\)/);
   assert.match(panel, /escapeHtml\(readerSmsError\(status\.credit_error\)\)/);
   assert.match(panel, /escapeHtml\(query\)/);
 });
@@ -68,7 +68,14 @@ test('the event log knows the new events, and the page works on a narrow screen'
   assert.match(script, /"reader\.signup\.auto_disabled": "خاموش‌شدن خودکار ثبت‌نام خوانندگان"/);
   assert.match(script, /reader_settings: "حساب خوانندگان"/);
   assert.match(styles, /\.readers-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(styles, /@media\(max-width:900px\)\{\.readers-grid\{grid-template-columns:1fr\}\}/);
+  assert.match(styles, /@media\(max-width:900px\)\{\.readers-grid\{grid-template-columns:1fr\}\.readers-col\{display:contents\}\}/);
+  // two stacks, not one grid of rows: a short card never waits for the tall card beside it, so no gap opens between cards
+  assert.match(styles, /\.readers-col\{display:grid;gap:1rem;align-content:start/);
+  const columns = [...view.matchAll(/<div class="readers-col">([^]*?)\n              <\/div>/g)].map((match) => match[1]);
+  assert.equal(columns.length, 2);
+  assert.ok(columns[0].includes('readers-signup-title') && columns[0].includes('readers-limits-form'), 'switch and limits share a column');
+  assert.ok(columns[1].includes('readers-credit-title') && columns[1].includes('readers-failures-title'), 'credit and failures share a column');
+  assert.match(styles, /\.readers-card-1\{order:1\}\.readers-card-2\{order:2\}\.readers-card-3\{order:3\}\.readers-card-4\{order:4\}/, 'on a narrow screen the original order is kept');
   assert.match(styles, /\.notice-banner\[data-level=danger\]/);
   assert.match(styles, /\.readers-search label\{max-width:26rem\}/);
 });

@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مدیریت خبرها" />
     <meta name="application-name" content="مدیریت خبرها" />
-    <link rel="stylesheet" href="/dashboard/styles.v0.1.141.css" />
-    <script src="/shared/theme.v0.1.141.js"></script>
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.142.css" />
+    <script src="/shared/theme.v0.1.142.js"></script>
     <title>مدیریت خبرها — اخبار پیام‌نور</title>
   </head>
   <body>
@@ -1186,7 +1186,8 @@
             </div>
             <div id="readers-banner" class="notice-banner" role="status" hidden></div>
             <div class="readers-grid">
-              <section class="panel settings-card" aria-labelledby="readers-signup-title">
+              <div class="readers-col">
+<section class="panel settings-card readers-card-1" aria-labelledby="readers-signup-title">
                 <h2 id="readers-signup-title">ثبت‌نام و ورود</h2>
                 <p class="card-hint">
                   با روشن بودن، خوانندگان با کد پیامکی حساب می‌سازند یا وارد
@@ -1200,16 +1201,7 @@
                     ><small id="readers-signup-state"></small></span
                 ></label>
               </section>
-              <section class="panel settings-card" aria-labelledby="readers-credit-title">
-                <h2 id="readers-credit-title">اعتبار پیامک</h2>
-                <div id="readers-credit" class="readers-credit"></div>
-                <div class="settings-inline">
-                  <button id="readers-refresh" class="button outline" type="button">
-                    خواندن دوبارهٔ اعتبار از ippanel
-                  </button>
-                </div>
-              </section>
-              <form id="readers-limits-form" class="panel settings-card settings-form" novalidate>
+              <form id="readers-limits-form" class="panel settings-card readers-card-3 settings-form" novalidate>
                 <h2>هزینه و سقف‌ها</h2>
                 <div class="field-grid">
                   <label
@@ -1246,10 +1238,22 @@
                   <button class="button primary" type="submit">ذخیرهٔ هزینه و سقف‌ها</button>
                 </div>
               </form>
-              <section class="panel settings-card" aria-labelledby="readers-failures-title">
+              </div>
+              <div class="readers-col">
+<section class="panel settings-card readers-card-2" aria-labelledby="readers-credit-title">
+                <h2 id="readers-credit-title">اعتبار پیامک</h2>
+                <div id="readers-credit" class="readers-credit"></div>
+                <div class="settings-inline">
+                  <button id="readers-refresh" class="button outline" type="button">
+                    خواندن دوبارهٔ اعتبار از ippanel
+                  </button>
+                </div>
+              </section>
+              <section class="panel settings-card readers-card-4" aria-labelledby="readers-failures-title">
                 <h2 id="readers-failures-title">ارسال‌های ناموفق اخیر</h2>
                 <div id="readers-failures"></div>
               </section>
+              </div>
             </div>
             <div class="panel readers-list-panel">
               <div class="panel-heading">
@@ -1715,6 +1719,6 @@
       <div id="update-root"></div>
       <div id="install-root"></div>
     </div>
-    <script type="module" src="/dashboard/dashboard.v0.1.141.js"></script>
+    <script type="module" src="/dashboard/dashboard.v0.1.142.js"></script>
   </body>
 </html>
