@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.141.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.141.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.141.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.141.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.141.js';
+import { initDock } from '/shared/dock.v0.1.142.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.142.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.142.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.142.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.142.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -419,10 +419,11 @@ function cardMarkup(item, { featured = false } = {}) {
   </article>`;
 }
 
-// Desktop masonry: the feed is a grid of 8px rows and every card spans as many rows as its own height needs,
-// so cards of different heights pack tightly without leaving gaps. Mobile/tablet keep the plain grid.
+// Masonry (tablets, laptops and desktops: every size where the cards sit in two or three columns): the feed is a grid of 8px
+// rows and every card spans as many rows as its own height needs, so cards of different heights pack tightly without
+// leaving gaps. A phone (one column) keeps the plain grid.
 const MASONRY_ROW = 8;
-const masonryQuery = matchMedia('(min-width: 960px)');
+const masonryQuery = matchMedia('(min-width: 640px)');
 
 function layoutMasonry() {
   const active = masonryQuery.matches;
@@ -500,7 +501,7 @@ new MutationObserver((records) => {
 
 // Placeholder cards shaped like real ones (cover, kicker, title lines, footer) that pulse until the data arrives.
 function skeletonCount(first) {
-  const perRow = masonryQuery.matches ? 3 : matchMedia('(min-width: 640px)').matches ? 2 : 1;
+  const perRow = matchMedia('(min-width: 960px)').matches ? 3 : masonryQuery.matches ? 2 : 1;
   return first ? Math.max(3, perRow * 2) : perRow;
 }
 
@@ -920,7 +921,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.141.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.142.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1594,7 +1595,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.141.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.142.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1649,7 +1650,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.141.js');
+  accountModule ??= import('/shared/reader-account.v0.1.142.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1821,7 +1822,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.141.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.142.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2406,7 +2407,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.141.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.142.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
