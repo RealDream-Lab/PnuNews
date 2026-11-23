@@ -1,8 +1,8 @@
 // Reader accounts: login and signup by SMS code, and the profile. Loaded on the first tap of the account button, so the
 // ordinary reader never downloads it. The server is the authority on everything here (/api/reader/*); this only draws the
 // steps: phone -> code -> (a new reader's form) -> done, and the profile of a signed-in reader.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits } from '/shared/digits.v0.1.139.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.139.js';
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.140.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.140.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 
@@ -110,7 +110,7 @@ function personFields(values = {}) {
     <label class="account-switch"><input type="checkbox" name="is_student"${student ? ' checked' : ''}><span class="account-switch-track" aria-hidden="true"></span><span>دانشجو هستم</span></label>
     <div class="account-reveal${student ? ' is-open' : ''}" data-student-field${student ? '' : ' inert'}>
       <div class="account-reveal-inner">
-        <label class="account-field"><span>شمارهٔ دانشجویی</span><input name="student_no" type="text" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="مثلاً 4012345678" value="${escapeHtml(values.student_no ?? '')}"></label>
+        <label class="account-field"><span>شمارهٔ دانشجویی</span><input name="student_no" type="text" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="مثلاً ۴۰۱۲۳۴۵۶۷۸" value="${escapeHtml(toFaDigits(values.student_no ?? ''))}"></label>
       </div>
     </div>`;
 }
@@ -125,7 +125,7 @@ function render(next, { error = '', focus = true } = {}) {
     phone: `
       <form class="account-form" data-form="phone" novalidate>
         <label class="account-field"><span>شمارهٔ موبایل</span>
-          <input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" dir="ltr" placeholder="09123456789" enterkeyhint="send" required value="${escapeHtml(flow.phone)}">
+          <input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" dir="ltr" placeholder="۰۹۱۲۳۴۵۶۷۸۹" enterkeyhint="send" required value="${escapeHtml(toFaDigits(flow.phone))}">
         </label>
         <p class="account-error" role="alert" hidden></p>
         <button class="account-primary" type="submit">دریافت کد</button>
@@ -189,7 +189,7 @@ function readPerson(form) {
     first_name: form.elements.first_name.value.trim(),
     last_name: form.elements.last_name.value.trim(),
     is_student: isStudent,
-    student_no: isStudent ? form.elements.student_no.value : null,
+    student_no: isStudent ? studentDigits(form.elements.student_no.value) : null,
     unit_id: Number(form.elements.unit_id.value),
   };
 }

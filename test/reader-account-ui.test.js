@@ -32,8 +32,10 @@ test('the phone field holds the national form, whatever way the number was typed
   assert.equal(digits.nationalPhone('0912345678901234'), '09123456789', 'at most 11 digits');
   assert.equal(digits.isNationalPhone('09123456789'), true);
   for (const bad of ['', '0912', '9123456789', '08123456789', '091234567890', 'abc']) assert.equal(digits.isNationalPhone(bad), false, bad);
-  assert.equal(digits.formatPhone('09123456789'), '0912 345 6789');
-  assert.equal(digits.formatPhone('0912'), '0912');
+  assert.equal(digits.formatPhone('09123456789'), '۰۹۱۲ ۳۴۵ ۶۷۸۹', 'a number is shown with Persian digits');
+  assert.equal(digits.formatPhone('0912'), '۰۹۱۲');
+  assert.equal(digits.toFaDigits('کد 0912 abc'), 'کد ۰۹۱۲ abc');
+  assert.equal(digits.toFaDigits(null), '');
   assert.equal(digits.codeDigits('۱۲۳ ۴۵۶۷'), '123456');
   assert.equal(digits.studentDigits(`${'۱'.repeat(20)}`), '1'.repeat(14));
 });
@@ -56,11 +58,12 @@ test('typing converts the digits in place and keeps the caret; a paste is conver
   digits.bindDigitField(input, digits.nationalPhone, (value) => changes.push(value));
   input.value = '۰۹۱۲'; input.selectionStart = 4;
   input.fire('input');
-  assert.equal(input.value, '0912');
+  assert.equal(input.value, '۰۹۱۲', 'the field keeps showing Persian digits');
+  assert.deepEqual(changes.slice(-1), ['0912'], 'but what it reports is plain 0-9');
   assert.equal(input.selectionStart, 4);
   input.value = '09x12'; input.selectionStart = 3; // a letter typed in the middle
   input.fire('input');
-  assert.equal(input.value, '0912');
+  assert.equal(input.value, '۰۹۱۲');
   assert.equal(input.selectionStart, 2, 'the caret stays where the reader was typing');
 
   const pasted = { prevented: false, clipboardData: { getData: () => '+98 912 345 6789' } };
@@ -68,14 +71,14 @@ test('typing converts the digits in place and keeps the caret; a paste is conver
   digits.bindDigitField(empty, digits.nationalPhone);
   empty.fire('paste', pasted);
   assert.equal(pasted.prevented, true, 'the browser does not paste it its own way');
-  assert.equal(empty.value, '09123456789');
+  assert.equal(empty.value, '۰۹۱۲۳۴۵۶۷۸۹');
   assert.deepEqual(changes.slice(-1), ['0912']);
 
   const middle = fakeInput('0912');
   middle.selectionStart = 4; middle.selectionEnd = 4;
   digits.bindDigitField(middle, digits.codeDigits);
   middle.fire('paste', { clipboardData: { getData: () => '۳۴۵۶۷۸۹' } });
-  assert.equal(middle.value, '091234'.slice(0, 6), 'a six-digit field stops at six');
+  assert.equal(middle.value, '۰۹۱۲۳۴', 'a six-digit field stops at six');
 });
 
 test('the account button is in the header, hidden until the main admin switches reader signup on', () => {

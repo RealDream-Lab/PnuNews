@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.139.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.140.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -36,6 +36,8 @@ const state = {
 };
 const faCollator = new Intl.Collator("fa", { sensitivity: "base" });
 const faDigits = new Intl.NumberFormat("fa-IR");
+// 0-9 -> ۰-۹ for numbers shown as text (phone numbers, codes, student numbers); what is stored stays 0-9.
+const toFaDigits = (value) => String(value ?? "").replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[digit]);
 const dateDisplay = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   timeZone: "Asia/Tehran",
   day: "numeric",
@@ -3422,9 +3424,9 @@ function readerSmsError(error) {
 // +989121234567 -> 0912 123 4567
 function readerPhone(phone) {
   const national = String(phone ?? "").replace(/^\+98/, "0");
-  return /^\d{11}$/.test(national)
+  return toFaDigits(/^\d{11}$/.test(national)
     ? `${national.slice(0, 4)} ${national.slice(4, 7)} ${national.slice(7)}`
-    : national;
+    : national);
 }
 
 function renderReadersBanner(settings, status) {

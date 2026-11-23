@@ -3,6 +3,11 @@
 const PERSIAN = '۰۱۲۳۴۵۶۷۸۹';
 const ARABIC = '٠١٢٣٤٥٦٧٨٩';
 
+// The other direction, for showing: 0-9 -> ۰-۹. Fields display Persian digits while the value the server gets stays 0-9.
+export function toFaDigits(value) {
+  return String(value ?? '').replace(/\d/g, (digit) => PERSIAN[digit]);
+}
+
 export function toAsciiDigits(value) {
   return String(value ?? '').replace(/[۰-۹٠-٩]/g, (digit) => {
     const persian = PERSIAN.indexOf(digit);
@@ -28,21 +33,23 @@ export const studentDigits = (value) => onlyDigits(value, 14);
 // 09123456789 -> 0912 345 6789 (for showing; the field itself holds the plain digits)
 export function formatPhone(national) {
   const digits = String(national ?? '');
-  return /^\d{11}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : digits;
+  return toFaDigits(/^\d{11}$/.test(digits) ? `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}` : digits);
 }
 
 // Keeps an <input> normalised while the reader types and pastes. A paste is handled here (not by the browser) so a long
 // pasted value such as +98 912 345 6789 is converted first and not cut at a length limit.
 export function bindDigitField(input, normalize, onChange = () => {}) {
-  const set = (next, caret) => {
-    if (input.value !== next) input.value = next;
+  // The field shows Persian digits; `normalize` and `onChange` always work with plain 0-9.
+  const set = (clean, caret) => {
+    const shown = toFaDigits(clean);
+    if (input.value !== shown) input.value = shown;
     try { input.setSelectionRange(caret, caret); } catch { /* some input types have no caret */ }
-    onChange(next);
+    onChange(clean);
   };
   input.addEventListener('input', () => {
     const raw = input.value;
     const cleaned = normalize(raw);
-    if (raw === cleaned) return onChange(cleaned);
+    if (raw === toFaDigits(cleaned)) return onChange(cleaned);
     const caret = normalize(raw.slice(0, input.selectionStart ?? raw.length)).length;
     return set(cleaned, caret);
   });
@@ -55,4 +62,6 @@ export function bindDigitField(input, normalize, onChange = () => {}) {
     const next = normalize(`${input.value.slice(0, start)}${pasted}${input.value.slice(end)}`);
     set(next, Math.min(next.length, normalize(`${input.value.slice(0, start)}${pasted}`).length));
   });
+  // A value put in by code (or autofilled by the browser) is shown in Persian digits too.
+  if (input.value) input.value = toFaDigits(normalize(input.value));
 }
