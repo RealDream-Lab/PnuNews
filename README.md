@@ -23,9 +23,14 @@ npm run dev
 
 راهنمای کامل آماده‌سازی سرور، نصب وابستگی‌ها، استقرار از شاخهٔ `main` یا `deploy`، پشتیبان‌گیری و بازیابی در [`docs/OPERATIONS.md`](docs/OPERATIONS.md) است. تنظیمات محرمانه فقط در `.autostart` روی سرور نگهداری می‌شوند؛ هرگز این فایل، `.env.dev`، `uploads/` یا `node_modules/` را به `main` اضافه نکنید.
 
+## حساب خوانندگان
+
+خواننده‌ها می‌توانند بدون ثبت‌نام همه‌چیز را بخوانند و خبرها را در همان دستگاه نشانک کنند. اگر مدیر ارشد «ثبت‌نام و ورود خوانندگان» را از پنل روشن کند، با شمارهٔ موبایل و کد پیامکی (ippanel) حساب می‌سازند و نشانک‌هایشان بین دستگاه‌ها همگام می‌شود. کلید و پترن ippanel در `.autostart` می‌روند؛ راه‌اندازی، بودجهٔ پیامک، حریم خصوصی و عیب‌یابی در [`docs/OPERATIONS.md`](docs/OPERATIONS.md) و چک‌لیست دستی در [`docs/QA-READER-ACCOUNTS.md`](docs/QA-READER-ACCOUNTS.md) است.
+
 ## مستندات
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): ساختار و معماری
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): تصمیم‌های فنی
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md): راهنمای اجرا و نگهداری
 - [`docs/PROGRESS.md`](docs/PROGRESS.md): milestoneها و کارهای باقی‌مانده
+- [`docs/QA-READER-ACCOUNTS.md`](docs/QA-READER-ACCOUNTS.md): چک‌لیست دستی حساب خوانندگان

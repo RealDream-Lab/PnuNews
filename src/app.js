@@ -8,6 +8,7 @@ import { createPublicRouter } from './routes/public.js';
 import { createReaderRouter } from './routes/reader-auth.js';
 import { createIppanelClient } from './lib/ippanel.js';
 import { createSmsBudget } from './lib/sms-budget.js';
+import { redactForLog } from './lib/log-redact.js';
 import { createStaticMiddleware } from './lib/static.js';
 
 // connectOrigins: the radio server, so the player can read "now playing" straight from the visitor's browser
@@ -99,9 +100,14 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
   if (staticAssets) app.use(createStaticMiddleware(staticAssets));
   app.use('/api', (request, response) => response.status(404).json({ error: 'مسیر پیدا نشد.' }));
   app.use((error, request, response, next) => {
-    console.error(`Request failed: ${error.message}`);
+    // A refusal of the request itself (broken JSON, a body that is too large...) is the client's doing: it gets its own status and is
+    // not a server failure, so it is not logged as one. Anything else is a 500, logged without values that must not be in a log.
+    const clientError = Number.isInteger(error.status) && error.status >= 400 && error.status < 500;
+    if (!clientError) console.error(`Request failed: ${redactForLog(error.message)}`);
     if (response.headersSent) return next(error);
-    return response.status(error.status === 400 ? 400 : 500).json({ error: 'درخواست قابل پردازش نیست.' });
+    return response.status(clientError ? error.status : 500).json({
+      error: error.status === 413 ? 'حجم درخواست بیش از حد مجاز است.' : 'درخواست قابل پردازش نیست.',
+    });
   });
   return app;
 }

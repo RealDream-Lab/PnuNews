@@ -10,7 +10,9 @@ import { clearReaderCookie, createReaderSession, hashReaderToken, publicReader, 
 
 const HOUR_MS = 60 * 60_000;
 const PHONE_REQUESTS_PER_HOUR = 5;
-const IP_REQUESTS_PER_HOUR = 10;
+// Per address, not per person: a campus or a mobile carrier puts many readers behind one address, so this is generous. The
+// per-number limit and the daily cap are what protect the SMS budget.
+const IP_REQUESTS_PER_HOUR = 30;
 
 const MESSAGE = Object.freeze({
   disabled: 'ورود و ثبت‌نام خوانندگان فعلاً غیرفعال است.',
@@ -72,6 +74,16 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
   const router = express.Router();
   const authLimit = createRateLimiter({ limit: 60, windowMs: 60_000, clock });
   const authenticate = readerAuth({ pool, config, clock });
+  // Behind a reverse proxy without TRUST_PROXY=1 every reader seems to come from the proxy's address, and the per-address limits
+  // would block everyone after a few codes. Say so once, in the log.
+  let proxyWarned = false;
+  router.use((request, response, next) => {
+    if (!proxyWarned && request.headers['x-forwarded-for'] && !request.app.get('trust proxy')) {
+      proxyWarned = true;
+      console.warn('Reader accounts: requests carry X-Forwarded-For but TRUST_PROXY is not 1, so all readers share one address for the per-address SMS limit. Set TRUST_PROXY=1 behind a reverse proxy.');
+    }
+    next();
+  });
   router.use('/auth', authLimit);
   router.use('/bookmarks', createBookmarkRouter({ pool, clock, authenticate }));
 
@@ -131,7 +143,9 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
         await pool.execute('UPDATE reader_otps SET expires_at = ? WHERE id = ?', [new Date(now), inserted.insertId]); // the code never went out: it must not verify
         return fail(response, 502, 'sendFailed');
       }
+      // Housekeeping with every sent code: old codes and the SMS log go (the log is only needed for the last day and a few failures).
       await pool.execute('DELETE FROM reader_otps WHERE expires_at < ?', [new Date(now - 24 * HOUR_MS)]);
+      await pool.execute('DELETE FROM sms_log WHERE created_at < ?', [new Date(now - 90 * 24 * HOUR_MS)]);
       return response.json({ ok: true, resend_after: OTP_RESEND_GAP_MS / 1000, expires_in: OTP_TTL_MS / 1000 });
     } catch (error) {
       return next(error);
