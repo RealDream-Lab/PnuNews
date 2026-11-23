@@ -24,11 +24,20 @@
     const link = document.getElementById('app-manifest');
     if (link) {
       const touch = matchMedia('(pointer: coarse) and (hover: none)').matches;
+      // A phone (shortest side of the screen under 600px) installs the portrait-only manifest; tablets keep both orientations.
+      const phone = touch && Math.min(screen.width, screen.height) < 600;
       const base = link.dataset.manifestBase || '/manifest';
-      const href = `${base}${touch ? '-mobile' : ''}${dark ? '-dark' : ''}.webmanifest`;
+      const href = `${base}${phone ? '-phone' : touch ? '-mobile' : ''}${dark ? '-dark' : ''}.webmanifest`;
       if (link.getAttribute('href') !== href) link.setAttribute('href', href);
     }
   };
+  // On a phone the reader is portrait-only. The manifest says so for the installed app; this also asks the browser when the page
+  // runs as an installed app (a plain browser tab, and iOS, refuse the lock; that is fine and silent).
+  try {
+    const installed = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+    const phone = matchMedia('(pointer: coarse) and (hover: none)').matches && Math.min(screen.width, screen.height) < 600;
+    if (installed && phone && screen.orientation?.lock) screen.orientation.lock('portrait').catch(() => {});
+  } catch { /* no orientation API */ }
   // Night mode is the default; only an explicit choice of the visitor (stored) switches it to light.
   root.dataset.theme = stored() ?? 'dark';
   chrome();
