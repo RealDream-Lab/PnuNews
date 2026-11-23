@@ -276,6 +276,8 @@ html select:not([multiple]){padding-inline-start:.8rem}
 /* ---------- Pagination ---------- */
 .pager-wrap{margin-top:1rem;display:grid;gap:.5rem;justify-items:center}
 .pager{display:flex;align-items:center;justify-content:center;gap:.4rem;flex-wrap:wrap;direction:rtl}
+.pager-step{display:inline-flex;align-items:center;justify-content:center;gap:.35rem}
+.pager-arrow{flex:none;display:block}
 .pager-numbers{display:flex;align-items:center;gap:.3rem}
 .pager-button{min-width:40px;height:40px;padding:0 .8rem;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font:inherit;font-size:.9rem;cursor:pointer}
 .pager-button.is-current{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
