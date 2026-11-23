@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.137.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.138.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -868,6 +868,10 @@ function renderNewsTable(items) {
 }
 
 // ---------- Pagination (numbered pages, shared by every long list) ----------
+// The arrows are drawn, not typed: the characters › and ‹ are mirrored by the bidi algorithm inside right-to-left text,
+// which made them point the wrong way. In this layout "previous" sits on the right and points right, "next" sits on the left.
+const PAGER_ARROW_PREVIOUS = '<svg class="pager-arrow" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const PAGER_ARROW_NEXT = '<svg class="pager-arrow" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const PAGE_SIZE = 10;
 
 function pageWindow(page, pages) {
@@ -902,9 +906,9 @@ function renderPager(element, { page, pages, total, limit }) {
     )
     .join("");
   element.innerHTML = `<nav class="pager" aria-label="صفحه‌بندی">
-    <button type="button" class="pager-button pager-step" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>› قبلی</button>
+    <button type="button" class="pager-button pager-step" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>${PAGER_ARROW_PREVIOUS}<span>قبلی</span></button>
     <div class="pager-numbers">${numbers}</div>
-    <button type="button" class="pager-button pager-step" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>بعدی ‹</button>
+    <button type="button" class="pager-button pager-step" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}><span>بعدی</span>${PAGER_ARROW_NEXT}</button>
   </nav><p class="pager-info">${faDigits.format(from)} تا ${faDigits.format(to)} از ${faDigits.format(total)} · صفحهٔ ${faDigits.format(page)} از ${faDigits.format(pages)}</p>`;
 }
 
