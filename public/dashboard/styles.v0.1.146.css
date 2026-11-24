@@ -473,9 +473,10 @@ html select:not([multiple]){padding-inline-start:.8rem}
 
 .readers-card-method{order:2}.readers-card-3{order:3}.readers-card-5{order:5}
 .method-choice{display:grid;gap:.6rem;margin:0;padding:0;border:0;min-width:0}
-.method-option{display:flex!important;align-items:flex-start;gap:.7rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:13px;background:var(--soft);cursor:pointer}
-.method-option input{flex:none;margin-top:.35rem;accent-color:var(--primary);width:18px;height:18px;min-height:0}
-.method-option span{display:grid;gap:.2rem}.method-option small{color:var(--muted);line-height:1.9;font-weight:400}
+.method-option{display:flex!important;align-items:flex-start;gap:.7rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:13px;background:var(--soft);cursor:pointer;min-width:0}
+/* The generic «.settings-form input» rule (full width, 45px tall) also hits radios; this one is more specific and wins. */
+.settings-form .method-option input[type=radio]{flex:none;width:18px;min-width:18px;height:18px;min-height:0;margin:.35rem 0 0;padding:0;accent-color:var(--primary)}
+.method-option>span{display:grid;gap:.2rem;flex:1 1 auto;min-width:0}.method-option small{color:var(--muted);line-height:1.9;font-weight:400}
 .method-option:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
 .method-option:has(input:focus-visible){outline:3px solid var(--primary);outline-offset:2px}
 #readers-inbound-fields{display:grid;gap:.8rem}#readers-inbound-fields[hidden],#readers-webhook[hidden]{display:none}
