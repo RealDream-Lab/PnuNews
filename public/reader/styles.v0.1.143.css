@@ -360,7 +360,6 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
   .brand{flex:none;order:0}
   .brand-name{overflow:visible;text-overflow:clip}
   .city-button{order:1;flex:1 1 0;min-width:0;margin-inline-end:0}
-  .account-button{order:2}
   .city-button #selected-city-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .search-button,.category-button,.saved-button,.font-controls,.theme-toggle,#settings-button,#about-button{margin-top:.4rem}
   .search-button{order:10}
@@ -578,8 +577,17 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 }
 
 /* ---------- Reader account: login by SMS code, signup and profile ---------- */
-.account-button.is-signed-in{color:var(--primary);border-color:var(--primary);background:var(--primary-soft)}
-.account-button.is-signed-in .icon{fill:currentColor}
+.account-card{position:relative;flex:0 0 min(215px,70%);display:grid;gap:.05rem;align-content:center;padding:.65rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);min-width:0;overflow:hidden;cursor:pointer;font:inherit;text-align:start;appearance:none;-webkit-appearance:none;transition:border-color .15s ease,background-color .15s ease}
+.account-card[hidden]{display:none}
+.account-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media(hover:hover){.account-card:hover{border-color:var(--primary)}}
+.account-card.is-guest{flex:0 0 auto;width:4.4rem;place-items:center;padding:.65rem}
+.account-card.is-guest .icon{width:1.9rem;height:1.9rem;color:var(--muted)}
+.account-card.is-signed-in{border-color:var(--primary);background:var(--primary-soft)}
+.account-line,.account-name,.account-unit{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-phone-line{font-size:.7rem;line-height:1.5;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.account-name{font-size:.95rem;line-height:1.7;font-weight:700}
+.account-unit{font-size:.76rem;line-height:1.6;color:var(--muted)}
 .account-body{display:grid;gap:1rem}
 .account-form{display:grid;gap:.9rem}
 .account-two{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}

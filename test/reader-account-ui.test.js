@@ -81,12 +81,13 @@ test('typing converts the digits in place and keeps the caret; a paste is conver
   assert.equal(middle.value, '۰۹۱۲۳۴', 'a six-digit field stops at six');
 });
 
-test('the account button is in the header, hidden until the main admin switches reader signup on', () => {
-  assert.match(html, /<button[^>]*class="icon-button account-button"[^>]*id="account-button"[^>]*hidden[^>]*aria-haspopup="dialog"/);
+test('the account card is the first card of the strip, hidden until the main admin switches reader signup on', () => {
+  assert.ok(!html.includes('id="account-button"'), 'no button in the header any more: the card is made by the script');
   assert.match(html, /<symbol id="icon-user"/);
-  assert.ok(html.indexOf('id="saved-button"') < html.indexOf('id="account-button"') && html.indexOf('id="account-button"') < html.indexOf('class="icon-button theme-toggle"'));
+  assert.match(app, /accountButton\.id = 'account-button';/);
+  assert.match(app, /accountButton\.setAttribute\('aria-haspopup', 'dialog'\)/);
   assert.match(app, /const enabled = state\.config\?\.reader\?\.signup_enabled === true;/);
-  assert.match(app, /accountButton\.hidden = !\(enabled \|\| signedIn\);/, 'a signed-in reader keeps the button when signup is switched off');
+  assert.match(app, /accountButton\.hidden = !\(enabled \|\| signedIn\);/, 'a signed-in reader keeps the card when signup is switched off');
   assert.match(app, /accountButton\.classList\.toggle\('is-signed-in', signedIn\)/);
   assert.match(app, /if \(state\.config && !readerChecked\)/, 'the question «am I signed in?» is asked once per visit, signup switch or not');
   assert.equal(app.split('syncAccountUi();').length - 1, 6, 'after the first config, after every refreshed config, after the answer of /me, after the two callbacks of the dialog, and when the sync finds the session gone');
@@ -128,7 +129,7 @@ test('nothing typed by the reader or sent back by the server reaches the page as
   assert.match(app, /toast\.textContent = /, 'the toast shows text, not markup');
 });
 
-test('the dialog is a bottom sheet on phones and a centred dialog elsewhere, and the button sits in the first header row', () => {
+test('the dialog is a bottom sheet on phones and a centred dialog elsewhere', () => {
   assert.match(styles, /@media\(max-width:767px\)\{\s*\.account-dialog\{inset:auto 0 0;width:100%/);
   assert.match(styles, /\.account-dialog \.info-panel\{max-height:92vh;max-height:92dvh;overflow:auto;border-radius:22px 22px 0 0/);
   assert.match(styles, /\.account-field input,\.account-field select\{[^}]*font-size:1rem/, '16px inputs: no zoom when a field is focused on iOS');
@@ -136,5 +137,5 @@ test('the dialog is a bottom sheet on phones and a centred dialog elsewhere, and
   assert.match(styles, /\.account-benefit\{[^}]*text-align:justify;text-justify:inter-word/, 'the benefit paragraph is justified');
   assert.match(styles, /\.account-switch input:focus-visible\+\.account-switch-track/, 'the switch shows keyboard focus');
   const phones = /@media\(max-width:639px\)\{([\s\S]*?)\n\}/.exec(styles)?.[1] ?? '';
-  assert.match(phones, /\.account-button\{order:2\}/, 'after the city picker, in row 1 (order 9 is the line break)');
+  assert.ok(!phones.includes('.account-button'), 'the header has no account button to place any more');
 });
