@@ -9,6 +9,8 @@ const MIME_TYPES = new Map([
   ['.json', 'application/json; charset=utf-8'], ['.map', 'application/json; charset=utf-8'],
   ['.svg', 'image/svg+xml'], ['.webmanifest', 'application/manifest+json; charset=utf-8'],
   ['.webp', 'image/webp'], ['.woff2', 'font/woff2'], ['.xml', 'application/xml; charset=utf-8'],
+  ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'], ['.gif', 'image/gif'], ['.avif', 'image/avif'],
+  ['.woff', 'font/woff'], ['.txt', 'text/plain; charset=utf-8'],
 ]);
 
 async function collectFiles(root, directory = root, assets = new Map()) {

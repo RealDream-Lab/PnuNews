@@ -323,6 +323,11 @@
 - مانیفست‌های `manifest-phone*` و `manifest-mobile*` و `manifest.webmanifest` خواننده فعلاً بدون استفاده مانده‌اند. آزمون: `orientation` به‌روز شد.
 - **هنوز انجام نشده:** تأیید روی گوشی واقعی (علت قطعی از بخش Installability در DevTools معلوم می‌شود).
 
+### نوع محتوای آیکون‌ها (v0.1.145)
+
+- علت احتمالی نصب‌نشدن در Android: سرور فایل‌های PNG (آیکون‌های مانیفست) را با `Content-Type: application/octet-stream` می‌فرستاد، چون `.png` در جدول انواع `src/lib/static.js` نبود. `.png`، `.jpg`، `.jpeg`، `.gif`، `.avif`، `.woff` و `.txt` اضافه شد. آزمون `static-mime`: آیکون‌ها `image/png` هستند و هیچ فایل `public` بدون نوع نمی‌ماند.
+- **هنوز انجام نشده:** تأیید نصب روی گوشی واقعی پس از استقرار.
+
 ## گام بعدی
 
 - برای cutover نهایی، پس از مشخص‌شدن دامنهٔ اصلی، `PUBLIC_URL` و Nginx Proxy Manager را هماهنگ و restart نهایی/health و ورود HTTPS را تأیید کنید. روند update و دستورات backup در `docs/OPERATIONS.md` ثبت شده‌اند.
