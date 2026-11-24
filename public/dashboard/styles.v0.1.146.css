@@ -470,3 +470,17 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .readers-table td small,.readers-table th small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
 @media(max-width:900px){.readers-grid{grid-template-columns:1fr}.readers-col{display:contents}}
 
+
+.readers-card-method{order:2}.readers-card-3{order:3}.readers-card-5{order:5}
+.method-choice{display:grid;gap:.6rem;margin:0;padding:0;border:0;min-width:0}
+.method-option{display:flex!important;align-items:flex-start;gap:.7rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:13px;background:var(--soft);cursor:pointer}
+.method-option input{flex:none;margin-top:.35rem;accent-color:var(--primary);width:18px;height:18px;min-height:0}
+.method-option span{display:grid;gap:.2rem}.method-option small{color:var(--muted);line-height:1.9;font-weight:400}
+.method-option:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+.method-option:has(input:focus-visible){outline:3px solid var(--primary);outline-offset:2px}
+#readers-inbound-fields{display:grid;gap:.8rem}#readers-inbound-fields[hidden],#readers-webhook[hidden]{display:none}
+#readers-webhook{display:grid;gap:.6rem}
+.settings-form textarea{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:.45rem .7rem;resize:vertical}
+.readers-inbound-log{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
+.readers-inbound-log li{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;font-size:.82rem}
+.readers-inbound-log .is-confirmed{color:var(--success)}

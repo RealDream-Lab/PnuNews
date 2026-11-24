@@ -54,7 +54,7 @@ test('the search waits 300 ms after the last key, and an older answer never repl
 });
 
 test('turning signup on while ippanel is not set up asks first; the credit, the estimate and the automatic switch-off are explained', () => {
-  assert.match(panel, /if \(wanted && state\.readerStatus && !state\.readerStatus\.configured\)/);
+  assert.match(panel, /if \(wanted && state\.readerStatus && !state\.readerStatus\.configured && state\.readerSettings\?\.auth_method !== \"sms_receive\"\)/);
   assert.match(panel, /title: "ippanel تنظیم نشده است"/);
   assert.match(panel, /info\.reason === "low_credit"/);
   assert.match(panel, /info\.reason === "send_failures"/);

@@ -6,6 +6,7 @@ import { createAdminRouter } from './routes/admin.js';
 import { createMediaRouter } from './routes/media.js';
 import { createPublicRouter } from './routes/public.js';
 import { createReaderRouter } from './routes/reader-auth.js';
+import { createInboundWebhookRouter } from './routes/reader-inbound-webhook.js';
 import { createIppanelClient } from './lib/ippanel.js';
 import { createSmsBudget } from './lib/sms-budget.js';
 import { redactForLog } from './lib/log-redact.js';
@@ -84,6 +85,8 @@ export function createApp({ pool, config, clock = Date.now, fetchImpl = fetch, s
     response.setHeader('Pragma', 'no-cache');
     next();
   });
+  // The provider's incoming-SMS call: no cookies, no JSON-only rule, answers in plain text. It has to come before the CSRF guard below.
+  app.use('/api/reader/auth/sms-in', createInboundWebhookRouter({ pool, config, clock }));
   app.use('/api', brandNameOutput);
   app.use(express.json({ limit: '1mb', strict: true }));
   app.use(csrfGuard);

@@ -5,6 +5,10 @@ import { createApp } from '../../src/app.js';
 // and an app (the real createApp) over them with a clock the test controls.
 
 export const SECRET = 'c'.repeat(64);
+export const INBOUND_KEY = 'ab'.repeat(32);
+export const INBOUND_LINE = '985000262720';
+// Settings of an app that has the receiving method switched on.
+export const RECEIVE_SETTINGS = Object.freeze({ reader_signup_enabled: '1', reader_auth_method: 'sms_receive', reader_inbound_line: INBOUND_LINE, reader_inbound_key: INBOUND_KEY });
 
 export function mockFetch(handler) {
   const calls = [];
@@ -23,7 +27,7 @@ export const CLIENT = { baseUrl: 'https://edge.ippanel.com/v1', apiKey: 'SECRET-
 // ---------- an in-memory database that answers exactly the statements the reader code uses ----------
 
 export function memoryDatabase({ settings = {} } = {}) {
-  const db = { settings: new Map(Object.entries(settings)), otps: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
+  const db = { settings: new Map(Object.entries(settings)), otps: [], challenges: [], inboundLog: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
   const id = (table) => { db.counters[table] = (db.counters[table] ?? 0) + 1; return db.counters[table]; };
   const duplicate = (key, value) => Object.assign(new Error(`Duplicate entry '${value}' for key '${key}'`), { code: 'ER_DUP_ENTRY' });
   const rows = (list) => [list, []];
@@ -72,6 +76,34 @@ export function memoryDatabase({ settings = {} } = {}) {
     [/^DELETE FROM reader_sessions WHERE expires_at < \?$/, ([at]) => { db.sessions = db.sessions.filter((s) => !(s.expires_at < at)); return done(); }],
     [/^DELETE FROM reader_sessions WHERE token_hash = \?$/, ([hash]) => { db.sessions = db.sessions.filter((s) => s.token_hash !== hash); return done(); }],
     [/^SELECT s\.id AS session_id, s\.last_seen_at, u\.id, u\.phone/, ([hash, now]) => rows(db.sessions.filter((s) => s.token_hash === hash && s.expires_at > now).map((s) => ({ session_id: s.id, last_seen_at: s.last_seen_at, ...userRow(db.users.find((u) => u.id === s.user_id)) })).slice(0, 1))],
+    // ---- the inbound-SMS method (sms_receive) ----
+    [/^SELECT COUNT\(\*\) AS n FROM reader_inbound_challenges WHERE phone = \? AND created_at > \?$/, ([phone, since]) => rows([{ n: db.challenges.filter((c) => c.phone === phone && c.created_at > since).length }])],
+    [/^SELECT COUNT\(\*\) AS n FROM reader_inbound_challenges WHERE ip = \? AND created_at > \?$/, ([ip, since]) => rows([{ n: db.challenges.filter((c) => c.ip === ip && c.created_at > since).length }])],
+    [/^SELECT COUNT\(\*\) AS n FROM reader_inbound_challenges WHERE phone = \? AND confirmed_at IS NULL AND consumed_at IS NULL AND expires_at > \?$/, ([phone, now]) => rows([{ n: db.challenges.filter((c) => c.phone === phone && !c.confirmed_at && !c.consumed_at && c.expires_at > now).length }])],
+    [/^UPDATE reader_inbound_challenges SET expires_at = \?, consumed_at = \? WHERE phone = \? AND consumed_at IS NULL$/, ([expires, consumed, phone]) => { const hit = db.challenges.filter((c) => c.phone === phone && !c.consumed_at); hit.forEach((c) => { c.expires_at = expires; c.consumed_at = consumed; }); return done({ affectedRows: hit.length }); }],
+    [/^INSERT INTO reader_inbound_challenges \(phone, code_hash, handle_hash, ip, created_at, expires_at\) VALUES/, ([phone, code_hash, handle_hash, ip, created_at, expires_at]) => {
+      if (db.challenges.some((c) => c.handle_hash === handle_hash)) throw duplicate('uq_reader_inbound_handle', handle_hash);
+      const row = { id: id('challenges'), phone, code_hash, handle_hash, ip, created_at, expires_at, confirmed_at: null, consumed_at: null };
+      db.challenges.push(row);
+      return done({ insertId: row.id });
+    }],
+    [/^DELETE FROM reader_inbound_challenges WHERE expires_at < \?$/, ([at]) => { db.challenges = db.challenges.filter((c) => !(c.expires_at < at)); return done(); }],
+    [/^DELETE FROM reader_inbound_log WHERE created_at < \?$/, ([at]) => { db.inboundLog = db.inboundLog.filter((l) => !(l.created_at < at)); return done(); }],
+    [/^SELECT id, phone, expires_at, confirmed_at, consumed_at FROM reader_inbound_challenges WHERE handle_hash = \? LIMIT 1$/, ([hash]) => rows(db.challenges.filter((c) => c.handle_hash === hash).slice(0, 1).map((c) => ({ ...c })))],
+    [/^UPDATE reader_inbound_challenges SET consumed_at = \? WHERE id = \? AND handle_hash = \? AND confirmed_at IS NOT NULL AND consumed_at IS NULL AND confirmed_at > \?$/, ([at, challengeId, hash, since]) => {
+      const row = db.challenges.find((c) => c.id === challengeId && c.handle_hash === hash && c.confirmed_at && !c.consumed_at && c.confirmed_at > since);
+      if (row) row.consumed_at = at;
+      return done({ affectedRows: row ? 1 : 0 });
+    }],
+    [/^DELETE FROM reader_inbound_challenges WHERE phone = \? AND id <> \?$/, ([phone, keep]) => { const before = db.challenges.length; db.challenges = db.challenges.filter((c) => c.phone !== phone || c.id === keep); return done({ affectedRows: before - db.challenges.length }); }],
+    [/^SELECT id, code_hash FROM reader_inbound_challenges WHERE phone = \? AND confirmed_at IS NULL AND consumed_at IS NULL AND expires_at > \? ORDER BY id DESC$/, ([phone, now]) => rows(db.challenges.filter((c) => c.phone === phone && !c.confirmed_at && !c.consumed_at && c.expires_at > now).sort((a, b) => b.id - a.id).map((c) => ({ id: c.id, code_hash: c.code_hash })))],
+    [/^UPDATE reader_inbound_challenges SET confirmed_at = \? WHERE id = \? AND confirmed_at IS NULL AND consumed_at IS NULL AND expires_at > \?$/, ([at, challengeId, now]) => {
+      const row = db.challenges.find((c) => c.id === challengeId && !c.confirmed_at && !c.consumed_at && c.expires_at > now);
+      if (row) row.confirmed_at = at;
+      return done({ affectedRows: row ? 1 : 0 });
+    }],
+    [/^INSERT INTO reader_inbound_log \(masked_phone, ip, outcome, reason, created_at\) VALUES/, ([masked_phone, ip, outcome, reason, created_at]) => { db.inboundLog.push({ id: id('inboundLog'), masked_phone, ip, outcome, reason, created_at }); return done(); }],
+    [/^SELECT masked_phone, ip, outcome, reason, created_at FROM reader_inbound_log ORDER BY id DESC LIMIT 30$/, () => rows(db.inboundLog.slice().sort((a, b) => b.id - a.id).slice(0, 30))],
     [/^UPDATE reader_sessions SET last_seen_at = \?, expires_at = \? WHERE id = \?$/, ([seen, expires, sessionId]) => { Object.assign(db.sessions.find((s) => s.id === sessionId), { last_seen_at: seen, expires_at: expires }); return done(); }],
   ];
   const run = async (sql, params = []) => {
@@ -89,18 +121,19 @@ export const config = (overrides = {}) => ({
   ippanel: { ...CLIENT }, ...overrides,
 });
 
-export async function httpCall(server, path, { method = 'GET', body, cookie } = {}) {
+export async function httpCall(server, path, { method = 'GET', body, cookie, form, headers: extraHeaders = {} } = {}) {
   return new Promise((resolve, reject) => {
-    const headers = {};
+    const headers = { ...extraHeaders };
     if (body !== undefined) { headers['content-type'] = 'application/json'; headers.origin = `http://127.0.0.1:${server.address().port}`; }
+    if (form !== undefined) headers['content-type'] = 'application/x-www-form-urlencoded';
     if (cookie) headers.cookie = cookie;
     const req = http.request({ host: '127.0.0.1', port: server.address().port, path, method, headers }, (res) => {
       let text = '';
       res.on('data', (chunk) => { text += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, json: text ? JSON.parse(text) : null, cookie: (res.headers['set-cookie'] ?? []).map((line) => line.split(';')[0]).find((pair) => pair.startsWith('pnu_reader=')) }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text, json: /json/.test(res.headers['content-type'] ?? '') && text ? JSON.parse(text) : null, cookie: (res.headers['set-cookie'] ?? []).map((line) => line.split(';')[0]).find((pair) => pair.startsWith('pnu_reader=')) }));
     });
     req.on('error', reject);
-    req.end(body !== undefined ? JSON.stringify(body) : undefined);
+    req.end(form !== undefined ? form : (body !== undefined ? JSON.stringify(body) : undefined));
   });
 }
 
@@ -128,7 +161,18 @@ export async function withReaderApp({ settings = { reader_signup_enabled: '1' },
       const proven = await verify(code, phone);
       return { code, proven, signed: await signup(proven.json.signup_token, extra) };
     };
-    return await run({ db, clock, fetchImpl, call, requestCode, verify, signup, register, sentCodes, form });
+    // The inbound-SMS method: the browser asks for a challenge, the provider calls the webhook, the browser asks what became of it.
+    const requestInbound = (phone = '09121234567') => call('/api/reader/auth/request-inbound', { method: 'POST', body: { phone } });
+    const inboundStatus = (handle) => call('/api/reader/auth/inbound-status', { method: 'POST', body: { handle } });
+    const hook = (params = {}, { key = INBOUND_KEY, method = 'GET', ip } = {}) => {
+      const all = { ...(key === null ? {} : { key }), ...params };
+      const query = new URLSearchParams(all).toString();
+      const headers = ip ? { 'x-forwarded-for': ip } : {};
+      return method === 'GET' ? call(`/api/reader/auth/sms-in?${query}`, { headers }) : call('/api/reader/auth/sms-in', { method, form: query, headers });
+    };
+    // A reader's phone sends `message` from `from` to the line, the way ippanel reports it.
+    const sendSms = (message, from = '989121234567', to = INBOUND_LINE, options) => hook({ from, to, message }, options);
+    return await run({ db, clock, fetchImpl, call, requestCode, verify, signup, register, sentCodes, form, requestInbound, inboundStatus, hook, sendSms });
   } finally {
     console.warn = quiet;
     server.close();

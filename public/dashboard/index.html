@@ -31,8 +31,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="مدیریت خبرها" />
     <meta name="application-name" content="مدیریت خبرها" />
-    <link rel="stylesheet" href="/dashboard/styles.v0.1.145.css" />
-    <script src="/shared/theme.v0.1.145.js"></script>
+    <link rel="stylesheet" href="/dashboard/styles.v0.1.146.css" />
+    <script src="/shared/theme.v0.1.146.js"></script>
     <title>مدیریت خبرها — اخبار پیام‌نور</title>
   </head>
   <body>
@@ -1201,6 +1201,74 @@
                     ><small id="readers-signup-state"></small></span
                 ></label>
               </section>
+              <form id="readers-method-form" class="panel settings-card settings-form readers-card-method" novalidate>
+                <h2>روش ورود خوانندگان</h2>
+                <fieldset class="method-choice">
+                  <legend class="card-hint">خواننده شمارهٔ موبایلش را از یکی از این دو راه ثابت می‌کند:</legend>
+                  <label class="method-option"
+                    ><input type="radio" name="auth_method" value="sms_send" /><span
+                      ><strong>ارسال کد از طرف ما (پیش‌فرض)</strong
+                      ><small
+                        >ما با ippanel یک کد پیامکی برای خواننده می‌فرستیم و او همان را وارد می‌کند. برای هر ورود یک
+                        پیامک هزینه دارد و تابع اعتبار و سقف‌های بالا است.</small
+                      ></span
+                    ></label
+                  >
+                  <label class="method-option"
+                    ><input type="radio" name="auth_method" value="sms_receive" /><span
+                      ><strong>ارسال پیامک از طرف خواننده</strong
+                      ><small
+                        >خواننده از سیم‌کارت خودش یک پیامک کوتاه به خط دریافت ما می‌فرستد و ورودش خودکار انجام می‌شود.
+                        هزینه‌ای برای هر ورود ندارد، ولی به یک خط دریافت در ippanel و تنظیم نشانی وب‌هوک نیاز دارد.</small
+                      ></span
+                    ></label
+                  >
+                </fieldset>
+                <div id="readers-inbound-fields" hidden>
+                  <label
+                    >شمارهٔ خط دریافت (فقط رقم)<input
+                      name="inbound_line"
+                      inputmode="numeric"
+                      dir="ltr"
+                      autocomplete="off"
+                      placeholder="۹۸۵۰۰۰۲۶۲۷۲۰"
+                  /></label>
+                  <label
+                    >نشانی‌های مجاز برای وب‌هوک (اختیاری؛ هر خط یک IP)<textarea
+                      name="inbound_ips"
+                      rows="2"
+                      dir="ltr"
+                      autocomplete="off"
+                    ></textarea
+                  ></label>
+                  <p class="card-hint">
+                    خالی یعنی از هر نشانی پذیرفته شود (کلید همچنان لازم است). فقط پشت پراکسی مورد اعتماد
+                    (<span dir="ltr">TRUST_PROXY=1</span>) درست کار می‌کند.
+                  </p>
+                  <div id="readers-webhook" hidden>
+                    <label
+                      >نشانی وب‌هوک برای چسباندن در ippanel<input
+                        id="readers-webhook-url"
+                        type="text"
+                        readonly
+                        dir="ltr"
+                        autocomplete="off"
+                    /></label>
+                    <div class="settings-inline">
+                      <button id="readers-webhook-copy" class="button outline" type="button">کپی نشانی</button>
+                      <button id="readers-key-rotate" class="button outline" type="button">ساخت کلید جدید</button>
+                    </div>
+                    <p class="card-hint">
+                      این نشانی کلید محرمانه را دارد؛ جای عمومی نگذارید. با ساخت کلید جدید، نشانی قبلی بلافاصله از کار
+                      می‌افتد و باید نشانی تازه را در ippanel بگذارید.
+                    </p>
+                  </div>
+                </div>
+                <p id="readers-method-error" class="portal-status is-error" role="alert" hidden></p>
+                <div class="settings-actions">
+                  <button class="button primary" type="submit">ذخیرهٔ روش ورود</button>
+                </div>
+              </form>
               <form id="readers-limits-form" class="panel settings-card readers-card-3 settings-form" novalidate>
                 <h2>هزینه و سقف‌ها</h2>
                 <div class="field-grid">
@@ -1252,6 +1320,11 @@
               <section class="panel settings-card readers-card-4" aria-labelledby="readers-failures-title">
                 <h2 id="readers-failures-title">ارسال‌های ناموفق اخیر</h2>
                 <div id="readers-failures"></div>
+              </section>
+              <section class="panel settings-card readers-card-5" aria-labelledby="readers-inbound-title">
+                <h2 id="readers-inbound-title">پیامک‌های دریافتی اخیر</h2>
+                <p class="card-hint">فقط شمارهٔ ماسک‌شده و دلیل؛ متن پیام و کد هرگز نگه داشته نمی‌شود.</p>
+                <div id="readers-inbound-log"></div>
               </section>
               </div>
             </div>
@@ -1719,6 +1792,6 @@
       <div id="update-root"></div>
       <div id="install-root"></div>
     </div>
-    <script type="module" src="/dashboard/dashboard.v0.1.145.js"></script>
+    <script type="module" src="/dashboard/dashboard.v0.1.146.js"></script>
   </body>
 </html>
