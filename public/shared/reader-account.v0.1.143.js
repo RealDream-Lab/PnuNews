@@ -1,8 +1,8 @@
 // Reader accounts: login and signup by SMS code, and the profile. Loaded on the first tap of the account button, so the
 // ordinary reader never downloads it. The server is the authority on everything here (/api/reader/*); this only draws the
 // steps: phone -> code -> (a new reader's form) -> done, and the profile of a signed-in reader.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.142.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.142.js';
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.143.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.143.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 

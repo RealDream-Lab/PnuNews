@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.142.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.142.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.142.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.142.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.142.js';
+import { initDock } from '/shared/dock.v0.1.143.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.143.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.143.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.143.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.143.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -28,6 +28,14 @@ const quickSearchCount = document.getElementById('quick-search-count');
 const quickSearchClose = document.getElementById('quick-search-close');
 const searchEmpty = document.getElementById('search-empty');
 const pinnedWrap = document.querySelector('.pinned-wrap');
+// The reader's account card: the first card of the strip (before the prayer card). It replaces the old header button, so the
+// node is made here and put into the strip by syncPrayerCard(); the account dialog opens when it is tapped.
+const accountButton = document.createElement('button');
+accountButton.type = 'button';
+accountButton.id = 'account-button';
+accountButton.className = 'account-card is-guest';
+accountButton.setAttribute('aria-haspopup', 'dialog');
+accountButton.hidden = true;
 
 // ---------- Loading layer ----------
 // The spiral in index.html covers the page until the first screen is really ready (feed or article drawn, fonts and the
@@ -674,7 +682,7 @@ async function loadMore() {
     state.ended = !data.next_cursor;
     state.loading = false;
     feed.setAttribute('aria-busy', 'false');
-    if (state.entries.length || !pinnedStrip.hidden) {
+    if (state.entries.length || pinnedStrip.querySelector('[data-news-id], .prayer-card')) {
       feedMessage.textContent = state.ended ? 'همین بود؛ خبر تازه‌ای برای نمایش نیست.' : '';
     } else {
       feed.innerHTML = emptyFeedMarkup();
@@ -894,20 +902,23 @@ let prayerModule = null;
 let prayerGate = false; // closed until the strip has been built once, so the card never shows up before / apart from the news cards
 function syncPrayerCard() {
   if (!prayerGate) return;
+  const showAccount = !accountButton.hidden;
   if (!prayerView) {
     prayerNode?.remove();
-    if (!pinnedStrip.querySelector('[data-news-id]')) pinnedStrip.hidden = true;
-    return;
+  } else {
+    if (!prayerNode) {
+      prayerNode = document.createElement('article');
+      prayerNode.className = 'prayer-card';
+      prayerNode.setAttribute('role', 'group');
+      prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
+    }
+    prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
+    if (pinnedStrip.children[showAccount ? 1 : 0] !== prayerNode) pinnedStrip.prepend(prayerNode);
   }
-  if (!prayerNode) {
-    prayerNode = document.createElement('article');
-    prayerNode.className = 'prayer-card';
-    prayerNode.setAttribute('role', 'group');
-    prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
-  }
-  prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
-  if (pinnedStrip.firstElementChild !== prayerNode) pinnedStrip.prepend(prayerNode);
-  pinnedStrip.hidden = false;
+  // The account card always comes first, before the prayer card and the news cards.
+  if (!showAccount) accountButton.remove();
+  else if (pinnedStrip.firstElementChild !== accountButton) pinnedStrip.prepend(accountButton);
+  pinnedStrip.hidden = !(showAccount || prayerView || pinnedStrip.querySelector('[data-news-id]'));
   updatePinnedNav();
 }
 function openPrayerGate() {
@@ -921,7 +932,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.142.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.143.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1022,7 +1033,7 @@ async function applyLiveData(data, { compensate = false } = {}) {
   state.pinnedIds = plan.pinnedIds;
   state.firstId = firstId ?? state.firstId;
   newItemsBanner.hidden = true;
-  if (!state.entries.length && pinnedStrip.hidden) {
+  if (!state.entries.length && !pinnedStrip.querySelector('[data-news-id], .prayer-card')) {
     feed.innerHTML = emptyFeedMarkup();
   }
   layoutMasonry();
@@ -1587,7 +1598,6 @@ syncSavedUi();
 // ---------- Reader account (login by SMS code) ----------
 // The button exists only while the main admin has reader signup switched on (/api/public/config: reader.signup_enabled).
 // Everything behind it (the dialog, the steps) is a separate module, loaded on the first tap.
-const accountButton = document.getElementById('account-button');
 let readerUser = null;
 let readerChecked = false;
 let accountModule = null;
@@ -1595,7 +1605,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.142.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.143.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1629,16 +1639,48 @@ function stopBookmarkSync() {
   running?.then((controller) => controller.stop()).catch(() => {});
 }
 
+// 09123456789 or +989123456789 -> ۰۹۱۲ ۳۴۵ ۶۷۸۹ (for showing only; the module with the full formatter loads on the first tap)
+const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+function accountPhoneText(phone) {
+  const national = String(phone ?? '').replace(/^\+98/, '0');
+  const grouped = /^\d{11}$/.test(national) ? `${national.slice(0, 4)} ${national.slice(4, 7)} ${national.slice(7)}` : national;
+  return grouped.replace(/\d/g, (digit) => PERSIAN_DIGITS[digit]);
+}
+
+function accountUnitName(unitId) {
+  for (const province of state.config?.provinces ?? []) {
+    const city = province.cities?.find((item) => Number(item.id) === Number(unitId));
+    if (city) return city.name;
+  }
+  return '';
+}
+
+// Signed out: only the person icon. Signed in: the same three lines as the prayer card: the phone number, the name, and
+// under it the reader's university centre.
+function paintAccountCard(user) {
+  if (!user) {
+    accountButton.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg>';
+    return;
+  }
+  const unit = accountUnitName(user.unit_id);
+  accountButton.innerHTML = `<div class="account-line account-phone-line"><bdi dir="ltr">${escapeHtml(accountPhoneText(user.phone))}</bdi></div>`
+    + `<div class="account-name">${escapeHtml(`${user.first_name ?? ''} ${user.last_name ?? ''}`.trim())}</div>`
+    + (unit ? `<div class="account-unit">${escapeHtml(unit)}</div>` : '');
+}
+
 function syncAccountUi() {
   const enabled = state.config?.reader?.signup_enabled === true;
   const signedIn = Boolean(readerUser);
   // Logging in and signing up need an SMS, so they exist only while the main admin has signup on. A reader who is already
-  // signed in does not: the button (profile, sign out) and the bookmark sync stay, switch or no switch.
+  // signed in does not: the card (profile, sign out) and the bookmark sync stay, switch or no switch.
   accountButton.hidden = !(enabled || signedIn);
   accountButton.classList.toggle('is-signed-in', signedIn);
+  accountButton.classList.toggle('is-guest', !signedIn);
   const label = signedIn ? `حساب من، ${readerUser.first_name}` : 'ورود یا ثبت‌نام';
   accountButton.setAttribute('aria-label', label);
   accountButton.title = label;
+  paintAccountCard(readerUser);
+  syncPrayerCard();
   if (signedIn) startBookmarkSync();
   else stopBookmarkSync();
   if (savedDialog.open) renderSaved();
@@ -1650,7 +1692,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.142.js');
+  accountModule ??= import('/shared/reader-account.v0.1.143.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1822,7 +1864,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.142.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.143.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2407,7 +2449,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.142.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.143.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
