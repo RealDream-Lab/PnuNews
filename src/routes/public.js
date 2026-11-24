@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.145.css">
-<script src="/shared/theme.v0.1.145.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.146.css">
+<script src="/shared/theme.v0.1.146.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.145.js"></script>
+<script type="module" src="/reader/app.v0.1.146.js"></script>
 </body>
 </html>`;
 }
@@ -362,7 +362,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     try {
       const result = await cache.get('config', async () => {
         const [settings, provinces] = await Promise.all([
-          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url', 'reader_signup_enabled']),
+          settingsMap(pool, ['site_title', 'radio_enabled', 'radio_title', 'radio_stream_url', 'radio_nowplaying_url', 'reader_signup_enabled', 'reader_auth_method']),
           visibleRegions(pool),
         ]);
         let radio = { enabled: false };
@@ -381,7 +381,9 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
           } catch {}
         }
         // Whether readers can sign up and log in (switch of the main admin). Off: the reader hides every login screen and keeps bookmarks on the device.
-        const reader = { signup_enabled: settings.reader_signup_enabled === '1' };
+        // auth_method says how the login screen proves a number; it carries nothing secret (the receiving line is only ever sent in the
+        // answer to request-inbound, never here). A missing or damaged value means the original method, sms_send.
+        const reader = { signup_enabled: settings.reader_signup_enabled === '1', auth_method: settings.reader_auth_method === 'sms_receive' ? 'sms_receive' : 'sms_send' };
         return { site_title: settings.site_title || 'اخبار پیام نور', radio, reader, provinces };
       });
       response.setHeader('Cache-Control', 'public, max-age=15');

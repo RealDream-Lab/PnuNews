@@ -2,6 +2,10 @@ import express from 'express';
 import { createRateLimiter } from '../lib/ratelimit.js';
 import { createBookmarkRouter } from './reader-bookmarks.js';
 import {
+  INBOUND_CONFIRM_GRACE_MS, INBOUND_LOG_KEEP_MS, INBOUND_MAX_OPEN_PER_PHONE, INBOUND_TTL_MS, generateHandle, hashHandle, hashInboundCode, inboundBody,
+  isHandle, lineInternational, normalizeLine,
+} from '../lib/reader-inbound.js';
+import {
   OTP_MAX_ATTEMPTS, OTP_RESEND_GAP_MS, OTP_TTL_MS, cleanOtpInput, cleanPersonName, cleanStudentNumber, generateOtp, hashOtp,
   maskPhone, normalizePhone, readSignupToken, sameHex, signSignupToken,
 } from '../lib/reader-auth.js';
@@ -13,6 +17,11 @@ const PHONE_REQUESTS_PER_HOUR = 5;
 // Per address, not per person: a campus or a mobile carrier puts many readers behind one address, so this is generous. The
 // per-number limit and the daily cap are what protect the SMS budget.
 const IP_REQUESTS_PER_HOUR = 30;
+// The inbound-SMS method costs no SMS, so its limits only keep the table and the abuse small. The status question is asked every
+// couple of seconds by every waiting reader, so it has a generous limit of its own (a campus shares one address).
+const INBOUND_REQUESTS_PER_PHONE_PER_HOUR = 10;
+const INBOUND_REQUESTS_PER_IP_PER_HOUR = 60;
+const INBOUND_STATUS_PER_IP_PER_MINUTE = 600;
 
 const MESSAGE = Object.freeze({
   disabled: 'ورود و ثبت‌نام خوانندگان فعلاً غیرفعال است.',
@@ -35,6 +44,11 @@ const MESSAGE = Object.freeze({
   studentNo: 'شمارهٔ دانشجویی را فقط با رقم و بین ۶ تا ۱۴ رقم وارد کنید.',
   unit: 'مرکز دانشگاهی را انتخاب کنید.',
   phoneFixed: 'شمارهٔ موبایل پس از ثبت‌نام قابل تغییر نیست.',
+  methodReceive: 'روش ورود تغییر کرده است؛ صفحه را تازه کنید و دوباره وارد شوید.',
+  methodSend: 'این روش ورود فعال نیست؛ صفحه را تازه کنید و دوباره وارد شوید.',
+  inboundDown: 'ورود با ارسال پیامک اکنون ممکن نیست؛ کمی بعد دوباره تلاش کنید.',
+  openLimit: 'چند درخواست ورود باز دارید؛ چند دقیقه صبر کنید یا درخواست قبلی را کامل کنید.',
+  badHandle: 'درخواست معتبر نیست؛ دوباره از شمارهٔ موبایل شروع کنید.',
 });
 
 const fail = (response, status, key, extra = {}) => response.status(status).json({ error: MESSAGE[key], code: key, ...extra });
@@ -84,6 +98,41 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
     }
     next();
   });
+  // The waiting browser asks every couple of seconds whether its SMS has arrived. It has its own, higher limit and is registered
+  // before the general /auth limit so it is not counted against it.
+  const statusLimit = createRateLimiter({ limit: INBOUND_STATUS_PER_IP_PER_MINUTE, windowMs: 60_000, clock });
+  router.post('/auth/inbound-status', statusLimit, async (request, response, next) => {
+    try {
+      const settings = await loadReaderSettings(pool);
+      if (!settings.signup_enabled) return fail(response, 403, 'disabled');
+      if (settings.auth_method !== 'sms_receive') return fail(response, 403, 'methodSend');
+      const handle = request.body?.handle;
+      if (!isHandle(handle)) return fail(response, 400, 'badHandle');
+      const now = clock();
+      const [rows] = await pool.execute(
+        'SELECT id, phone, expires_at, confirmed_at, consumed_at FROM reader_inbound_challenges WHERE handle_hash = ? LIMIT 1',
+        [hashHandle(handle)],
+      );
+      const row = rows[0];
+      // Unknown, used and invalidated all look the same: the browser has to start again.
+      if (!row || row.consumed_at) return response.json({ ok: true, status: 'expired' });
+      if (!row.confirmed_at) {
+        const left = new Date(row.expires_at).getTime() - now;
+        return response.json(left > 0 ? { ok: true, status: 'waiting', expires_in: Math.ceil(left / 1000) } : { ok: true, status: 'expired' });
+      }
+      // Confirmed by the webhook. Taking it is atomic: of two parallel questions only one changes the row, the other is told «expired».
+      const [taken] = await pool.execute(
+        'UPDATE reader_inbound_challenges SET consumed_at = ? WHERE id = ? AND handle_hash = ? AND confirmed_at IS NOT NULL AND consumed_at IS NULL AND confirmed_at > ?',
+        [new Date(now), row.id, hashHandle(handle), new Date(now - INBOUND_CONFIRM_GRACE_MS)],
+      );
+      if (taken.affectedRows !== 1) return response.json({ ok: true, status: 'expired' });
+      await pool.execute('DELETE FROM reader_inbound_challenges WHERE phone = ? AND id <> ?', [row.phone, row.id]);
+      return response.json(await proofAccepted(request, response, row.phone, now, { status: 'confirmed' }));
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   router.use('/auth', authLimit);
   router.use('/bookmarks', createBookmarkRouter({ pool, clock, authenticate }));
 
@@ -104,6 +153,7 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
     try {
       const settings = await loadReaderSettings(pool);
       if (!settings.signup_enabled) return fail(response, 403, 'disabled');
+      if (settings.auth_method !== 'sms_send') return fail(response, 403, 'methodReceive');
       const phone = normalizePhone(request.body?.phone);
       if (!phone) return fail(response, 400, 'badPhone');
       if (!ippanel.configured) return fail(response, 503, 'smsDown');
@@ -152,11 +202,56 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
     }
   });
 
+  // 1b. The other method: the reader will send an SMS from their own number to our line. Nothing is sent by us, so no SMS budget is involved.
+  router.post('/auth/request-inbound', async (request, response, next) => {
+    try {
+      const settings = await loadReaderSettings(pool);
+      if (!settings.signup_enabled) return fail(response, 403, 'disabled');
+      if (settings.auth_method !== 'sms_receive') return fail(response, 403, 'methodSend');
+      const phone = normalizePhone(request.body?.phone);
+      if (!phone) return fail(response, 400, 'badPhone');
+      const line = normalizeLine(settings.inbound_line);
+      if (!line) return fail(response, 503, 'inboundDown');
+
+      const now = clock();
+      const at = new Date(now);
+      const hourAgo = new Date(now - HOUR_MS);
+      const [[phoneCount]] = await pool.execute('SELECT COUNT(*) AS n FROM reader_inbound_challenges WHERE phone = ? AND created_at > ?', [phone, hourAgo]);
+      if (Number(phoneCount.n) >= INBOUND_REQUESTS_PER_PHONE_PER_HOUR) return fail(response, 429, 'phoneLimit', { retry_after: 3600 });
+      const [[ipCount]] = await pool.execute('SELECT COUNT(*) AS n FROM reader_inbound_challenges WHERE ip = ? AND created_at > ?', [request.ip ?? null, hourAgo]);
+      if (Number(ipCount.n) >= INBOUND_REQUESTS_PER_IP_PER_HOUR) return fail(response, 429, 'ipLimit', { retry_after: 3600 });
+      const [[openCount]] = await pool.execute(
+        'SELECT COUNT(*) AS n FROM reader_inbound_challenges WHERE phone = ? AND confirmed_at IS NULL AND consumed_at IS NULL AND expires_at > ?',
+        [phone, at],
+      );
+      if (Number(openCount.n) >= INBOUND_MAX_OPEN_PER_PHONE) return fail(response, 429, 'openLimit', { retry_after: 300 });
+
+      // A new request for this number cancels its older ones (also one that was confirmed but never picked up).
+      await pool.execute(
+        'UPDATE reader_inbound_challenges SET expires_at = ?, consumed_at = ? WHERE phone = ? AND consumed_at IS NULL',
+        [at, at, phone],
+      );
+      const code = generateOtp();
+      const handle = generateHandle();
+      await pool.execute(
+        'INSERT INTO reader_inbound_challenges (phone, code_hash, handle_hash, ip, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [phone, hashInboundCode(config.appSecret, phone, code), hashHandle(handle), request.ip ?? null, at, new Date(now + INBOUND_TTL_MS)],
+      );
+      // Housekeeping with every request: old challenges and old log lines go.
+      await pool.execute('DELETE FROM reader_inbound_challenges WHERE expires_at < ?', [new Date(now - 24 * HOUR_MS)]);
+      await pool.execute('DELETE FROM reader_inbound_log WHERE created_at < ?', [new Date(now - INBOUND_LOG_KEEP_MS)]);
+      return response.json({ ok: true, handle, code, line: lineInternational(line), body: inboundBody(code), expires_in: INBOUND_TTL_MS / 1000 });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
   // 2. The code is checked. A known number gets its session; a new one gets a short-lived token for the signup form.
   router.post('/auth/verify', async (request, response, next) => {
     try {
       const settings = await loadReaderSettings(pool);
       if (!settings.signup_enabled) return fail(response, 403, 'disabled');
+      if (settings.auth_method !== 'sms_send') return fail(response, 403, 'methodReceive');
       const phone = normalizePhone(request.body?.phone);
       if (!phone) return fail(response, 400, 'badPhone');
       const code = cleanOtpInput(request.body?.code);
@@ -178,13 +273,18 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
       if (used.affectedRows !== 1) return fail(response, 400, 'expired');
       await pool.execute('DELETE FROM reader_otps WHERE phone = ?', [phone]);
 
-      const [users] = await pool.execute('SELECT id, phone, first_name, last_name, is_student, student_no, unit_id FROM reader_users WHERE phone = ?', [phone]);
-      if (users[0]) return response.json({ ok: true, user: await startSession(request, response, users[0]) });
-      return response.json({ ok: true, needs_signup: true, signup_token: signSignupToken(config.appSecret, phone, now) });
+      return response.json(await proofAccepted(request, response, phone, now));
     } catch (error) {
       return next(error);
     }
   });
+
+  // 2b. The number is proven by one of the two methods; what follows is the same: a known number gets its session, a new one a signup token.
+  async function proofAccepted(request, response, phone, now, extra = {}) {
+    const [users] = await pool.execute('SELECT id, phone, first_name, last_name, is_student, student_no, unit_id FROM reader_users WHERE phone = ?', [phone]);
+    if (users[0]) return { ok: true, ...extra, user: await startSession(request, response, users[0]) };
+    return { ok: true, ...extra, needs_signup: true, signup_token: signSignupToken(config.appSecret, phone, now) };
+  }
 
   // 3. A new reader's form (after the code was verified).
   router.post('/auth/signup', async (request, response, next) => {

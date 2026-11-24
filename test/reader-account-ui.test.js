@@ -99,7 +99,7 @@ test('the account screens are a separate module, loaded on the first tap only', 
   assert.ok(!new RegExp(`^import .*reader-account`, 'm').test(app), 'not imported at the start');
   assert.ok(!new RegExp(`^import .*digits`, 'm').test(app));
   assert.match(app, /accountModule \?\?= import\(/);
-  assert.match(app, /onDisabled: \(\) => \{ state\.config = \{ \.\.\.state\.config, reader: \{ signup_enabled: false \} \}; syncAccountUi\(\); \}/);
+  assert.match(app, /onDisabled: \(\) => \{ state\.config = \{ \.\.\.state\.config, reader: \{ \.\.\.state\.config\?\.reader, signup_enabled: false \} \}; syncAccountUi\(\); \}/);
 });
 
 test('the phone and code fields open a numeric keyboard, the code field takes the SMS autofill, and the benefit text is one paragraph', () => {

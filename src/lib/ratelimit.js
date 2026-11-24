@@ -1,9 +1,11 @@
-export function createRateLimiter({ limit = 90, windowMs = 60_000, clock = Date.now, maxKeys = 20_000 } = {}) {
+// keyOf: what the counter is kept per (default: the address of the caller). reject: what to answer when the limit is passed
+// (default: a JSON 429); the inbound-SMS webhook answers in plain text instead.
+export function createRateLimiter({ limit = 90, windowMs = 60_000, clock = Date.now, maxKeys = 20_000, keyOf = null, reject = null } = {}) {
   const buckets = new Map();
 
   return function rateLimit(request, response, next) {
     const now = clock();
-    const key = request.ip || request.socket?.remoteAddress || 'unknown';
+    const key = keyOf ? keyOf(request) : (request.ip || request.socket?.remoteAddress || 'unknown');
     let bucket = buckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
       bucket = { count: 0, resetAt: now + windowMs };
@@ -17,6 +19,7 @@ export function createRateLimiter({ limit = 90, windowMs = 60_000, clock = Date.
     response.setHeader('RateLimit-Reset', String(Math.ceil(bucket.resetAt / 1000)));
     if (bucket.count > limit) {
       response.setHeader('Retry-After', String(Math.max(1, Math.ceil((bucket.resetAt - now) / 1000))));
+      if (reject) return reject(request, response);
       return response.status(429).json({ error: 'تعداد درخواست‌ها زیاد است؛ کمی بعد دوباره تلاش کنید.' });
     }
     return next();

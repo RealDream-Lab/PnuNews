@@ -27,6 +27,8 @@ npm run dev
 
 خواننده‌ها می‌توانند بدون ثبت‌نام همه‌چیز را بخوانند و خبرها را در همان دستگاه نشانک کنند. اگر مدیر ارشد «ثبت‌نام و ورود خوانندگان» را از پنل روشن کند، با شمارهٔ موبایل و کد پیامکی (ippanel) حساب می‌سازند و نشانک‌هایشان بین دستگاه‌ها همگام می‌شود. کلید و پترن ippanel در `.autostart` می‌روند؛ راه‌اندازی، بودجهٔ پیامک، حریم خصوصی و عیب‌یابی در [`docs/OPERATIONS.md`](docs/OPERATIONS.md) و چک‌لیست دستی در [`docs/QA-READER-ACCOUNTS.md`](docs/QA-READER-ACCOUNTS.md) است.
 
+مدیر ارشد می‌تواند به‌جای «کد پیامکیِ ارسالی از طرف ما» روش دوم را انتخاب کند: خواننده خودش از سیم‌کارتش پیامک کوتاهی به خط دریافت می‌فرستد و ippanel آن را با وب‌هوک به سرور می‌رساند (بدون هزینه برای هر ورود). راه‌اندازی، آزمایش و کدهای دلیل در [`docs/INBOUND-SMS-LOGIN.md`](docs/INBOUND-SMS-LOGIN.md) است.
+
 ## مستندات
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): ساختار و معماری
@@ -34,3 +36,4 @@ npm run dev
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md): راهنمای اجرا و نگهداری
 - [`docs/PROGRESS.md`](docs/PROGRESS.md): milestoneها و کارهای باقی‌مانده
 - [`docs/QA-READER-ACCOUNTS.md`](docs/QA-READER-ACCOUNTS.md): چک‌لیست دستی حساب خوانندگان
+- [`docs/INBOUND-SMS-LOGIN.md`](docs/INBOUND-SMS-LOGIN.md): ورود با پیامکِ ارسالی از طرف خواننده (وب‌هوک ippanel)

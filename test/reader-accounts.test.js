@@ -78,14 +78,14 @@ function readersApp({ user, database, events = new EventEmitter() }) {
 }
 
 test('reader settings: a table without rows gives the defaults, damaged rows fall back to them', () => {
-  assert.deepEqual(readerSettingsFromRows([]), { signup_enabled: false, sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
+  assert.deepEqual(readerSettingsFromRows([]), { signup_enabled: false, auth_method: 'sms_send', inbound_line: '', inbound_ips: [], sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
   const damaged = readerSettingsFromRows([
     { k: 'reader_signup_enabled', v: '1' }, { k: 'sms_cost_rial', v: 'abc' }, { k: 'sms_min_remaining', v: '-5' }, { k: 'sms_daily_cap', v: '999999999' },
   ]);
-  assert.deepEqual(damaged, { signup_enabled: true, sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
+  assert.deepEqual(damaged, { signup_enabled: true, auth_method: 'sms_send', inbound_line: '', inbound_ips: [], sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
   assert.equal(readerSettingsFromRows([{ k: 'reader_signup_enabled', v: 'true' }]).signup_enabled, false, 'only 1 means on');
   assert.equal(READER_SETTING_DEFAULTS.reader_signup_enabled, '0', 'signup is off until the main admin turns it on');
-  assert.deepEqual([...READER_SETTING_KEYS].sort(), ['reader_signup_enabled', 'sms_cost_rial', 'sms_daily_cap', 'sms_min_remaining']);
+  assert.deepEqual([...READER_SETTING_KEYS].sort(), ['reader_auth_method', 'reader_inbound_ips', 'reader_inbound_line', 'reader_signup_enabled', 'sms_cost_rial', 'sms_daily_cap', 'sms_min_remaining']);
 });
 
 test('reader settings: updates are validated strictly', () => {
@@ -124,11 +124,11 @@ test('the main admin reads the settings and switches signup on: written, audited
   await withServer(app, async (server) => {
     const before = await request(server, '/api/admin/readers/settings');
     assert.equal(before.status, 200);
-    assert.deepEqual(before.json.settings, { signup_enabled: false, sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
+    assert.deepEqual(before.json.settings, { signup_enabled: false, auth_method: 'sms_send', inbound_line: '', inbound_ips: [], sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 300 });
 
     const put = await request(server, '/api/admin/readers/settings', { method: 'PUT', body: { signup_enabled: true, sms_daily_cap: 500, sms_cost_rial: 2000 } });
     assert.equal(put.status, 200);
-    assert.deepEqual(put.json.settings, { signup_enabled: true, sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 500 });
+    assert.deepEqual(put.json.settings, { signup_enabled: true, auth_method: 'sms_send', inbound_line: '', inbound_ips: [], sms_cost_rial: 2000, sms_min_remaining: 200, sms_daily_cap: 500 });
   });
   assert.equal(database.settings.get('reader_signup_enabled'), '1');
   assert.equal(database.settings.get('sms_daily_cap'), '500');
@@ -193,7 +193,7 @@ test('behind the real admin login: no session means 401, and the route is mounte
   });
   const admin = await read('src/routes/admin.js');
   const auth = admin.indexOf('router.use(createAuthMiddleware(pool, config), requirePasswordChanged)');
-  const mount = admin.indexOf("router.use('/readers', createReaderAdminRouter({ pool, smsBudget }))");
+  const mount = admin.indexOf("router.use('/readers', createReaderAdminRouter({ pool, config, smsBudget }))");
   assert.ok(auth > -1 && mount > auth, 'every reader route sits behind the admin authentication');
 });
 
@@ -205,7 +205,7 @@ test('the public config tells the reader whether signup is on, and follows a cha
   await withServer(app, async (server) => {
     const off = await request(server, '/api/public/config');
     assert.equal(off.status, 200);
-    assert.deepEqual(off.json.reader, { signup_enabled: false });
+    assert.deepEqual(off.json.reader, { signup_enabled: false, auth_method: 'sms_send' });
     assert.equal(off.json.site_title, 'اخبار پیام نور', 'the rest of the config is unchanged');
     assert.ok('radio' in off.json && 'provinces' in off.json);
 
@@ -251,8 +251,9 @@ test('migration: the five reader tables are created idempotently, and the migrat
   try {
     await migrate(pool);
     const firstRun = executed.filter((text) => /reader_|sms_log/.test(text)).length;
-    assert.equal(firstRun, 5);
+    assert.equal(firstRun, 7, 'five tables of the accounts and the two of the inbound-SMS method');
     assert.ok(applied.has('2026112001_reader_accounts.sql'));
+    assert.ok(applied.has('2026112401_reader_inbound_sms.sql'));
     executed.length = 0;
     await migrate(pool);
     assert.equal(executed.filter((text) => /CREATE TABLE/.test(text) && !/schema_migrations/.test(text)).length, 0, 'the second run changes nothing');

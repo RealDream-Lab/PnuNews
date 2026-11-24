@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.145.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.146.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3503,12 +3503,55 @@ function renderReadersFailures(status) {
     : '<p class="empty-panel">ارسال ناموفقی ثبت نشده است.</p>';
 }
 
+// Why the webhook ignored an SMS (reader_inbound_log.reason), as the main admin reads it.
+const READER_INBOUND_REASONS = {
+  confirmed: "پیامک تأیید شد",
+  bad_key: "کلید نادرست یا نبودن کلید در نشانی",
+  wrong_method: "روش «ارسال پیامک از طرف خواننده» فعال نیست",
+  ip_blocked: "نشانی IP فرستنده مجاز نیست",
+  bad_sender: "فرستنده شمارهٔ موبایل نبود",
+  wrong_line: "گیرنده همان خط دریافت تنظیم‌شده نبود",
+  no_code: "در متن پیام کد ۶ رقمی نبود",
+  no_match: "کد با هیچ درخواست بازِ این شماره نخورد (منقضی، تکراری یا شمارهٔ دیگر)",
+};
+
+function renderReadersInbound(data) {
+  const field = document.getElementById("readers-webhook-url");
+  document.getElementById("readers-webhook").hidden = !data.webhook_url;
+  field.value = data.webhook_url ?? "";
+  const target = document.getElementById("readers-inbound-log");
+  target.innerHTML = data.recent.length
+    ? `<ul class="readers-inbound-log">${data.recent
+        .map(
+          (item) =>
+            `<li class="${item.outcome === "confirmed" ? "is-confirmed" : ""}"><span dir="ltr">${escapeHtml(toFaDigits(item.phone || "—"))}</span><span>${escapeHtml(READER_INBOUND_REASONS[item.reason] || "دلیل نامشخص")}</span><time>${formatDate(item.at)}</time></li>`,
+        )
+        .join("")}</ul>`
+    : '<p class="empty-panel">هنوز پیامکی دریافت نشده است.</p>';
+}
+
+async function loadReaderInbound() {
+  renderReadersInbound(await api("/api/admin/readers/inbound"));
+}
+
+function paintReaderMethod(settings) {
+  const form = document.getElementById("readers-method-form");
+  for (const radio of form.elements.auth_method) radio.checked = radio.value === settings.auth_method;
+  if (!form.contains(document.activeElement)) {
+    form.elements.inbound_line.value = settings.inbound_line;
+    form.elements.inbound_ips.value = settings.inbound_ips.join("\n");
+  }
+  document.getElementById("readers-inbound-fields").hidden = settings.auth_method !== "sms_receive";
+}
+
 async function loadReaderStatus({ refresh = false } = {}) {
   const [{ settings }, { status }] = await Promise.all([
     api("/api/admin/readers/settings"),
     api(`/api/admin/readers/sms-status${refresh ? "?refresh=1" : ""}`),
   ]);
   state.readerStatus = status;
+  state.readerSettings = settings;
+  paintReaderMethod(settings);
   document.getElementById("readers-signup-switch").checked = settings.signup_enabled;
   document.getElementById("readers-signup-state").textContent = settings.signup_enabled
     ? "روشن است."
@@ -3559,6 +3602,11 @@ async function loadReaders() {
   } catch (error) {
     showToast(error.message);
   }
+  try {
+    await loadReaderInbound();
+  } catch (error) {
+    showToast(error.message);
+  }
   await loadReaderUsers(1);
 }
 
@@ -3566,7 +3614,7 @@ function initReadersPanel() {
   const signup = document.getElementById("readers-signup-switch");
   signup.addEventListener("change", async () => {
     const wanted = signup.checked;
-    if (wanted && state.readerStatus && !state.readerStatus.configured) {
+    if (wanted && state.readerStatus && !state.readerStatus.configured && state.readerSettings?.auth_method !== "sms_receive") {
       const sure = await confirmDialog({
         title: "ippanel تنظیم نشده است",
         text: "کلید و پترن پیامک در سرور نیست و خوانندگان نمی‌توانند کد بگیرند. با این حال روشن شود؟",
@@ -3589,6 +3637,73 @@ function initReadersPanel() {
       showToast(error.message);
     } finally {
       signup.disabled = false;
+    }
+  });
+
+  // The way a reader proves the number: we send a code (sms_send) or the reader sends an SMS to our line (sms_receive).
+  const methodForm = document.getElementById("readers-method-form");
+  const methodProblem = document.getElementById("readers-method-error");
+  const chosenMethod = () => methodForm.elements.auth_method.value;
+  methodForm.addEventListener("change", (event) => {
+    if (event.target.name === "auth_method") document.getElementById("readers-inbound-fields").hidden = chosenMethod() !== "sms_receive";
+  });
+  methodForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    methodProblem.hidden = true;
+    const method = chosenMethod();
+    if (!method) {
+      methodProblem.textContent = "یکی از دو روش را انتخاب کنید.";
+      methodProblem.hidden = false;
+      return;
+    }
+    const body = { auth_method: method };
+    if (method === "sms_receive") {
+      body.inbound_line = normalizeDigits(methodForm.elements.inbound_line.value).replace(/\s/g, "");
+      body.inbound_ips = normalizeDigits(methodForm.elements.inbound_ips.value).split(/[\s,،]+/).filter(Boolean);
+    }
+    const button = methodForm.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await api("/api/admin/readers/settings", { method: "PUT", body });
+      showToast("روش ورود ذخیره شد.");
+      await loadReaderStatus();
+      await loadReaderInbound();
+    } catch (error) {
+      methodProblem.textContent = error.message;
+      methodProblem.hidden = false;
+    } finally {
+      button.disabled = false;
+    }
+  });
+  document.getElementById("readers-webhook-copy").addEventListener("click", async () => {
+    const field = document.getElementById("readers-webhook-url");
+    try {
+      await navigator.clipboard.writeText(field.value);
+      showToast("نشانی کپی شد.");
+    } catch {
+      field.select();
+      showToast(document.execCommand("copy") ? "نشانی کپی شد." : "کپی نشد؛ نشانی انتخاب شده است، دستی کپی کنید.");
+    }
+  });
+  document.getElementById("readers-key-rotate").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const sure = await confirmDialog({
+      title: "ساخت کلید جدید",
+      text: "نشانی فعلی بلافاصله از کار می‌افتد و تا وقتی نشانی تازه را در ippanel نگذارید، ورود با پیامک انجام نمی‌شود. ادامه می‌دهید؟",
+      tone: "danger",
+      confirmText: "بله، کلید جدید",
+      cancelText: "انصراف",
+    });
+    if (!sure) return;
+    button.disabled = true;
+    try {
+      await api("/api/admin/readers/inbound-key", { method: "POST", body: {} });
+      showToast("کلید جدید ساخته شد؛ نشانی تازه را در ippanel بگذارید.");
+      await loadReaderInbound();
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      button.disabled = false;
     }
   });
 
@@ -3676,6 +3791,8 @@ function auditAction(action) {
     "settings.update": "تغییر تنظیمات",
     "reader.settings.update": "تغییر تنظیمات حساب خوانندگان",
     "reader.signup.auto_disabled": "خاموش‌شدن خودکار ثبت‌نام خوانندگان",
+    "reader.auth_method.change": "تغییر روش ورود خوانندگان",
+    "reader.inbound_key.rotate": "ساخت کلید جدید وب‌هوک پیامک",
     "region.update": "ویرایش مرکز یا واحد",
     "region.create": "افزودن مرکز یا واحد",
     "category.create": "افزودن دسته‌بندی",

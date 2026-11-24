@@ -1,8 +1,13 @@
-// Reader accounts: login and signup by SMS code, and the profile. Loaded on the first tap of the account button, so the
-// ordinary reader never downloads it. The server is the authority on everything here (/api/reader/*); this only draws the
-// steps: phone -> code -> (a new reader's form) -> done, and the profile of a signed-in reader.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.145.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.145.js';
+// Reader accounts: login and signup by SMS, and the profile. Loaded on the first tap of the account button, so the ordinary
+// reader never downloads it. The server is the authority on everything here (/api/reader/*); this only draws the steps:
+// phone -> code -> (a new reader's form) -> done, and the profile of a signed-in reader.
+//
+// Two ways to prove the number, chosen by the main admin (context.authMethod, from the public config):
+//   sms_send    (default, also when the value is missing or unknown): we send a code, the reader types it.
+//   sms_receive: the reader sends an SMS from their own SIM to our line; the page waits and the server tells it when it arrived
+//                (step «inbound»). The signup form and the profile after the proof are the same for both.
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.146.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.146.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 
@@ -11,6 +16,8 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => 
 
 const TITLES = {
   phone: ['ورود یا ثبت‌نام', 'با شمارهٔ موبایل وارد شوید؛ یک کد پیامکی برایتان می‌فرستیم.'],
+  phoneReceive: ['ورود یا ثبت‌نام', 'با شمارهٔ موبایل وارد شوید؛ کافی است یک پیامک کوتاه از همان شماره برایمان بفرستید.'],
+  inbound: ['ارسال پیامک برای ورود', 'پیامک را از شمارهٔ خودتان بفرستید؛ ورود به‌طور خودکار انجام می‌شود.'],
   code: ['کد تأیید', 'کد ۶ رقمی پیامک‌شده را وارد کنید.'],
   signup: ['تکمیل ثبت‌نام', 'برای ساختن حساب چند اطلاعات ساده لازم است.'],
   profile: ['حساب من', 'اطلاعات خود را همین‌جا ویرایش کنید.'],
@@ -19,7 +26,30 @@ const TITLES = {
 let dialog = null;
 let context = null; // { user, provinces, defaultUnitId, showToast, onUser, onDisabled } of the last openAccount call
 let view = 'phone';
-const flow = { phone: '', token: '', timer: null, resendLeft: 0, busy: false };
+const flow = { phone: '', token: '', timer: null, resendLeft: 0, busy: false, inbound: null };
+
+// How the number is proved. Anything but the exact value «sms_receive» (a missing value, a cached older page) is the original method.
+const methodOf = () => (context?.authMethod === 'sms_receive' ? 'sms_receive' : 'sms_send');
+
+const POLL_MS = 2500;
+
+// iPhone and iPad, also an iPad that says it is a Mac (iPadOS) but has a touch screen.
+export function isIos(nav = globalThis.navigator) {
+  if (!nav) return false;
+  return /iPhone|iPad|iPod/.test(nav.userAgent ?? '') || (nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1);
+}
+
+// A device with a touch screen may have an SMS app; a desktop does not, and only gets the text instructions.
+export function hasTouch(win = globalThis.window, nav = globalThis.navigator) {
+  return (nav?.maxTouchPoints ?? 0) > 0 || (win ? 'ontouchstart' in win : false);
+}
+
+// The link that opens the SMS app with the line and the text filled in. Android wants «?body=», iOS wants «&body=».
+// Built only from the server's answer; nothing here invents a code. null when the line is not a plausible international number.
+export function buildSmsLink(line, body, ios) {
+  if (!/^\+\d{8,15}$/.test(String(line ?? '')) || typeof body !== 'string' || !body) return null;
+  return `sms:${line}${ios ? '&' : '?'}body=${encodeURIComponent(body)}`;
+}
 
 async function api(path, { method = 'POST', body } = {}) {
   const response = await fetchOrExplain(path, {
@@ -65,6 +95,18 @@ async function busy(button, label, work) {
 function stopTimer() {
   clearInterval(flow.timer);
   flow.timer = null;
+}
+
+// Everything of the waiting step: the countdown, the poll, the listener for coming back from the SMS app. A late answer of a request
+// that was already out is ignored (the state is marked done), so a closed dialog or a changed step is never redrawn.
+function stopInbound() {
+  const state = flow.inbound;
+  if (!state) return;
+  state.done = true;
+  clearInterval(state.tick);
+  clearTimeout(state.poll);
+  document.removeEventListener('visibilitychange', state.onVisible);
+  flow.inbound = null;
 }
 
 function startTimer(seconds) {
@@ -115,9 +157,39 @@ function personFields(values = {}) {
     </div>`;
 }
 
+// The step of the receiving method. The line and the text are always visible as text with copy buttons (a desktop has no SMS app);
+// the button that opens the SMS app is drawn only on a touch device.
+function inboundTemplate() {
+  const state = flow.inbound ?? {};
+  const link = hasTouch() ? buildSmsLink(state.line, state.body, isIos()) : null;
+  return `
+      <div class="account-inbound" data-form="inbound">
+        <p class="account-lead">از شمارهٔ <bdi dir="ltr">${escapeHtml(formatPhone(flow.phone))}</bdi> یک پیامک با متن زیر به خط <bdi dir="ltr">${escapeHtml(toFaDigits(state.line ?? ''))}</bdi> بفرستید.</p>
+        ${link ? `<a class="account-primary account-sms-link" data-sms-link href="${escapeHtml(link)}">ارسال پیامک</a>` : ''}
+        <div class="account-copy-row">
+          <span class="account-copy-label">شمارهٔ گیرنده</span>
+          <strong class="account-copy-value" dir="ltr">${escapeHtml(toFaDigits(state.line ?? ''))}</strong>
+          <button class="account-link" type="button" data-copy="line">کپی شماره</button>
+        </div>
+        <div class="account-copy-row">
+          <span class="account-copy-label">متن پیام</span>
+          <strong class="account-copy-value" dir="auto">${escapeHtml(state.body ?? '')}</strong>
+          <button class="account-link" type="button" data-copy="body">کپی متن پیام</button>
+        </div>
+        <p class="account-hint">پیامک باید از شمارهٔ <bdi dir="ltr">${escapeHtml(formatPhone(flow.phone))}</bdi> فرستاده شود. اگر گوشی‌تان دو سیم‌کارت دارد، همان سیم‌کارت را انتخاب کنید.</p>
+        <p class="account-wait" role="status" aria-live="polite" data-inbound-wait><span class="account-spinner" aria-hidden="true"></span><span>در انتظار پیامک شما… <span data-inbound-left></span></span></p>
+        <p class="account-error" role="alert" hidden></p>
+        <div class="account-row">
+          <button class="account-link" type="button" data-edit-phone>ویرایش شماره</button>
+          <button class="account-link" type="button" data-inbound-refresh hidden>دریافت کد تازه</button>
+        </div>
+      </div>`;
+}
+
 function render(next, { error = '', focus = true } = {}) {
+  if (next !== 'inbound') stopInbound(); // a step change ends the waiting for an SMS
   view = next;
-  const [title, sub] = TITLES[next];
+  const [title, sub] = TITLES[next === 'phone' && methodOf() === 'sms_receive' ? 'phoneReceive' : next];
   dialog.querySelector('#account-title').textContent = title;
   dialog.querySelector('#account-sub').textContent = sub;
   const user = context?.user;
@@ -128,9 +200,10 @@ function render(next, { error = '', focus = true } = {}) {
           <input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" dir="ltr" placeholder="۰۹۱۲۳۴۵۶۷۸۹" enterkeyhint="send" required value="${escapeHtml(toFaDigits(flow.phone))}">
         </label>
         <p class="account-error" role="alert" hidden></p>
-        <button class="account-primary" type="submit">دریافت کد</button>
+        <button class="account-primary" type="submit">${methodOf() === 'sms_receive' ? 'ادامه' : 'دریافت کد'}</button>
       </form>
       <aside class="account-benefit">${BENEFIT_TEXT}</aside>`,
+    inbound: inboundTemplate(),
     code: `
       <form class="account-form" data-form="code" novalidate>
         <p class="account-lead">کد به شمارهٔ <bdi dir="ltr">${escapeHtml(formatPhone(flow.phone))}</bdi> پیامک شد.</p>
@@ -176,6 +249,7 @@ function render(next, { error = '', focus = true } = {}) {
 
 function finish(user, message) {
   stopTimer();
+  stopInbound();
   context.user = user;
   context.onUser?.(user);
   dialog.close();
@@ -202,12 +276,158 @@ function checkPerson(person) {
   return '';
 }
 
+
+// The main admin changed the method while this page was open: ask the public config what it is now and start over from the number.
+async function methodChanged(message) {
+  try {
+    const response = await fetchOrExplain('/api/public/config', { headers: { accept: 'application/json' } });
+    const data = await response.json();
+    context.authMethod = data?.reader?.auth_method === 'sms_receive' ? 'sms_receive' : 'sms_send';
+    context.onMethod?.(context.authMethod);
+  } catch { /* offline: the message below still tells the reader to refresh */ }
+  render('phone', { error: message });
+}
+
+function paintInboundLeft() {
+  const state = flow.inbound;
+  const target = dialog?.querySelector('[data-inbound-left]');
+  if (!state || !target) return;
+  const left = Math.max(0, Math.ceil((state.expiresAt - Date.now()) / 1000));
+  target.textContent = `${faNumber.format(Math.floor(left / 60))}:${faNumber.format(left % 60).padStart(2, '۰')}`;
+}
+
+// The waiting is over without an SMS: say so and offer a fresh code. Nothing more is asked of the server.
+function showInboundExpired() {
+  const state = flow.inbound;
+  if (!state) return;
+  clearInterval(state.tick);
+  clearTimeout(state.poll);
+  state.done = true;
+  document.removeEventListener('visibilitychange', state.onVisible);
+  const wait = dialog.querySelector('[data-inbound-wait]');
+  if (wait) wait.hidden = true;
+  const link = dialog.querySelector('[data-sms-link]');
+  if (link) link.hidden = true;
+  dialog.querySelector('[data-inbound-refresh]').hidden = false;
+  setError('مهلت این پیامک تمام شد؛ کد تازه بگیرید.');
+}
+
+// The proof arrived: a known number is signed in, a new one goes on to the signup form.
+function inboundConfirmed(answer) {
+  if (answer.needs_signup) {
+    flow.token = answer.signup_token;
+    render('signup');
+  } else finish(answer.user, `خوش آمدید ${answer.user.first_name}`);
+}
+
+async function pollInbound() {
+  const state = flow.inbound;
+  if (!state || state.done || state.busy) return;
+  state.busy = true;
+  clearTimeout(state.poll);
+  let answer = null;
+  let failure = null;
+  try {
+    answer = await api('/api/reader/auth/inbound-status', { body: { handle: state.handle } });
+  } catch (error) {
+    failure = error;
+  }
+  if (flow.inbound !== state || state.done) return; // the dialog was closed or the step changed while the question was out
+  state.busy = false;
+  if (failure) {
+    if (failure.code === 'disabled') { context.onDisabled?.(); dialog.close(); context.showToast?.(failure.message); return; }
+    if (failure.code === 'methodSend') { await methodChanged(failure.message); return; }
+    if (failure.code === 'badHandle') return showInboundExpired();
+    return schedulePoll(state); // a dropped connection: the next question may get through
+  }
+  if (answer.status === 'confirmed') { stopInbound(); return inboundConfirmed(answer); }
+  if (answer.status === 'expired') return showInboundExpired();
+  // «waiting»: the server's clock decides how much time is left (the phone's clock may be off).
+  if (Number.isFinite(answer.expires_in)) state.expiresAt = Date.now() + answer.expires_in * 1000;
+  return schedulePoll(state);
+}
+
+// Questions are asked only while the page is visible; coming back from the SMS app asks at once (see onVisible).
+function schedulePoll(state) {
+  clearTimeout(state.poll);
+  if (state.done || document.hidden) return;
+  state.poll = setTimeout(pollInbound, POLL_MS);
+}
+
+function beginInbound(answer) {
+  stopInbound(); // a fresh code replaces the previous waiting
+  const state = {
+    handle: answer.handle, line: answer.line, body: answer.body,
+    expiresAt: Date.now() + (Number(answer.expires_in) || 300) * 1000,
+    tick: null, poll: null, busy: false, done: false, onVisible: null,
+  };
+  state.onVisible = () => {
+    if (state.done) return;
+    if (document.hidden) clearTimeout(state.poll);
+    else { paintInboundLeft(); pollInbound(); }
+  };
+  flow.inbound = state;
+  render('inbound'); // draws from flow.inbound
+  startTick(state);
+  document.addEventListener('visibilitychange', state.onVisible);
+  paintInboundLeft();
+  schedulePoll(state);
+}
+
+// The countdown. At zero one last question is asked (the SMS may have arrived in the final seconds, and the phone's clock may be
+// off): only if the server does not confirm and no time is left does the step turn into «expired».
+function startTick(state) {
+  clearInterval(state.tick);
+  state.tick = setInterval(async () => {
+    paintInboundLeft();
+    if (state.done || state.busy || state.expiresAt - Date.now() > 0) return;
+    clearInterval(state.tick);
+    await pollInbound();
+    if (flow.inbound !== state || state.done) return;
+    if (state.expiresAt - Date.now() <= 0) showInboundExpired();
+    else startTick(state);
+  }, 1000);
+}
+
+async function requestInbound(button) {
+  try {
+    const answer = await busy(button, 'در حال آماده‌سازی…', () => api('/api/reader/auth/request-inbound', { body: { phone: flow.phone } }));
+    beginInbound(answer);
+  } catch (error) {
+    if (error.code === 'disabled') {
+      context.onDisabled?.();
+      dialog.close();
+      context.showToast?.(error.message);
+    } else if (error.code === 'methodSend') await methodChanged(error.message);
+    else setError(error.message);
+  }
+}
+
+// The clipboard where it is allowed; otherwise the text is selected in a field that is not shown, which works on older browsers.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch { /* no permission or no clipboard API: use the fallback */ }
+  const field = document.createElement('textarea');
+  field.className = 'account-copy-sink';
+  field.value = text;
+  field.setAttribute('readonly', '');
+  dialog.append(field);
+  field.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { /* not supported */ }
+  field.remove();
+  return copied;
+}
+
 const handlers = {
   async phone(form, button) {
     const phone = nationalPhone(form.elements.phone.value);
     if (!isNationalPhone(phone)) return setError('شمارهٔ موبایل را درست وارد کنید؛ مثلاً ۰۹۱۲۱۲۳۴۵۶۷.');
     setError('');
     flow.phone = phone;
+    if (methodOf() === 'sms_receive') return requestInbound(button);
     try {
       const answer = await busy(button, 'در حال ارسال…', () => api('/api/reader/auth/request-code', { body: { phone } }));
       flow.resendLeft = answer.resend_after ?? 60;
@@ -221,7 +441,8 @@ const handlers = {
         context.onDisabled?.();
         dialog.close();
         context.showToast?.(error.message);
-      } else setError(error.message);
+      } else if (error.code === 'methodReceive') await methodChanged(error.message);
+      else setError(error.message);
     }
   },
 
@@ -243,6 +464,7 @@ const handlers = {
         context.showToast?.(error.message);
         return;
       }
+      if (error.code === 'methodReceive') { await methodChanged(error.message); return; }
       form.elements.code.value = '';
       if (error.code === 'wrongCode') setError(error.attemptsLeft ? `${error.message} (${faNumber.format(error.attemptsLeft)} بار دیگر می‌توانید امتحان کنید)` : `${error.message} کد تازه بگیرید.`);
       else setError(error.message);
@@ -294,10 +516,17 @@ function build() {
     </div>`;
   document.body.append(dialog);
 
-  dialog.addEventListener('close', stopTimer);
+  dialog.addEventListener('close', () => { stopTimer(); stopInbound(); });
   dialog.addEventListener('click', async (event) => {
     if (event.target === dialog || event.target.closest('[data-dialog-close]')) return dialog.close();
     if (event.target.closest('[data-edit-phone]')) { stopTimer(); return render('phone'); }
+    if (event.target.closest('[data-inbound-refresh]')) return requestInbound(event.target.closest('[data-inbound-refresh]'));
+    const copy = event.target.closest('[data-copy]');
+    if (copy) {
+      const text = copy.dataset.copy === 'line' ? flow.inbound?.line : flow.inbound?.body;
+      if (text) context.showToast?.((await copyText(text)) ? (copy.dataset.copy === 'line' ? 'شماره کپی شد' : 'متن پیام کپی شد') : 'کپی نشد؛ متن را نگه دارید و کپی کنید');
+      return undefined;
+    }
     if (event.target.closest('[data-resend]')) {
       return handlers.phone({ elements: { phone: { value: flow.phone } } }, event.target.closest('[data-resend]'));
     }
@@ -327,15 +556,17 @@ function build() {
   });
 }
 
-// options: { user, provinces, defaultUnitId, showToast, onUser(user|null), onDisabled() }
+// options: { user, provinces, defaultUnitId, authMethod, showToast, onUser(user|null), onDisabled(), onMethod(method) }
 export function openAccount(options) {
   context = options;
   if (!dialog) build();
+  stopInbound();
   flow.token = '';
   render(context.user ? 'profile' : 'phone', { focus: !context.user });
   if (!dialog.open) dialog.showModal();
 }
 
 export function closeAccount() {
+  stopInbound();
   if (dialog?.open) dialog.close();
 }
