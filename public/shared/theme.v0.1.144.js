@@ -21,13 +21,12 @@
     meta.content = color;
     document.head.append(meta);
     for (const old of previous) old.remove();
+    // The reader's manifest is one fixed file (see index.html): Chrome on Android did not offer to install a page whose manifest
+    // link was rewritten by script, only a shortcut. Only the staff panel (data-manifest-base) still follows the theme and screen.
     const link = document.getElementById('app-manifest');
-    if (link) {
+    if (link?.dataset.manifestBase) {
       const touch = matchMedia('(pointer: coarse) and (hover: none)').matches;
-      // A phone (shortest side of the screen under 600px) installs the portrait-only manifest; tablets keep both orientations.
-      const phone = touch && Math.min(screen.width, screen.height) < 600;
-      const base = link.dataset.manifestBase || '/manifest';
-      const href = `${base}${phone ? '-phone' : touch ? '-mobile' : ''}${dark ? '-dark' : ''}.webmanifest`;
+      const href = `${link.dataset.manifestBase}${touch ? '-mobile' : ''}${dark ? '-dark' : ''}.webmanifest`; // the panel has no phone manifests
       if (link.getAttribute('href') !== href) link.setAttribute('href', href);
     }
   };
