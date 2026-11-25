@@ -6,8 +6,8 @@
 //   sms_send    (default, also when the value is missing or unknown): we send a code, the reader types it.
 //   sms_receive: the reader sends an SMS from their own SIM to our line; the page waits and the server tells it when it arrived
 //                (step «inbound»). The signup form and the profile after the proof are the same for both.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.146.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.146.js';
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.147.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.147.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 
@@ -47,7 +47,7 @@ export function hasTouch(win = globalThis.window, nav = globalThis.navigator) {
 // The link that opens the SMS app with the line and the text filled in. Android wants «?body=», iOS wants «&body=».
 // Built only from the server's answer; nothing here invents a code. null when the line is not a plausible international number.
 export function buildSmsLink(line, body, ios) {
-  if (!/^\+\d{8,15}$/.test(String(line ?? '')) || typeof body !== 'string' || !body) return null;
+  if (!/^\+\d{8,18}$/.test(String(line ?? '')) || typeof body !== 'string' || !body) return null;
   return `sms:${line}${ios ? '&' : '?'}body=${encodeURIComponent(body)}`;
 }
 
