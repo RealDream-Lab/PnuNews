@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { parseCookies } from '../auth/sessions.js';
+import { parseCookies, readCookie } from '../auth/sessions.js';
+import { staffReaderFromRequest } from './staff-reader.js';
 
 // Session of a reader account: separate cookie and table from the admin sessions, 90 days, renewed while it is used.
 export const READER_SESSION_TTL_MS = 90 * 24 * 60 * 60_000;
@@ -59,8 +60,15 @@ export function readerAuth({ pool, config, clock = Date.now }) {
   return async function authenticate(request, response, next) {
     request.reader = null;
     const token = readReaderToken(request, config.nodeEnv);
-    if (!token) return next();
     try {
+      // No reader session: a valid dashboard session makes the user a reader too (their linked account, see staff-reader.js).
+      const staffToken = readCookie(request, 'session', config.nodeEnv);
+      if (!token && staffToken) {
+        const linked = await staffReaderFromRequest(pool, staffToken);
+        if (linked) request.reader = { ...publicReader(linked.row), staff: linked.staff };
+        return next();
+      }
+      if (!token) return next();
       const now = clock();
       const [rows] = await pool.execute(
         `SELECT s.id AS session_id, s.last_seen_at, u.id, u.phone, u.first_name, u.last_name, u.is_student, u.student_no, u.unit_id
@@ -69,7 +77,12 @@ export function readerAuth({ pool, config, clock = Date.now }) {
         [hashReaderToken(token), new Date(now)],
       );
       const row = rows[0];
-      if (!row) return next();
+      if (!row) {
+        const staffToken = readCookie(request, 'session', config.nodeEnv);
+        const linked = staffToken ? await staffReaderFromRequest(pool, staffToken) : null;
+        if (linked) request.reader = { ...publicReader(linked.row), staff: linked.staff };
+        return next();
+      }
       request.reader = publicReader(row);
       if (now - new Date(row.last_seen_at).getTime() > READER_RENEW_AFTER_MS) {
         await pool.execute('UPDATE reader_sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?', [new Date(now), new Date(now + READER_SESSION_TTL_MS), row.session_id]);

@@ -44,6 +44,7 @@ const MESSAGE = Object.freeze({
   studentNo: 'شمارهٔ دانشجویی را فقط با رقم و بین ۶ تا ۱۴ رقم وارد کنید.',
   unit: 'مرکز دانشگاهی را انتخاب کنید.',
   phoneFixed: 'شمارهٔ موبایل پس از ثبت‌نام قابل تغییر نیست.',
+  staffProfile: 'اطلاعات حساب مدیریتی از داشبورد مدیریت تغییر می‌کند.',
   methodReceive: 'روش ورود تغییر کرده است؛ صفحه را تازه کنید و دوباره وارد شوید.',
   methodSend: 'این روش ورود فعال نیست؛ صفحه را تازه کنید و دوباره وارد شوید.',
   inboundDown: 'ورود با ارسال پیامک اکنون ممکن نیست؛ کمی بعد دوباره تلاش کنید.',
@@ -334,6 +335,7 @@ export function createReaderRouter({ pool, config, clock = Date.now, ippanel, sm
   router.patch('/me', authenticate, async (request, response, next) => {
     try {
       if (!request.reader) return fail(response, 401, 'signIn');
+      if (request.reader.staff) return fail(response, 403, 'staffProfile');
       const body = request.body ?? {};
       if (Object.hasOwn(body, 'phone')) return fail(response, 400, 'phoneFixed');
       const parsed = parseProfile(body, request.reader);

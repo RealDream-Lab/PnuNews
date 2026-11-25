@@ -32,7 +32,8 @@ function searchClause(rawQuery) {
     clauses.push(`(${parts.join(' OR ')})`);
     values.push(...params);
   }
-  return { where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', values };
+  // Dashboard users have a linked reader account (for their bookmarks); it is not a reader and is never listed or counted.
+  return { where: `WHERE u.staff_user_id IS NULL${clauses.length ? ` AND ${clauses.join(' AND ')}` : ''}`, values };
 }
 
 function writeAudit(connection, actorId, action, request, meta) {
@@ -95,7 +96,7 @@ export function createReaderAdminRouter({ pool, config = null, events = appEvent
          ORDER BY u.created_at DESC, u.id DESC LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
         values,
       );
-      const [[all]] = await pool.execute('SELECT COUNT(*) AS readers, COALESCE(SUM(is_student), 0) AS students FROM reader_users');
+      const [[all]] = await pool.execute('SELECT COUNT(*) AS readers, COALESCE(SUM(is_student), 0) AS students FROM reader_users WHERE staff_user_id IS NULL');
       return response.json({
         items: rows.map((row) => ({
           id: Number(row.id),

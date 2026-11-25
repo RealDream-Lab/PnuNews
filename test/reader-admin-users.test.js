@@ -14,7 +14,7 @@ function fakePool({ rows = [], total = rows.length, readers = 40, students = 12 
       const text = sql.replace(/\s+/g, ' ').trim();
       calls.push({ sql: text, params });
       if (/^SELECT COUNT\(\*\) AS total FROM reader_users u/.test(text)) return [[{ total }], []];
-      if (/^SELECT COUNT\(\*\) AS readers, COALESCE\(SUM\(is_student\), 0\) AS students FROM reader_users$/.test(text)) return [[{ readers, students }], []];
+      if (/^SELECT COUNT\(\*\) AS readers, COALESCE\(SUM\(is_student\), 0\) AS students FROM reader_users WHERE staff_user_id IS NULL$/.test(text)) return [[{ readers, students }], []];
       if (/^SELECT u\.id, u\.phone/.test(text)) return [rows, []];
       throw new Error(`unhandled: ${text}`);
     },
@@ -97,7 +97,7 @@ test('the search: every word must be found in the names, the student number or t
 
     await get(`/api/admin/readers/users?q=${encode('علی رضایی')}`);
     assert.equal((lastList().sql.match(/\(u\.first_name LIKE \? OR u\.last_name LIKE \? OR u\.student_no LIKE \?\)/g) ?? []).length, 2, 'one group per word, joined by AND');
-    assert.match(lastList().sql, /WHERE \(.*\) AND \(.*\) ORDER BY/);
+    assert.match(lastList().sql, /WHERE u\.staff_user_id IS NULL AND \(.*\) AND \(.*\) ORDER BY/);
     assert.deepEqual(lastList().params, ['%علی%', '%علی%', '%علی%', '%رضایی%', '%رضایی%', '%رضایی%']);
 
     await get(`/api/admin/readers/users?q=${encode('۰۹۱۲۳۴۵')}`);
@@ -120,9 +120,9 @@ test('the search: every word must be found in the names, the student number or t
     await get(`/api/admin/readers/users?q=${encode('x'.repeat(500))}`);
     assert.equal(lastList().params[0].length, 80 + 2, 'and at most 80 characters');
     await get('/api/admin/readers/users?q=');
-    assert.ok(!/WHERE/.test(lastList().sql), 'an empty search is the whole list');
+    assert.ok(!/WHERE (?!u\.staff_user_id IS NULL ORDER)/.test(lastList().sql), 'an empty search is the whole list of readers (dashboard users are never listed)');
     await get('/api/admin/readers/users?q=a&q=b');
-    assert.ok(!/WHERE/.test(lastList().sql), 'something other than text is ignored');
+    assert.ok(!/WHERE (?!u\.staff_user_id IS NULL ORDER)/.test(lastList().sql), 'something other than text is ignored');
     const counted = pool.calls.filter((call) => call.sql.startsWith('SELECT COUNT(*) AS total')).at(-1);
     assert.deepEqual(counted.params, [], 'the total follows the same search (here none)');
   });

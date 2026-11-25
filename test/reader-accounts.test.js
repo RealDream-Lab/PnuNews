@@ -251,9 +251,10 @@ test('migration: the five reader tables are created idempotently, and the migrat
   try {
     await migrate(pool);
     const firstRun = executed.filter((text) => /reader_|sms_log/.test(text)).length;
-    assert.equal(firstRun, 7, 'five tables of the accounts and the two of the inbound-SMS method');
+    assert.equal(firstRun, 11, 'five tables of the accounts, the two of the inbound-SMS method and the four statements that link dashboard users');
     assert.ok(applied.has('2026112001_reader_accounts.sql'));
     assert.ok(applied.has('2026112401_reader_inbound_sms.sql'));
+    assert.ok(applied.has('2026112501_staff_reader_accounts.sql'));
     executed.length = 0;
     await migrate(pool);
     assert.equal(executed.filter((text) => /CREATE TABLE/.test(text) && !/schema_migrations/.test(text)).length, 0, 'the second run changes nothing');

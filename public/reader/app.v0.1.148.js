@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.147.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.147.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.147.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.147.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.147.js';
+import { initDock } from '/shared/dock.v0.1.148.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.148.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.148.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.148.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.148.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -932,7 +932,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.147.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.148.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1605,7 +1605,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.147.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.148.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1662,10 +1662,19 @@ function paintAccountCard(user) {
     accountButton.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg>';
     return;
   }
+  if (user.staff) return paintStaffCard(user); // a dashboard user: post, name, place of work
   const unit = accountUnitName(user.unit_id);
   accountButton.innerHTML = `<div class="account-line account-phone-line"><bdi dir="ltr">${escapeHtml(accountPhoneText(user.phone))}</bdi></div>`
     + `<div class="account-name">${escapeHtml(`${user.first_name ?? ''} ${user.last_name ?? ''}`.trim())}</div>`
     + (unit ? `<div class="account-unit">${escapeHtml(unit)}</div>` : '');
+}
+
+// A dashboard user is a reader too (linked account, no phone number): the card shows the post, the name and the place of work.
+function paintStaffCard(user) {
+  const place = [user.staff.domain, user.staff.place].filter(Boolean).join(' · ');
+  accountButton.innerHTML = `<div class="account-line account-phone-line">${escapeHtml(user.staff.role_label ?? '')}</div>`
+    + `<div class="account-name">${escapeHtml(`${user.first_name ?? ''} ${user.last_name ?? ''}`.trim())}</div>`
+    + (place ? `<div class="account-unit">${escapeHtml(place)}</div>` : '');
 }
 
 function syncAccountUi() {
@@ -1692,7 +1701,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.147.js');
+  accountModule ??= import('/shared/reader-account.v0.1.148.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1866,7 +1875,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.147.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.148.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2451,7 +2460,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.147.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.148.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
