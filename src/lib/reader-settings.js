@@ -75,10 +75,10 @@ export function validateReaderSettingsUpdate(body) {
     } else if (field.kind === 'enum') {
       if (typeof value !== 'string' || !field.values.includes(value)) return { ok: false, error: `«${field.label}» باید یکی از دو حالت «ارسال کد از طرف ما» یا «ارسال پیامک از طرف خواننده» باشد.` };
     } else if (field.kind === 'line') {
-      // '' clears the line; anything else must be 8 to 14 digits (Persian digits are converted).
-      if (typeof value !== 'string') return { ok: false, error: `«${field.label}» باید فقط رقم باشد (۸ تا ۱۴ رقم).` };
+      // '' clears the line; anything else must be 8 to 16 digits (Persian digits are converted).
+      if (typeof value !== 'string') return { ok: false, error: `«${field.label}» باید فقط رقم باشد (۸ تا ۱۶ رقم).` };
       const line = value.trim() === '' ? '' : cleanLineSetting(value);
-      if (line === null) return { ok: false, error: `«${field.label}» باید فقط رقم باشد (۸ تا ۱۴ رقم)، مثلاً ۹۸۵۰۰۰۲۶۲۷۲۰.` };
+      if (line === null) return { ok: false, error: `«${field.label}» باید فقط رقم باشد (۸ تا ۱۶ رقم)، مثلاً ۹۸۵۰۰۰۲۶۲۷۲۰.` };
       values[name] = line;
       continue;
     } else if (field.kind === 'ips') {

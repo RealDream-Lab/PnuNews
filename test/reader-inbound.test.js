@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import http from 'node:http';
 import test from 'node:test';
 import express from 'express';
-import { hashInboundCode, hashHandle, canonicalIp, cleanLineSetting, extractCodes, generateInboundKey, inboundBody, normalizeLine, sameSecret, webhookUrl } from '../src/lib/reader-inbound.js';
+import { hashInboundCode, hashHandle, canonicalIp, cleanLineSetting, extractCodes, generateInboundKey, inboundBody, lineInternational, normalizeLine, sameLine, sameSecret, webhookUrl } from '../src/lib/reader-inbound.js';
 import { hashOtp } from '../src/lib/reader-auth.js';
 import { redactForLog } from '../src/lib/log-redact.js';
 import { READER_SETTING_KEYS, readerSettingsFromRows, validateReaderSettingsUpdate } from '../src/lib/reader-settings.js';
@@ -40,12 +40,26 @@ test('the message: every standalone six-digit group, Persian digits too, other w
   assert.equal(extractCodes(Array.from({ length: 40 }, (_, i) => String(100000 + i)).join(' ')).length, 10, 'a message cannot make the server try an unbounded number of codes');
 });
 
-test('the line: +98…, 0098…, 0… and plain digits are the same line; the setting is 8 to 14 digits', () => {
+test('the line: +98…, 0098…, 0… and plain digits are the same line; the setting is 8 to 16 digits', () => {
   for (const form of ['985000262720', '+985000262720', '00985000262720', '05000262720', '+98 500 026 2720', '۹۸۵۰۰۰۲۶۲۷۲۰']) assert.equal(normalizeLine(form), '985000262720', form);
   assert.equal(normalizeLine('abc'), null);
   assert.equal(normalizeLine(''), null);
   assert.equal(cleanLineSetting('۹۸۵۰۰۰۲۶۲۷۲۰'), '985000262720');
-  for (const bad of ['1234567', '123456789012345', '98500x262720', '+985000262720', '']) assert.equal(cleanLineSetting(bad), null, bad);
+  for (const bad of ['1234567', '12345678901234567', '98500x262720', '+985000262720', '']) assert.equal(cleanLineSetting(bad), null, bad);
+  assert.equal(cleanLineSetting('20001234567890'), '20001234567890', 'a 14-digit line without 98');
+  assert.equal(cleanLineSetting('9820001234567890'), '9820001234567890', 'and the same with 98');
+});
+
+test('the provider may report the line without the country code: the same line is recognised, another one is not', () => {
+  for (const to of ['985000262720', '5000262720', '+985000262720', '05000262720', '00985000262720']) assert.equal(sameLine(INBOUND_LINE, to), true, to);
+  for (const to of ['985000262721', '985000000000', '', 'abc', undefined]) assert.equal(sameLine(INBOUND_LINE, to), false, String(to));
+  assert.equal(sameLine('50002627', '985000262720'), false, 'a short code is never matched by a suffix of a longer number');
+  // a long provider line: 14 digits, 16 with the country code
+  for (const to of ['20001234567890', '9820001234567890', '+9820001234567890', '009820001234567890']) assert.equal(sameLine('20001234567890', to), true, to);
+  assert.equal(sameLine('9820001234567890', '20001234567890'), true);
+  assert.equal(sameLine('20001234567890', '9820001234567891'), false);
+  assert.equal(lineInternational('20001234567890'), '+9820001234567890', 'the SMS link always dials the number with the country code');
+  assert.equal(lineInternational('985000262720'), '+985000262720');
 });
 
 test('the code hash includes the phone and cannot be an ordinary SMS-code hash; secrets compare in constant time', () => {
@@ -84,7 +98,7 @@ test('settings: the method is an enum, the line is digits, the addresses are IPs
     { ok: true, values: { auth_method: 'sms_receive', inbound_line: '985000262720', inbound_ips: ['1.2.3.4', '2001:db8::1'] } });
   assert.deepEqual(validateReaderSettingsUpdate({ inbound_line: '' }), { ok: true, values: { inbound_line: '' } }, 'an empty line clears it');
   for (const bad of [{ auth_method: 'both' }, { auth_method: 'SMS_SEND' }, { auth_method: true }, { auth_method: null }, { auth_method: ['sms_send'] },
-    { inbound_line: '12345' }, { inbound_line: 98500026272 }, { inbound_line: '+985000262720' }, { inbound_line: 'abc' },
+    { inbound_line: '12345' }, { inbound_line: '12345678901234567' }, { inbound_line: 98500026272 }, { inbound_line: '+985000262720' }, { inbound_line: 'abc' },
     { inbound_ips: '1.2.3.4' }, { inbound_ips: ['999.1.1.1'] }, { inbound_ips: [1] }, { inbound_ips: Array.from({ length: 21 }, (_, i) => `10.0.0.${i + 1}`) },
     { inbound_key: 'a'.repeat(64) }, { reader_inbound_key: 'a'.repeat(64) }]) {
     const answer = validateReaderSettingsUpdate(bad);

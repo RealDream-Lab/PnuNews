@@ -34,21 +34,34 @@ export function sameSecret(given, stored) {
 }
 
 // A receiving line (ours or the provider's `to`) as plain digits: 985000262720 for +985000262720, 00985000262720 and 05000262720.
+// Some provider lines are long (14 digits after the country code), so up to 18 digits are accepted.
 export function normalizeLine(value) {
   let digits = normalizeDigits(value).replace(/[\s\-().\u200c\u200e\u200f]/g, '');
   if (digits.startsWith('+')) digits = digits.slice(1);
   else if (digits.startsWith('00')) digits = digits.slice(2);
   else if (digits.startsWith('0')) digits = `98${digits.slice(1)}`;
-  return /^\d{8,15}$/.test(digits) ? digits : null;
+  return /^\d{8,18}$/.test(digits) ? digits : null;
 }
 
-// What the main admin types as the line: digits only (Persian or Arabic digits are converted), 8 to 14 of them.
+// What the main admin types as the line: digits only (Persian or Arabic digits are converted), 8 to 16 digits, with or without «98».
 export function cleanLineSetting(value) {
   const digits = normalizeDigits(value).trim();
-  return /^\d{8,14}$/.test(digits) ? digits : null;
+  return /^\d{8,16}$/.test(digits) ? digits : null;
 }
 
-export const lineInternational = (digits) => `+${normalizeLine(digits) ?? digits}`;
+// The line with the country code, always: «5000262720» and «985000262720» are both 985000262720.
+const withCountry = (digits) => (digits.startsWith('98') ? digits : `98${digits}`);
+
+// Do two lines mean the same receiving line? Providers report `to` with or without the country code, with 0, 00 or +, so a line and
+// the same line with «98» in front are the same line. Nothing else is: a different number never matches.
+export function sameLine(a, b) {
+  const left = normalizeLine(a);
+  const right = normalizeLine(b);
+  if (!left || !right) return false;
+  return left === right || withCountry(left) === withCountry(right) || `98${left}` === right || left === `98${right}`;
+}
+
+export const lineInternational = (digits) => { const line = normalizeLine(digits); return `+${line ? withCountry(line) : digits}`; };
 
 const INVISIBLE = /[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g;
 
