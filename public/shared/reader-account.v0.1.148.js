@@ -6,8 +6,8 @@
 //   sms_send    (default, also when the value is missing or unknown): we send a code, the reader types it.
 //   sms_receive: the reader sends an SMS from their own SIM to our line; the page waits and the server tells it when it arrived
 //                (step «inbound»). The signup form and the profile after the proof are the same for both.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.147.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.147.js';
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.148.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.148.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 
@@ -186,10 +186,27 @@ function inboundTemplate() {
       </div>`;
 }
 
+// A dashboard user has no phone and nothing to edit here: the post, the unit and the name come from the dashboard.
+function staffProfileTemplate(user) {
+  const rows = [
+    ['نام', `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()],
+    ['سمت', user.staff.role_label],
+    ...(user.staff.domain ? [['حوزه', user.staff.domain]] : []),
+    ['محل خدمت', user.staff.place],
+  ].filter(([, value]) => value);
+  return `
+      <div class="account-staff" data-form="staff">
+        <dl class="account-facts">${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>
+        <p class="account-hint">برای ذخیرهٔ خبرها نیازی به ورود دوباره نیست. اطلاعات این حساب را فقط از داشبورد مدیریت می‌توان تغییر داد.</p>
+        <a class="account-primary account-sms-link" href="/dashboard/">رفتن به داشبورد</a>
+      </div>`;
+}
+
 function render(next, { error = '', focus = true } = {}) {
   if (next !== 'inbound') stopInbound(); // a step change ends the waiting for an SMS
   view = next;
-  const [title, sub] = TITLES[next === 'phone' && methodOf() === 'sms_receive' ? 'phoneReceive' : next];
+  const staff = next === 'profile' && Boolean(context?.user?.staff);
+  const [title, sub] = staff ? ['حساب من', 'با حساب مدیریتی خود وارد شده‌اید.'] : TITLES[next === 'phone' && methodOf() === 'sms_receive' ? 'phoneReceive' : next];
   dialog.querySelector('#account-title').textContent = title;
   dialog.querySelector('#account-sub').textContent = sub;
   const user = context?.user;
@@ -221,7 +238,7 @@ function render(next, { error = '', focus = true } = {}) {
         <p class="account-error" role="alert" hidden></p>
         <button class="account-primary" type="submit">تکمیل ثبت‌نام</button>
       </form>`,
-    profile: `
+    profile: user?.staff ? staffProfileTemplate(user) : `
       <form class="account-form" data-form="profile" novalidate>
         <div class="account-phone"><span>شمارهٔ موبایل</span><strong dir="ltr">${escapeHtml(formatPhone(String(user?.phone ?? '').replace(/^\+98/, '0')))}</strong><small>پس از ثبت‌نام قابل تغییر نیست.</small></div>
         ${personFields(user ?? {})}

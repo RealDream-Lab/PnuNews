@@ -649,3 +649,8 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 @media(prefers-reduced-motion:reduce){.account-spinner{animation:none}}
 .account-link[hidden]{display:none}
 .account-copy-sink{position:fixed;inset-block-start:0;inset-inline-start:0;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.account-staff{display:grid;gap:.9rem}
+.account-facts{display:grid;gap:.5rem;margin:0}
+.account-facts div{display:grid;grid-template-columns:6.5rem 1fr;gap:.6rem;padding:.6rem .9rem;border-radius:12px;background:var(--surface-soft);align-items:baseline}
+.account-facts dt{font-size:.8rem;color:var(--muted)}.account-facts dd{margin:0;font-weight:700;line-height:1.8;min-width:0;overflow-wrap:anywhere}

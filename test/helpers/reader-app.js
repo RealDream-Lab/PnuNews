@@ -27,7 +27,7 @@ export const CLIENT = { baseUrl: 'https://edge.ippanel.com/v1', apiKey: 'SECRET-
 // ---------- an in-memory database that answers exactly the statements the reader code uses ----------
 
 export function memoryDatabase({ settings = {} } = {}) {
-  const db = { settings: new Map(Object.entries(settings)), otps: [], challenges: [], inboundLog: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
+  const db = { staffSessions: new Map(), settings: new Map(Object.entries(settings)), otps: [], challenges: [], inboundLog: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
   const id = (table) => { db.counters[table] = (db.counters[table] ?? 0) + 1; return db.counters[table]; };
   const duplicate = (key, value) => Object.assign(new Error(`Duplicate entry '${value}' for key '${key}'`), { code: 'ER_DUP_ENTRY' });
   const rows = (list) => [list, []];
@@ -76,6 +76,15 @@ export function memoryDatabase({ settings = {} } = {}) {
     [/^DELETE FROM reader_sessions WHERE expires_at < \?$/, ([at]) => { db.sessions = db.sessions.filter((s) => !(s.expires_at < at)); return done(); }],
     [/^DELETE FROM reader_sessions WHERE token_hash = \?$/, ([hash]) => { db.sessions = db.sessions.filter((s) => s.token_hash !== hash); return done(); }],
     [/^SELECT s\.id AS session_id, s\.last_seen_at, u\.id, u\.phone/, ([hash, now]) => rows(db.sessions.filter((s) => s.token_hash === hash && s.expires_at > now).map((s) => ({ session_id: s.id, last_seen_at: s.last_seen_at, ...userRow(db.users.find((u) => u.id === s.user_id)) })).slice(0, 1))],
+    // ---- dashboard users as readers (linked accounts) ----
+    [/^SELECT u\.id AS staff_id, u\.full_name, u\.role, u\.region_id, d\.name AS domain_name, r\.type AS level, r\.name AS region_name, p\.name AS parent_name FROM sessions s/, ([hash]) => rows([db.staffSessions.get(Buffer.from(hash).toString('hex'))].filter(Boolean).map((x) => ({ ...x })))],
+    [/^SELECT id, phone, first_name, last_name, is_student, student_no, unit_id FROM reader_users WHERE staff_user_id = \? LIMIT 1$/, ([staffId]) => rows(db.users.filter((u) => u.staff_user_id === staffId).slice(0, 1).map(userRow))],
+    [/^INSERT IGNORE INTO reader_users \(phone, first_name, last_name, is_student, student_no, unit_id, staff_user_id\) VALUES \(NULL, \?, \?, 0, NULL, \?, \?\)$/, ([first_name, last_name, unit_id, staff_user_id]) => {
+      if (db.users.some((u) => u.staff_user_id === staff_user_id)) return done({ affectedRows: 0 });
+      db.users.push({ id: id('users'), phone: null, first_name, last_name, is_student: 0, student_no: null, unit_id, staff_user_id, created_at: new Date(), last_login_at: null });
+      return done();
+    }],
+    [/^UPDATE reader_users SET first_name = \?, last_name = \?, unit_id = \? WHERE id = \?$/, ([first_name, last_name, unit_id, userId]) => { Object.assign(db.users.find((u) => u.id === userId), { first_name, last_name, unit_id }); return done(); }],
     // ---- the inbound-SMS method (sms_receive) ----
     [/^SELECT COUNT\(\*\) AS n FROM reader_inbound_challenges WHERE phone = \? AND created_at > \?$/, ([phone, since]) => rows([{ n: db.challenges.filter((c) => c.phone === phone && c.created_at > since).length }])],
     [/^SELECT COUNT\(\*\) AS n FROM reader_inbound_challenges WHERE ip = \? AND created_at > \?$/, ([ip, since]) => rows([{ n: db.challenges.filter((c) => c.ip === ip && c.created_at > since).length }])],
