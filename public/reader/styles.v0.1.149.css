@@ -585,6 +585,10 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .account-card.is-guest .icon{width:1.9rem;height:1.9rem;color:var(--muted)}
 .account-card.is-signed-in{border-color:var(--primary);background:var(--primary-soft)}
 .account-line,.account-name,.account-unit{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The signed-in card is as wide as its longest line (a phone number and a short name make a narrow card, a post with a long place a wider one),
+   never less than a readable minimum and never more than most of the strip; a line that still does not fit wraps instead of being cut. */
+.account-card.is-signed-in{flex:0 0 auto;width:max-content;min-width:9.5rem;max-width:min(22rem,88%)}
+.account-card.is-signed-in .account-line,.account-card.is-signed-in .account-name,.account-card.is-signed-in .account-unit{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
 .account-phone-line{font-size:.7rem;line-height:1.5;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .account-name{font-size:.95rem;line-height:1.7;font-weight:700}
 .account-unit{font-size:.76rem;line-height:1.6;color:var(--muted)}
