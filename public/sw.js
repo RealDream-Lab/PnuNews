@@ -1,18 +1,18 @@
-const CACHE_NAME = 'pnunews-shell-v0.1.152';
+const CACHE_NAME = 'pnunews-shell-v0.1.153';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/offline.html',
   '/icons/pnu-logo.v3.png',
-  '/reader/styles.v0.1.152.css',
-  '/reader/app.v0.1.152.js',
-  '/shared/theme.v0.1.152.js',
-  '/shared/dock.v0.1.152.js',
-  '/shared/live-plan.v0.1.152.js',
-  '/shared/quick-search.v0.1.152.js',
-  '/shared/bookmarks.v0.1.152.js',
-  '/shared/network-error.v0.1.152.js',
-  '/shared/prayer-card.v0.1.152.js',
+  '/reader/styles.v0.1.153.css',
+  '/reader/app.v0.1.153.js',
+  '/shared/theme.v0.1.153.js',
+  '/shared/dock.v0.1.153.js',
+  '/shared/live-plan.v0.1.153.js',
+  '/shared/quick-search.v0.1.153.js',
+  '/shared/bookmarks.v0.1.153.js',
+  '/shared/network-error.v0.1.153.js',
+  '/shared/prayer-card.v0.1.153.js',
   '/shared/praytime.v3.2.js',
   '/fonts/Vazirmatn-Regular.v1.woff2',
 

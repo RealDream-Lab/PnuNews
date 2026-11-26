@@ -90,9 +90,11 @@ test('the card shows the number as an eye and a short count, one national total,
   assert.match(app, /میلیون`;/);
   assert.match(app, /if \(!Number\.isFinite\(count\) \|\| count <= 0\) return '';/, 'nothing is drawn for a news nobody opened');
   assert.match(app, /aria-label="\$\{digits\.format\(count\)\} بازدید"/);
-  // every kind of card has it: the footer of a card without a cover (ordinary and portal), the strip over a cover (ordinary and portal)
+  // every kind of card has it: the footer of a card without a cover (ordinary and portal), and a pill on the image of a card with a cover
   assert.equal((app.match(/\$\{cardViewsMarkup\(item\)\}\$\{cardSaveMarkup\(item\)\}/g) ?? []).length, 2);
-  assert.equal((app.match(/\$\{cardViewsInline\(item\)\}<\/div>/g) ?? []).length, 2);
+  assert.match(app, /<div class="card-cover-frame">\$\{placeholder\}\$\{cardViewsMarkup\(item\)\}/);
+  assert.ok(!app.includes('cardViewsInline'), 'not in the translucent strip any more');
+  assert.match(css, /\.card-cover-frame \.card-views\{position:absolute;inset-block-start:\.5rem;inset-inline-start:\.5rem;z-index:4;[^}]*pointer-events:none\}/);
   assert.match(css, /\.card-views\{flex:none;display:inline-flex;/);
 });
 
