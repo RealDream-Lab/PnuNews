@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.151.css">
-<script src="/shared/theme.v0.1.151.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.152.css">
+<script src="/shared/theme.v0.1.152.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.151.js"></script>
+<script type="module" src="/reader/app.v0.1.152.js"></script>
 </body>
 </html>`;
 }
@@ -294,6 +294,17 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
   const feedRateLimit = createRateLimiter({ limit: 300, windowMs: 60_000, clock });
   const isFeedRequest = (request) => request.method === 'GET' && request.originalUrl.split('?')[0] === '/api/public/feed';
   const viewDedupe = new Map();
+  // One view per news and visitor address in half an hour (a refresh or a second tap is not another reader). True when counted.
+  async function countView(id, request) {
+    const viewKey = createHash('sha256').update(`${id}:${request.ip || request.socket.remoteAddress || 'unknown'}`).digest('hex');
+    const now = clock();
+    for (const [key, expiresAt] of viewDedupe) if (expiresAt <= now) viewDedupe.delete(key);
+    if (viewDedupe.has(viewKey)) return false;
+    await pool.execute('UPDATE news SET view_count = view_count + 1, updated_at = updated_at WHERE id = ?', [id]);
+    viewDedupe.set(viewKey, now + VIEW_DEDUPE_MS);
+    while (viewDedupe.size > VIEW_DEDUPE_LIMIT) viewDedupe.delete(viewDedupe.keys().next().value);
+    return true;
+  }
   let radioCache = { url: '', expiresAt: 0, value: null };
   const clearCaches = () => {
     cache.clear();
@@ -515,15 +526,7 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
       );
       const news = rows[0];
       if (!news) return response.status(404).json({ error: 'خبر پیدا نشد.' });
-      const viewKey = createHash('sha256').update(`${id}:${request.ip || request.socket.remoteAddress || 'unknown'}`).digest('hex');
-      const now = clock();
-      for (const [key, expiresAt] of viewDedupe) if (expiresAt <= now) viewDedupe.delete(key);
-      if (!viewDedupe.has(viewKey)) {
-        await pool.execute('UPDATE news SET view_count = view_count + 1, updated_at = updated_at WHERE id = ?', [id]);
-        viewDedupe.set(viewKey, now + VIEW_DEDUPE_MS);
-        while (viewDedupe.size > VIEW_DEDUPE_LIMIT) viewDedupe.delete(viewDedupe.keys().next().value);
-        news.view_count = Number(news.view_count) + 1;
-      }
+      if (await countView(id, request)) news.view_count = Number(news.view_count) + 1;
       const [attachments] = await pool.execute(
         `SELECT id, kind, original_name, stored_name, mime, size_bytes, width, height, dominant_color
          FROM attachments WHERE news_id = ? ORDER BY id`,
@@ -564,6 +567,31 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
           images: imageAttachments, files,
         },
       });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // A portal-feed news opens the original article on pnu.ac.ir, so this site's page (which counts its own views) is never loaded for it:
+  // the card reports the tap here instead. Only portal news is counted this way; for any other news the answer is just the number.
+  router.post('/api/public/news/:id/view', async (request, response, next) => {
+    const id = idValue(request.params.id);
+    if (!id) return response.status(404).json({ error: 'خبر پیدا نشد.' });
+    try {
+      const [rows] = await pool.execute(
+        `SELECT n.view_count, n.source_url FROM news n
+         WHERE n.id = ? AND n.status = 'published' AND n.published_at <= UTC_TIMESTAMP()
+           AND n.deleted_at IS NULL AND (n.expires_at IS NULL OR n.expires_at > UTC_TIMESTAMP())
+           AND EXISTS (SELECT 1 FROM news_targets target WHERE target.news_id = n.id)
+         LIMIT 1`,
+        [id],
+      );
+      const news = rows[0];
+      if (!news) return response.status(404).json({ error: 'خبر پیدا نشد.' });
+      let count = Number(news.view_count);
+      if (news.source_url && await countView(id, request)) count += 1;
+      response.setHeader('Cache-Control', 'no-store');
+      return response.json({ ok: true, view_count: count });
     } catch (error) {
       return next(error);
     }
