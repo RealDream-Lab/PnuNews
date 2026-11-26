@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.153.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.153.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.153.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.153.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.153.js';
+import { initDock } from '/shared/dock.v0.1.154.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.154.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.154.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.154.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.154.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -424,17 +424,18 @@ const PORTAL_LABEL = 'خبرهای پورتال سازمان مرکزی';
 
 function cardMarkup(item, { featured = false } = {}) {
   const hasCover = Boolean(item.cover?.src);
-  // Automatic portal news: one meta line only (where it comes from + when it was published).
+  // Automatic portal news, laid out like every other card: the label on the first line, the date and time on the second (over the cover
+  // strip; without a cover the label sits above the title and the date in the footer).
   if (typeof item.source_url === 'string' && item.source_url.startsWith('https://')) {
     const time = `<time datetime="${escapeHtml(item.published_at)}">${relativeDate(item.published_at)}</time>`;
-    const line = `<span class="card-kicker portal-kicker">${PORTAL_LABEL}</span><i aria-hidden="true"></i>${time}`;
+    const kicker = `<span class="card-kicker portal-kicker">${PORTAL_LABEL}</span>`;
     const portalClasses = ['news-card', hasCover ? '' : 'no-cover', featured ? 'is-featured' : ''].filter(Boolean).join(' ');
     const portalSummary = item.summary ? `<p class="card-summary">${escapeHtml(item.summary)}</p>` : '';
     const portalBody = hasCover
       ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
-      : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}${cardViewsMarkup(item)}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
+      : `<div class="card-content"><div class="card-meta">${kicker}</div><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${time}${cardViewsMarkup(item)}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
     return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`) : ''}
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${kicker}</div><div class="overlay-row">${time}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`) : ''}
     ${portalBody}
   </article>`;
   }
@@ -964,7 +965,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.153.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.154.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1640,7 +1641,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.153.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.154.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1736,7 +1737,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.153.js');
+  accountModule ??= import('/shared/reader-account.v0.1.154.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1910,7 +1911,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.153.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.154.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2559,7 +2560,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.153.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.154.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

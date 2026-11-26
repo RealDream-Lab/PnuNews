@@ -112,3 +112,10 @@ test('tapping a card or an icon on a phone does not flash blue or leave a focus 
   assert.match(css, /\.news-card:focus:not\(:focus-visible\),\.pinned-card:focus:not\(:focus-visible\),button:focus:not\(:focus-visible\)\{outline:none\}/);
   assert.match(css, /\.card-save:focus-visible\{outline:2px solid currentColor/, 'the keyboard ring of the icons is untouched');
 });
+
+test('the portal-feed card is laid out like every other: the label on the first line, the date and time on the second', () => {
+  const app = read(`public/reader/app.v${version}.js`);
+  assert.match(app, /<div class="card-meta-overlay"><div class="overlay-row">\$\{kicker\}<\/div><div class="overlay-row">\$\{time\}<\/div>/, 'two lines over the cover');
+  assert.match(app, /<div class="card-meta">\$\{kicker\}<\/div><h2>[\s\S]*?<div class="card-foot">\$\{time\}\$\{cardViewsMarkup\(item\)\}/, 'without a cover: the label above the title, the date in the footer');
+  assert.ok(!app.includes('${line}'), 'no single mixed line any more');
+});
