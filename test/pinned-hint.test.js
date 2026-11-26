@@ -6,18 +6,19 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const version = JSON.parse(readFileSync(`${root}package.json`, 'utf8')).version;
 const app = readFileSync(`${root}public/reader/app.v${version}.js`, 'utf8');
-const hint = app.slice(app.indexOf('const PINNED_HINT_OUT_MS'), app.indexOf("pinnedStrip.addEventListener('click', (event) => {"));
+const hint = app.slice(app.indexOf('// It goes all the way to the end'), app.indexOf("pinnedStrip.addEventListener('click', (event) => {"));
 
 test('the top cards give one gentle hint when more of them are hidden: out, a short hold, back', () => {
   assert.ok(hint.length > 500, 'the hint code exists');
-  assert.match(hint, /const PINNED_HINT_OUT_MS = 800;[\s\S]*PINNED_HINT_HOLD_MS = 250;[\s\S]*PINNED_HINT_BACK_MS = 800;/);
+  assert.match(hint, /PINNED_HINT_HOLD_MS = 350;[\s\S]*PINNED_HINT_SPEED = 0\.45;[\s\S]*Math\.min\(2500, Math\.max\(1000, distance \/ PINNED_HINT_SPEED\)\)/);
   assert.match(hint, /let pinnedHintDone = false;/);
   assert.match(hint, /function playPinnedHint\(\) \{\s*pinnedHintDone = true;/, 'it can only ever play once per page open');
   assert.match(hint, /if \(pinnedHintDone \|\| reducedMotion\.matches/, 'never for reduced motion, never twice');
   assert.match(hint, /pinnedStrip\.scrollLeft = expected \* direction;/, 'it follows the strip\'s own direction (negative in right-to-left)');
   assert.match(hint, /if \(elapsed >= total\) \{ stop\(\); return; \}/);
   assert.match(hint, /expected = elapsed >= total \? 0 : offsetAt\(elapsed\)/, 'it ends exactly where it started');
-  assert.match(hint, /Math\.min\(max, Math\.max\(96, pinnedStrip\.clientWidth \* 0\.28\)\)/, 'a short glide, never past the end');
+  assert.match(hint, /const distance = max;/, 'the whole way, to the end of the last card');
+  assert.match(hint, /const total = leg \+ PINNED_HINT_HOLD_MS \+ leg;/);
 });
 
 test('it runs only when it makes sense: something is hidden, the reader has not moved it, the page is ready and the strip is on screen', () => {

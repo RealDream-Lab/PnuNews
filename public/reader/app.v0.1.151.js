@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.150.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.150.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.150.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.150.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.150.js';
+import { initDock } from '/shared/dock.v0.1.151.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.151.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.151.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.151.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.151.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -932,7 +932,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.150.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.151.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1605,7 +1605,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.150.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.151.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1701,7 +1701,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.150.js');
+  accountModule ??= import('/shared/reader-account.v0.1.151.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1875,7 +1875,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.150.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.151.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2255,9 +2255,11 @@ updatePinnedNav();
 // back, so the reader notices there are more up there. It waits until the loading layer is gone and the strip has stopped
 // changing, never runs for reduced motion, in a background tab, on an article, or when the strip is off screen, and gives up
 // at the first touch, wheel, key or scroll of the reader's own (leaving the strip wherever they put it).
-const PINNED_HINT_OUT_MS = 800;
-const PINNED_HINT_HOLD_MS = 250;
-const PINNED_HINT_BACK_MS = 800;
+// It goes all the way to the end of the last card and back. The time grows with the distance (about 450 px a second) but stays
+// between one and two and a half seconds each way, so a short strip is not hurried and a long one does not drag.
+const PINNED_HINT_HOLD_MS = 350;
+const PINNED_HINT_SPEED = 0.45; // px per ms
+const pinnedHintLeg = (distance) => Math.min(2500, Math.max(1000, distance / PINNED_HINT_SPEED));
 let pinnedHintDone = false;
 let pinnedHintTimer = 0;
 const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2);
@@ -2275,13 +2277,14 @@ function pinnedHintReady() {
 function playPinnedHint() {
   pinnedHintDone = true;
   const { max } = pinnedRange();
-  const distance = Math.min(max, Math.max(96, pinnedStrip.clientWidth * 0.28));
+  const distance = max; // the whole way: the end of the last card
   const direction = pinnedDirection();
-  const total = PINNED_HINT_OUT_MS + PINNED_HINT_HOLD_MS + PINNED_HINT_BACK_MS;
+  const leg = pinnedHintLeg(distance);
+  const total = leg + PINNED_HINT_HOLD_MS + leg;
   const offsetAt = (elapsed) => {
-    if (elapsed < PINNED_HINT_OUT_MS) return distance * easeInOut(elapsed / PINNED_HINT_OUT_MS);
-    if (elapsed < PINNED_HINT_OUT_MS + PINNED_HINT_HOLD_MS) return distance;
-    return distance * (1 - easeInOut((elapsed - PINNED_HINT_OUT_MS - PINNED_HINT_HOLD_MS) / PINNED_HINT_BACK_MS));
+    if (elapsed < leg) return distance * easeInOut(elapsed / leg);
+    if (elapsed < leg + PINNED_HINT_HOLD_MS) return distance;
+    return distance * (1 - easeInOut((elapsed - leg - PINNED_HINT_HOLD_MS) / leg));
   };
   let frame = 0;
   let expected = 0;
@@ -2521,7 +2524,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.150.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.151.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
