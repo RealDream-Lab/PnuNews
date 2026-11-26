@@ -658,3 +658,14 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .account-facts{display:grid;gap:.5rem;margin:0}
 .account-facts div{display:grid;grid-template-columns:6.5rem 1fr;gap:.6rem;padding:.6rem .9rem;border-radius:12px;background:var(--surface-soft);align-items:baseline}
 .account-facts dt{font-size:.8rem;color:var(--muted)}.account-facts dd{margin:0;font-weight:700;line-height:1.8;min-width:0;overflow-wrap:anywhere}
+
+/* The number of views (one national total per news), next to the icons: the eye and a short number, muted, never wrapped. */
+.card-views{flex:none;display:inline-flex;align-items:center;gap:.28rem;margin-inline-start:auto;color:var(--muted);font-size:.74rem;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.card-views .icon{width:15px;height:15px}
+.card-views+.card-save,.card-views+.card-edit{margin-inline-start:.35rem}
+.card-meta-overlay .card-views{margin-inline-start:0;color:inherit;opacity:.92}
+.card-meta-overlay .overlay-row .card-views{flex:none}
+/* Tapping a card or an icon on a phone must not flash the browser's blue highlight or leave a focus ring (a keyboard still gets its ring). */
+.news-card,.pinned-card,.news-card *,.pinned-card *,a,button,[role=link],[role=button],[tabindex]{-webkit-tap-highlight-color:transparent}
+.news-card:focus:not(:focus-visible),.pinned-card:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
+.news-card,.pinned-card,.card-share,.card-save,.card-edit{-webkit-touch-callout:none}

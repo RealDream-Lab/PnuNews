@@ -270,13 +270,14 @@ test('patchSnap adds what became known to one bookmark, keeps the rest, and igno
 // The function that opens a saved news, taken out of the reader's script and run with stand-ins for the page.
 function savedOpener({ snapshots, store }) {
   const source = app.slice(app.indexOf('async function openSavedNews'), app.indexOf('// Bookmarks that came from another device have no title yet'));
-  const log = { opened: [], navigated: [], asked: [] };
-  const run = new Function('window', 'navigateToNews', 'getJson', 'bookmarks', `${source}\nreturn openSavedNews;`);
+  const log = { opened: [], navigated: [], asked: [], counted: [] };
+  const run = new Function('window', 'navigateToNews', 'getJson', 'bookmarks', 'noteExternalView', `${source}\nreturn openSavedNews;`);
   const open = run(
     { open: (...args) => { log.opened.push(args); return {}; } },
     (id) => log.navigated.push(String(id)),
     async (url) => { log.asked.push(url); const answer = await snapshots(url); return answer; },
     store,
+    (id) => log.counted.push(Number(id)), // the tap on a portal news is reported to the server
   );
   return { open, log };
 }
