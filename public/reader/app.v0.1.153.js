@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.152.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.152.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.152.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.152.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.152.js';
+import { initDock } from '/shared/dock.v0.1.153.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.153.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.153.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.153.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.153.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -360,12 +360,6 @@ function cardViewsMarkup(item) {
   return `<span class="card-views" data-views="${count}" title="${digits.format(count)} بازدید" aria-label="${digits.format(count)} بازدید"><svg class="icon" aria-hidden="true"><use href="#icon-eye"/></svg><span>${viewsText(count)}</span></span>`;
 }
 
-// On a card with a cover the meta sits on the strip over the image, where the icons are placed at the left end: the count follows the time.
-function cardViewsInline(item) {
-  const markup = cardViewsMarkup(item);
-  return markup ? `<i aria-hidden="true"></i>${markup}` : '';
-}
-
 // Bookmark icon next to the share icon. The state is drawn from the store when the card is built and kept in step later by syncSavedUi.
 function cardSaveMarkup(item) {
   const saved = bookmarks.has(item.id);
@@ -374,7 +368,7 @@ function cardSaveMarkup(item) {
 
 function coverMarkup(item, featured, overlay = '') {
   const placeholder = placeholderMarkup(item.cover.dominant_color);
-  return `<div class="card-cover-frame">${placeholder}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
+  return `<div class="card-cover-frame">${placeholder}${cardViewsMarkup(item)}<img class="card-cover" referrerpolicy="no-referrer" src="${escapeHtml(item.cover.src)}" srcset="${escapeHtml(item.cover.srcset ?? '')}" sizes="${featured ? FEATURED_IMAGE_SIZES : CARD_IMAGE_SIZES}" width="${Number(item.cover.width) || 800}" height="${Number(item.cover.height) || 450}" loading="lazy" decoding="async" alt="">${overlay}</div>`;
 }
 
 // Cards of portal news open the original article on pnu.ac.ir instead of our detail page.
@@ -440,7 +434,7 @@ function cardMarkup(item, { featured = false } = {}) {
       ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}</div>`
       : `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${portalSummary}<div class="card-foot">${line}${cardViewsMarkup(item)}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
     return `<article class="${portalClasses}" data-news-id="${item.id}"${externalAttributes(item)} data-scope="${escapeHtml(item.scope.type)}" tabindex="0" role="link" aria-label="${escapeHtml(item.title)}">
-    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}${cardViewsInline(item)}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`) : ''}
+    ${hasCover ? coverMarkup(item, featured, `<div class="card-meta-overlay"><div class="overlay-row">${line}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`) : ''}
     ${portalBody}
   </article>`;
   }
@@ -455,7 +449,7 @@ function cardMarkup(item, { featured = false } = {}) {
   // With a cover, all meta sits on a translucent black strip over the image; only title and summary stay below it.
   // Always at most two lines: related labels share the first line, source and time share the second.
   const labels = badge || category || urgent ? `<div class="overlay-row">${badge}${category}${urgent}</div>` : '';
-  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}${cardViewsInline(item)}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`;
+  const overlay = `<div class="card-meta-overlay">${labels}<div class="overlay-row">${source}${time}</div>${cardSaveMarkup(item)}${cardShareMarkup()}</div>`;
   const body = hasCover
     ? `<div class="card-content"><h2>${escapeHtml(item.title)}</h2>${summary}</div>`
     : `<div class="card-content">${badge || category || urgent ? `<div class="card-meta">${badge}${category}${urgent}</div>` : ''}<h2>${escapeHtml(item.title)}</h2>${summary}<div class="card-foot">${source}${time}${cardViewsMarkup(item)}${cardSaveMarkup(item)}${cardShareMarkup()}</div></div>`;
@@ -970,7 +964,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.152.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.153.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1646,7 +1640,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.152.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.153.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1742,7 +1736,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.152.js');
+  accountModule ??= import('/shared/reader-account.v0.1.153.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1916,7 +1910,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.152.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.153.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2565,7 +2559,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.152.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.153.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
