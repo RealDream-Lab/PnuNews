@@ -131,3 +131,9 @@ test('the news page: the card shows post, name and place; the profile is a read-
   assert.ok(!/\sstyle=|<script|\son[a-z]+=/i.test(template));
   assert.match(module, /profile: user\?\.staff \? staffProfileTemplate\(user\) : `/);
 });
+
+test('the signed-in card is as wide as its longest line, within a minimum and a maximum, and long lines wrap instead of being cut', () => {
+  const css = read(`public/reader/styles.v${version}.css`);
+  assert.match(css, /\.account-card\.is-signed-in\{flex:0 0 auto;width:max-content;min-width:9\.5rem;max-width:min\(22rem,88%\)\}/);
+  assert.match(css, /\.account-card\.is-signed-in \.account-unit\{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere\}/);
+});
