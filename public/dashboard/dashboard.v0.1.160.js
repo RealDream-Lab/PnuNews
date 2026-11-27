@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.159.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.160.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -750,7 +750,6 @@ function goToView(view) {
   else if (actualView === "readers") loadReaders();
   else if (actualView === "settings") loadSettings();
   else if (actualView === "audit") loadAudit(1);
-  else if (actualView === "stats") loadStats();
   else if (actualView === "mobile-recent") loadMobileNews("mine", 1);
   else if (actualView === "mobile-feed") loadMobileNews("all", 1);
   else if (actualView === "profile") loadProfile();
@@ -3850,34 +3849,6 @@ function auditAction(action) {
     "news.attachment_delete": "حذف پیوست",
   };
   return labels[action] || "رویداد دیگر";
-}
-
-async function loadStats() {
-  try {
-    const data = await api("/api/admin/stats");
-    const stats = [
-      ["بازدید کل", data.counts.views],
-      ["خبر منتشرشده", data.counts.published],
-      ["پیش‌نویس", data.counts.draft],
-      ["زمان‌بندی‌شده", data.counts.scheduled],
-    ];
-    document.getElementById("stats-counts").innerHTML = stats
-      .map(
-        ([label, count]) =>
-          `<article class="stat-card"><span>${label}</span><strong>${faDigits.format(count)}</strong></article>`,
-      )
-      .join("");
-    document.getElementById("most-viewed").innerHTML = data.most_viewed.length
-      ? data.most_viewed
-          .map(
-            (item, index) =>
-              `<article class="compact-item"><div class="compact-item-main"><strong>${faDigits.format(index + 1)}. ${escapeHtml(item.title)}</strong><small>${statusLabel(item.status)} · ${faDigits.format(item.view_count)} بازدید</small></div><meter min="0" max="${Math.max(1, data.most_viewed[0]?.view_count || 1)}" value="${Number(item.view_count)}"></meter></article>`,
-          )
-          .join("")
-      : '<p class="empty-panel">آماری برای نمایش وجود ندارد.</p>';
-  } catch (error) {
-    showToast(error.message);
-  }
 }
 
 // نسخهٔ دسکتاپ همیشه نشست ۲۴ ساعته دارد؛ «به یاد سپاری» فقط روی گوشی است (سرور هم همین را از User-Agent بررسی می‌کند).

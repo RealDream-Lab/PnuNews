@@ -99,7 +99,6 @@ body::before{content:"";position:fixed;inset:0 0 auto 0;height:env(safe-area-ins
 /* ---------- Feed & cards ---------- */
 .news-feed{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem;align-items:start}
 .news-card{position:relative;min-width:0;overflow:hidden;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);cursor:pointer;transition:border-color .12s ease}
-@media(hover:hover){.news-card:hover{border-color:var(--primary)}}
 .news-card::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;z-index:2;background:transparent;pointer-events:none}
 .news-card.no-cover::before{background:var(--primary)}
 .news-card.no-cover[data-scope="province"]::before{background:var(--teal)}
@@ -580,7 +579,6 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .account-card{position:relative;flex:0 0 min(215px,70%);display:grid;gap:.05rem;align-content:center;padding:.65rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);min-width:0;overflow:hidden;cursor:pointer;font:inherit;text-align:start;appearance:none;-webkit-appearance:none;transition:border-color .15s ease,background-color .15s ease}
 .account-card[hidden]{display:none}
 .account-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
-@media(hover:hover){.account-card:hover{border-color:var(--primary)}}
 .account-card.is-guest{flex:0 0 auto;width:4.4rem;place-items:center;padding:.65rem}
 .account-card.is-guest .icon{width:1.9rem;height:1.9rem;color:var(--muted)}
 .account-card.is-signed-in{border-color:var(--primary);background:var(--primary-soft)}
@@ -675,3 +673,13 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .calendar-line{font-size:.7rem;line-height:1.5;font-weight:700;color:var(--muted)}
 .calendar-date{font-size:.95rem;line-height:1.7;font-weight:700;white-space:nowrap}
 .calendar-time{font-size:.76rem;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* ---------- Desktop card hover: the card lifts and a soft shadow falls under it (no frame). Mouse only; touch screens never see it. ---------- */
+:root{--lift-shadow:0 12px 24px -12px rgba(14,26,43,.34),0 3px 8px -3px rgba(14,26,43,.12)}
+:root[data-theme="dark"]{--lift-shadow:0 14px 26px -12px rgba(0,0,0,.75),0 3px 8px -3px rgba(0,0,0,.45)}
+@media(prefers-color-scheme:dark){:root[data-theme="auto"]{--lift-shadow:0 14px 26px -12px rgba(0,0,0,.75),0 3px 8px -3px rgba(0,0,0,.45)}}
+@media(hover:hover) and (pointer:fine){
+.news-card,.pinned-card,.account-card{transition:transform .15s ease,box-shadow .15s ease}
+.news-card:hover,.pinned-card:hover,.account-card:hover{z-index:1;transform:translateY(-4px);box-shadow:var(--lift-shadow)}
+.pinned-strip{padding-top:.5rem;margin-top:-.4rem}
+}
