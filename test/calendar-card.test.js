@@ -68,3 +68,13 @@ test('the card looks like its neighbours: three lines, as wide as the longest on
   assert.match(css, /\.calendar-card\{[^}]*width:max-content;min-width:9\.5rem;max-width:min\(22rem,88%\)/);
   assert.match(calendar, /<bdi dir="ltr">\$\{escapeHtml\(CLOCK_FORMAT\.format\(now\)\)\}<\/bdi>/);
 });
+
+test('the calendar card is part of the first screen: the loading layer and the first strip wait for the server time, so nothing pops in after the spiral', () => {
+  // the gate is defined at the very top, before anything can call finishLoading
+  assert.ok(app.indexOf('const serverTimeReady = new Promise') > 0 && app.indexOf('const serverTimeReady = new Promise') < app.indexOf('async function finishLoading()'));
+  assert.match(app, /Promise\.all\(\[document\.fonts\?\.ready, serverTimeReady, \.\.\.pictures\.map\(settle\)\]\),\s*new Promise\(\(resolve\) => setTimeout\(resolve, 1800\)\)/, 'the layer waits for it, but never longer than for the fonts and pictures');
+  assert.match(app, /await Promise\.race\(\[Promise\.all\(\[prayerReady, serverTimeReady\]\), new Promise\(\(resolve\) => setTimeout\(resolve, 600\)\)\]\);\s*pinnedStrip\.hidden = !pinned\.length;/, 'the first strip is built after the time is known');
+  const sync = app.slice(app.indexOf('async function syncServerTime()'), app.indexOf('syncServerTime();\ndocument.addEventListener'));
+  assert.match(sync, /\} catch \{[^}]*\}\s*resolveServerTime\(\);[^\n]*\n\s*syncPrayerCard\(\);/, 'an answer and a failure both open the gate, so an offline visit is never held back');
+  assert.ok(!/return;/.test(sync), 'no early exit can skip the gate');
+});
