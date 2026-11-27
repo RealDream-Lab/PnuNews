@@ -128,10 +128,11 @@ test('texts: countdown and markup', () => {
 });
 
 // ---------- The question flow ----------
-function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, start = at('2026-11-19T10:00:00+03:30'), stored = {}, citiesNever = false } = {}) {
+function world({ state = 'prompt', result: initialResult = { lat: 35.8734, lon: 47.6051 }, start = at('2026-11-19T10:00:00+03:30'), stored = {}, citiesNever = false } = {}) {
+  let result = initialResult;
   const clock = { now: start };
   const store = new Map(Object.entries(stored));
-  const calls = { position: 0, query: 0 };
+  const calls = { position: 0, query: 0, options: [] };
   const listeners = new Set();
   const status = { state, addEventListener: (type, listener) => { if (type === 'change') listeners.add(listener); } };
   const views = [];
@@ -139,8 +140,9 @@ function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, star
     onChange: (view) => views.push(view),
     storage: { getItem: (key) => store.get(key) ?? null, setItem: (key, value) => store.set(key, String(value)), removeItem: (key) => store.delete(key) },
     geolocation: {
-      getCurrentPosition: (ok, fail) => {
+      getCurrentPosition: (ok, fail, options) => {
         calls.position += 1;
+        calls.options.push(options);
         if (result.error) fail({ code: result.error }); else ok({ coords: { latitude: result.lat, longitude: result.lon } });
       },
     },
@@ -149,7 +151,7 @@ function world({ state = 'prompt', result = { lat: 35.8734, lon: 47.6051 }, star
     loadCities: citiesNever ? () => new Promise(() => {}) : async () => compactCities(JSON.parse(await readFile('data/IranCities.json', 'utf8'))).cities,
     timer: false,
   });
-  return { card, clock, store, calls, views, status, listeners, settle: () => new Promise((resolve) => setTimeout(resolve, 20)) };
+  return { card, clock, store, calls, views, status, listeners, moveTo: (next) => { result = next; }, settle: () => new Promise((resolve) => setTimeout(resolve, 20)) };
 }
 
 test('allowed: the card shows the next event with the nearest city name, and the position stays in the browser', async () => {
@@ -189,7 +191,7 @@ test('refusal after an earlier consent removes the remembered position', async (
 });
 
 test('granted: the remembered position shows at once; it is refreshed only when old', async () => {
-  const fresh = { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:00:00+03:30') }) };
+  const fresh = { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:55:00+03:30') }) };
   const w = world({ state: 'granted', stored: fresh });
   await w.card.start();
   assert.ok(w.views[0], 'published from the remembered position before any question');
@@ -202,7 +204,7 @@ test('granted: the remembered position shows at once; it is refreshed only when 
 });
 
 test('prompt state with a recent remembered position does not ask again (Safari-style "ask each time")', async () => {
-  const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T08:00:00+03:30') }) } });
+  const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:50:00+03:30') }) } });
   await w.card.start();
   assert.equal(w.calls.position, 0);
   assert.ok(w.card.view());
@@ -230,7 +232,7 @@ test('the visitor changes the permission in the browser settings: the card follo
 });
 
 test('a remembered position (with its city) is shown synchronously, before the city list or the permission check', async () => {
-  const savedAt = at('2026-11-19T09:00:00+03:30');
+  const savedAt = at('2026-11-19T09:55:00+03:30');
   const w = world({ state: 'granted', citiesNever: true, stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: savedAt, city: 'بیجار' }) } });
   const shown = w.card.showRemembered(); // no await: this is what lets the page paint the card with the first screen
   assert.equal(shown, true);
@@ -246,7 +248,7 @@ test('without a remembered position showRemembered does nothing', () => {
 });
 
 test('the city name is remembered for next time without making the position look fresher', async () => {
-  const savedAt = at('2026-11-19T08:00:00+03:30');
+  const savedAt = at('2026-11-19T09:55:00+03:30');
   const w = world({ state: 'granted', stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: savedAt }) } });
   await w.card.start();
   await w.settle();
@@ -303,4 +305,82 @@ test('the reader loads the card lazily, keeps clicks away from it and the server
   assert.ok(app.includes('geolocation=(self)') && !app.includes('geolocation=()'));
   const sw = await readFile('public/sw.js', 'utf8');
   assert.ok(sw.includes(`/shared/prayer-card.v${version}.js`) && sw.includes('/shared/praytime.v3.2.js'));
+});
+
+// ---------- A visitor who travels ----------
+const BIJAR_AT = { lat: 35.87, lon: 47.6 };
+
+test('travelling: with the permission granted the position is renewed once it is ten minutes old, also while the page stays open', async () => {
+  const w = world({ state: 'granted', stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T09:55:00+03:30'), city: 'بیجار' }) } });
+  await w.card.start();
+  assert.equal(w.calls.position, 0, 'five minutes old: still the present place');
+  w.clock.now += 6 * 60e3; // 11 minutes since the position was taken
+  w.moveTo({ lat: 36.68, lon: 48.5 }); // about 130 km to the north-east
+  w.card.tick();
+  await w.settle();
+  assert.equal(w.calls.position, 1, 'renewed by the tick, without a reload or a new visit');
+  const view = w.card.view();
+  assert.notEqual(view.city, 'بیجار', 'the place name follows the visitor');
+  const saved = JSON.parse(w.store.get(KEYS.position));
+  assert.deepEqual([saved.lat, saved.lon], [36.68, 48.5]);
+});
+
+test('travelling: the time of the next event is worked out again for the new place, not kept from the old one', async () => {
+  const w = world({ state: 'granted', stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T09:55:00+03:30') }) } });
+  await w.card.start();
+  await w.settle();
+  const before = { key: w.card.view().key, at: w.card.view().at };
+  w.clock.now += 11 * 60e3;
+  w.moveTo({ lat: 35.87, lon: 52.0 }); // 4.4 degrees east: the same event comes about 17 minutes earlier
+  w.card.tick();
+  await w.settle();
+  assert.equal(w.card.view().key, before.key);
+  assert.ok(before.at - w.card.view().at > 10 * 60e3, 'an event of the old longitude is not kept');
+});
+
+test('travelling: a remembered position older than half an hour is not painted before a new one is known', async () => {
+  const stored = { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T08:00:00+03:30'), city: 'بیجار' }) }; // two hours ago
+  const w = world({ state: 'granted', stored, result: { lat: 35.69, lon: 51.39 } });
+  assert.equal(w.card.showRemembered(), false, 'it might be another city by now');
+  assert.equal(w.views.length, 0);
+  await w.card.start();
+  await w.settle();
+  assert.equal(w.calls.position, 1);
+  assert.notEqual(w.card.view().city, 'بیجار');
+});
+
+test('travelling: when no new position can be had, a remembered one up to three hours old is used, an older one is not', async () => {
+  const recent = world({ state: 'granted', result: { error: 2 }, stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T08:00:00+03:30'), city: 'بیجار' }) } });
+  await recent.card.start();
+  assert.equal(recent.card.view().city, 'بیجار', 'two hours old, no signal: better than nothing');
+  const old = world({ state: 'granted', result: { error: 2 }, stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T05:00:00+03:30'), city: 'بیجار' }) } });
+  await old.card.start();
+  assert.equal(old.card.view(), null, 'five hours old: a wrong place is worse than no card');
+});
+
+test('travelling: a failing renewal is not repeated every few seconds, and only a fresh answer is accepted from the browser', async () => {
+  const w = world({ state: 'granted', result: { error: 2 }, stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T09:55:00+03:30') }) } });
+  await w.card.start();
+  w.clock.now += 11 * 60e3;
+  for (let i = 0; i < 5; i += 1) { w.card.tick(); w.clock.now += 20e3; await w.settle(); }
+  assert.equal(w.calls.position, 1, 'one attempt in the first two minutes');
+  w.clock.now += 2 * 60e3;
+  w.card.tick();
+  await w.settle();
+  assert.equal(w.calls.position, 2, 'then it tries again');
+  assert.ok(w.calls.options.every((options) => options.maximumAge <= 60_000 && options.enableHighAccuracy === false), 'a cached answer older than a minute is never accepted');
+});
+
+test('travelling: a page that is hidden does not ask for a position', async () => {
+  const w = world({ state: 'granted', stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T09:55:00+03:30') }) } });
+  await w.card.start();
+  w.clock.now += 30 * 60e3;
+  globalThis.document = { hidden: true };
+  try {
+    w.card.tick();
+    await w.settle();
+    assert.equal(w.calls.position, 0);
+  } finally {
+    delete globalThis.document;
+  }
 });

@@ -6,8 +6,8 @@
 //   sms_send    (default, also when the value is missing or unknown): we send a code, the reader types it.
 //   sms_receive: the reader sends an SMS from their own SIM to our line; the page waits and the server tells it when it arrived
 //                (step «inbound»). The signup form and the profile after the proof are the same for both.
-import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.156.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.156.js';
+import { bindDigitField, codeDigits, formatPhone, isNationalPhone, nationalPhone, studentDigits, toFaDigits } from '/shared/digits.v0.1.157.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.157.js';
 
 export const BENEFIT_TEXT = 'با ساختن حساب، دنیای خبری خودتان را بسازید: خبرهای دلخواه را نشان‌دار کنید و در هر دستگاهی دوباره پیدا کنید. اگر دانشجو هستید و شمارهٔ دانشجویی‌تان را وارد کنید، اطلاع‌رسانی‌های ویژهٔ مرکز و دانشگاه خودتان زودتر به دستتان می‌رسد و از قابلیت‌های شخصی‌سازی‌شدهٔ آینده نیز پیش از دیگران بهره‌مند می‌شوید. ثبت‌نام فقط چند لحظه طول می‌کشد و راهی است برای اینکه سامانه بیشتر به نیاز شما نزدیک شود.';
 
