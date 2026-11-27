@@ -11,7 +11,12 @@ const version = JSON.parse(readFileSync(`${root}package.json`, 'utf8')).version;
 const read = (relative) => readFileSync(`${root}${relative}`, 'utf8');
 
 const CITY_ADMIN = { staff_id: 11, full_name: 'علی رضایی مقدم', role: 'city_admin', region_id: 51, domain_name: null, level: 'city', region_name: 'تهران جنوب', parent_name: 'تهران' };
-const signIn = (db, token, staff) => { db.staffSessions.set(hashToken(token).toString('hex'), { ...staff }); return `pnu_session=${token}`; };
+const signIn = (db, token, staff) => {
+  const entry = { ...staff, is_active: true };
+  db.staffSessions.set(hashToken(token).toString('hex'), entry); // the dashboard session
+  db.staffUsers.set(staff.staff_id, entry); // the user itself (what a reader session of the linked account looks up)
+  return `pnu_session=${token}`;
+};
 
 test('a signed-in dashboard user is a reader too: a linked account with no phone, made once, with the post and the place', async () => {
   await withReaderApp({}, async ({ db, call }) => {
@@ -23,8 +28,8 @@ test('a signed-in dashboard user is a reader too: a linked account with no phone
     assert.equal(first.json.user.last_name, 'رضایی مقدم');
     assert.equal(first.json.user.unit_id, 51);
     assert.deepEqual(first.json.user.staff, { role_label: 'مدیر مرکز دانشگاهی', domain: null, place: 'تهران جنوب، تهران' });
-    assert.ok(!first.cookie, 'no reader cookie and no reader session: the identity follows the dashboard session');
-    assert.equal(db.sessions.length, 0);
+    assert.match(first.cookie, /^pnu_reader=/, 'the browser gets a reader session of its own, so the account outlives the 24-hour dashboard session');
+    assert.equal(db.sessions.length, 1);
     const again = await call('/api/reader/me', { cookie });
     assert.equal(again.json.user.id, first.json.user.id);
     assert.equal(db.users.length, 1, 'one linked account per user, never a second');
@@ -40,8 +45,57 @@ test('no dashboard session, an unknown or ended one (inactive or signed out) is 
     assert.ok((await call('/api/reader/me', { cookie })).json.user);
     db.staffSessions.clear(); // signed out, expired or deactivated: the session query finds nothing
     assert.equal((await call('/api/reader/me', { cookie })).json.user, null);
-    assert.equal(db.sessions.length, 0);
+    assert.equal(db.sessions.length, 1, 'only the one made by the successful visit');
   });
+});
+
+test('the dashboard session ends after 24 hours but the news page keeps the account through the reader session', async () => {
+  await withReaderApp({}, async ({ db, clock, call }) => {
+    const dashboard = signIn(db, 't-expire', CITY_ADMIN);
+    const first = await call('/api/reader/me', { cookie: dashboard });
+    const readerCookie = first.cookie; // «pnu_reader=<token>», what the browser keeps
+    db.staffSessions.clear(); // the dashboard session expired
+    clock.now += 25 * 60 * 60_000;
+    const later = await call('/api/reader/me', { cookie: readerCookie });
+    assert.equal(later.json.user.id, first.json.user.id, 'still signed in, with the same account');
+    assert.deepEqual(later.json.user.staff, { role_label: 'مدیر مرکز دانشگاهی', domain: null, place: 'تهران جنوب، تهران' });
+    assert.equal(later.json.user.first_name, 'علی');
+    assert.equal(db.users.length, 1);
+    // the post and the name follow the user, even with no dashboard session in the request
+    db.staffUsers.get(11).full_name = 'علی احمدی';
+    db.staffUsers.get(11).role = 'province_admin';
+    const changed = (await call('/api/reader/me', { cookie: readerCookie })).json.user;
+    assert.equal(changed.last_name, 'احمدی');
+    assert.equal(changed.staff.role_label, 'مدیر استان');
+  });
+});
+
+test('that reader session ends with the user: deactivation, and every revocation of the dashboard sessions', async () => {
+  await withReaderApp({}, async ({ db, call }) => {
+    const dashboard = signIn(db, 't-revoke', CITY_ADMIN);
+    const readerCookie = (await call('/api/reader/me', { cookie: dashboard })).cookie;
+    db.staffSessions.clear();
+    assert.ok((await call('/api/reader/me', { cookie: readerCookie })).json.user);
+    db.staffUsers.get(11).is_active = false; // deactivated: nothing to revoke, the session query refuses it
+    assert.equal((await call('/api/reader/me', { cookie: readerCookie })).json.user, null);
+    db.staffUsers.get(11).is_active = true;
+    assert.ok((await call('/api/reader/me', { cookie: readerCookie })).json.user);
+    await db.pool.execute('DELETE s FROM reader_sessions s JOIN reader_users u ON u.id = s.user_id WHERE u.staff_user_id = ?', [11]);
+    assert.equal((await call('/api/reader/me', { cookie: readerCookie })).json.user, null, 'password change, reset, 2FA reset, sign out everywhere');
+  });
+});
+
+test('the wiring: sign-out of the dashboard cuts this browser\'s linked reader session, and every full revocation cuts all of them', () => {
+  const auth = read('src/routes/auth.js');
+  const logout = auth.slice(auth.indexOf("router.post('/logout'"), auth.indexOf("router.post('/logout'") + 1800);
+  assert.match(logout, /WHERE s\.token_hash = \? AND u\.staff_user_id IS NOT NULL/, 'a real reader\'s own session is left alone');
+  assert.match(logout, /clearReaderCookie\(response, config\.nodeEnv\)/);
+  assert.equal((auth.match(/revokeStaffReaderSessions\(connection, request\.user\.id\)/g) ?? []).length, 2, 'password change and sign out everywhere');
+  const admin = read('src/routes/admin.js');
+  assert.equal((admin.match(/revokeStaffReaderSessions\(connection, id\)/g) ?? []).length, 3, 'deactivate, reset password, reset 2FA');
+  const session = read('src/lib/reader-session.js');
+  assert.match(session, /\(u\.staff_user_id IS NULL OR su\.is_active = 1\)/);
+  assert.match(session, /await createReaderSession\(pool, linked\.row\.id, now\)/);
 });
 
 test('the card: post, domain and place for every kind of dashboard user', () => {

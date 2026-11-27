@@ -3,7 +3,7 @@ import { appEvents, emitNewsPublished } from '../events.js';
 import { ensureDefaultCategory } from '../news/default-category.js';
 import { canAssignNews, canDeleteNews, canEditNews, canPublishTo, canViewNews, newsVisibilitySql } from '../auth/policy.js';
 import { normalizeNewsInput, sanitizeBodyHtml } from '../news/content.js';
-import { FLAG_LIFETIME_HOURS, flagsHaveExpired } from '../news/flag-expiry.js';
+import { FLAG_LIFETIME_HOURS, flagsExpiredFor, flagsHaveExpired } from '../news/flag-expiry.js';
 import { normalizeFa } from '../lib/fa.js';
 import { createNewsAttachmentRouter } from './news-attachments.js';
 
@@ -233,6 +233,9 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         }
         for (const item of items) item.targets = grouped.get(item.id) ?? [];
       }
+      // The list shows the «مهم» / «فوری» buttons only while the 72-hour window is open (see flag-expiry.js).
+      const listedAt = clock();
+      for (const item of items) item.flags_expired = flagsExpiredFor(item, listedAt);
       return response.json(paged ? { items, page, pages, total, limit } : { items, next_cursor: nextCursor });
     } catch (error) {
       return next(error);

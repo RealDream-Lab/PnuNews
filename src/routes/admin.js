@@ -11,6 +11,8 @@ import { isObviouslyInternalHost } from '../lib/net-guard.js';
 import { appEvents } from '../events.js';
 import { compareUsersForTree, groupUsersForTree } from '../lib/user-tree.js';
 import { createNewsAdminRouter } from './news-admin.js';
+import { revokeStaffReaderSessions } from '../lib/staff-reader.js';
+import { flagsExpiredFor } from '../news/flag-expiry.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
 import { createDomainAdminRouter } from './domains-admin.js';
@@ -291,7 +293,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           values,
         ),
         pool.execute(
-          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.updated_at, n.source_url
+          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.updated_at, n.source_url, n.is_pinned, n.is_urgent
            FROM news n JOIN users creator ON creator.id = n.created_by
            WHERE ${where} ORDER BY n.updated_at DESC, n.id DESC LIMIT 10`,
           values,
@@ -310,7 +312,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           scheduled: Number(counts.scheduled ?? 0), published: Number(counts.published ?? 0),
           views: Number(counts.views),
         },
-        latest: latest[0], most_viewed: mostViewed[0],
+        latest: latest[0].map((item) => ({ ...item, flags_expired: flagsExpiredFor(item, clock()) })), most_viewed: mostViewed[0],
       });
     } catch (error) {
       return next(error);
@@ -519,6 +521,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           if (action === 'deactivate') {
             await connection.execute('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
+            await revokeStaffReaderSessions(connection, id);
           } else if (action === 'activate') {
             await connection.execute('SELECT id FROM regions WHERE id = ? FOR UPDATE', [target.region_id]);
             const conflict = await activeConflict(connection, target);
@@ -553,6 +556,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
               [passwordHash, id],
             );
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
+            await revokeStaffReaderSessions(connection, id);
           } else if (action === 'reset-2fa') {
             await connection.execute(
               `UPDATE users SET totp_secret_enc = NULL, totp_enabled = 0, totp_last_step = NULL WHERE id = ?`,
@@ -560,6 +564,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
             );
             await connection.execute('DELETE FROM backup_codes WHERE user_id = ?', [id]);
             await connection.execute('DELETE FROM sessions WHERE user_id = ?', [id]);
+            await revokeStaffReaderSessions(connection, id);
           }
           await writeAudit(connection, request.user.id, `user.${action.replace('-', '_')}`, 'user', id, request);
           await connection.commit();

@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.158.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.159.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -847,9 +847,56 @@ async function loadDashboard() {
   }
 }
 
+// «مهم» (pin) and «فوری» (urgent) toggles right in the lists, so the news does not have to be opened in the editor.
+// They exist only for published news inside the 72-hour window; the server decides that (`flags_expired`) and
+// re-checks it on every request.
+const FLAG_BUTTONS = [
+  ["pin", "is_pinned", "مهم", "خبر مهم (سنجاق)"],
+  ["urgent", "is_urgent", "فوری", "خبر فوری"],
+];
+const FLAG_TOASTS = {
+  pin: ["علامت مهم برداشته شد.", "خبر مهم شد."],
+  urgent: ["علامت فوری برداشته شد.", "خبر فوری شد."],
+};
+
+function flagButtons(item) {
+  if (item.status !== "published" || item.flags_expired) return "";
+  return FLAG_BUTTONS.map(
+    ([flag, field, label, title]) =>
+      `<button class="mini-button flag-toggle" type="button" data-action="toggle-flag" data-flag="${flag}" data-id="${Number(item.id)}" aria-pressed="${Boolean(item[field])}" title="${title}">${label}</button>`,
+  ).join("");
+}
+
+async function toggleFlag(button) {
+  if (button.disabled) return;
+  const id = Number(button.dataset.id);
+  const flag = button.dataset.flag;
+  const enable = button.getAttribute("aria-pressed") !== "true";
+  button.disabled = true;
+  try {
+    await api(`/api/admin/news/${id}/${flag}`, {
+      method: "POST",
+      body: { enabled: enable },
+    });
+    // The same news can sit in more than one list; update in place (no reload, so the row keeps its position).
+    for (const other of document.querySelectorAll(
+      `[data-action="toggle-flag"][data-id="${id}"][data-flag="${flag}"]`,
+    ))
+      other.setAttribute("aria-pressed", String(enable));
+    if (flag === "urgent")
+      for (const label of document.querySelectorAll(`[data-urgent-for="${id}"]`))
+        label.hidden = !enable;
+    showToast(FLAG_TOASTS[flag][enable ? 1 : 0]);
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function compactNews(item, action = "edit-news") {
   const date = item.published_at || item.updated_at || item.created_at;
-  return `<article class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.title)}${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ""}</strong><small>${statusLabel(item.status)} · ${formatDate(date)} · ${faDigits.format(item.view_count || 0)} بازدید</small></div><div class="compact-actions"><button class="mini-button" type="button" data-action="${action}" data-id="${Number(item.id)}">مشاهده</button></div></article>`;
+  return `<article class="compact-item"><div class="compact-item-main"><strong>${escapeHtml(item.title)}${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ""}</strong><small>${statusLabel(item.status)} · ${formatDate(date)} · ${faDigits.format(item.view_count || 0)} بازدید</small></div><div class="compact-actions">${flagButtons(item)}<button class="mini-button" type="button" data-action="${action}" data-id="${Number(item.id)}">مشاهده</button></div></article>`;
 }
 
 function renderNewsTable(items) {
@@ -861,9 +908,9 @@ function renderNewsTable(items) {
     <td><strong>${escapeHtml(item.title)}</strong>${item.source_url ? ' <span class="auto-badge">خودکار</span>' : ""}${item.creator_domain_name ? ` <span class="auto-badge">${escapeHtml(item.creator_domain_name)}</span>` : ""}<br><small>${escapeHtml(item.summary || "")}</small></td>
     <td>${escapeHtml(item.origin_region_name)}<br><small>${escapeHtml(scopeLabel(item.targets))}</small></td>
     <td>${escapeHtml(item.category_name || "—")}</td>
-    <td><span class="status-badge ${escapeHtml(item.status)}">${statusLabel(item.status)}</span>${item.is_urgent ? '<span class="urgent-label"> · فوری</span>' : ""}</td>
+    <td><span class="status-badge ${escapeHtml(item.status)}">${statusLabel(item.status)}</span><span class="urgent-label" data-urgent-for="${Number(item.id)}"${item.is_urgent ? "" : " hidden"}> · فوری</span></td>
     <td>${faDigits.format(item.view_count)}</td><td>${formatDate(item.updated_at)}</td>
-    <td><button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">${item.source_url && !FEED_ROLES.includes(state.user.role) ? "مشاهده" : "بازکردن"}</button></td>
+    <td><div class="compact-actions">${flagButtons(item)}<button class="mini-button" type="button" data-action="edit-news" data-id="${Number(item.id)}">${item.source_url && !FEED_ROLES.includes(state.user.role) ? "مشاهده" : "بازکردن"}</button></div></td>
   </tr>`,
     )
     .join("")}</tbody></table>`;
@@ -4439,6 +4486,8 @@ function bindEvents() {
       if (newButton) return resetEditor();
       const backButton = event.target.closest('[data-action="back-news"]');
       if (backButton) return goToViewGuarded(editorReturnView());
+      const flagButton = event.target.closest('[data-action="toggle-flag"]');
+      if (flagButton) return toggleFlag(flagButton);
       const editButton = event.target.closest('[data-action="edit-news"]');
       if (editButton) return openEditor(Number(editButton.dataset.id));
       const removeButton = event.target.closest("[data-remove-attachment]");
