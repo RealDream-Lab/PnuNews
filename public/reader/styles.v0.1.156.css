@@ -492,7 +492,7 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .edit-body a{color:var(--primary);text-decoration:underline}
 .edit-body .ta-right{text-align:right}.edit-body .ta-left{text-align:left}.edit-body .ta-center{text-align:center}.edit-body .ta-justify{text-align:justify}
 .edit-body ol.fa-num{list-style-type:persian}
-.edit-flags{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem}
+.edit-flags{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem}.edit-flags[hidden]{display:none}
 .edit-check{display:flex;align-items:center;gap:.5rem;font-size:.86rem}
 .edit-check input{width:18px;height:18px;accent-color:var(--primary)}
 .edit-error{margin:0;padding:.55rem .8rem;border-radius:10px;background:var(--urgent-soft);color:var(--urgent);font-size:.86rem}
@@ -669,3 +669,9 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .news-card,.pinned-card,.news-card *,.pinned-card *,a,button,[role=link],[role=button],[tabindex]{-webkit-tap-highlight-color:transparent}
 .news-card:focus:not(:focus-visible),.pinned-card:focus:not(:focus-visible),button:focus:not(:focus-visible){outline:none}
 .news-card,.pinned-card,.card-share,.card-save,.card-edit{-webkit-touch-callout:none}
+
+/* Calendar card: weekday, Jalali date, time in Iran. As wide as its longest line, like the signed-in account card. */
+.calendar-card{position:relative;flex:0 0 auto;width:max-content;min-width:9.5rem;max-width:min(22rem,88%);display:grid;gap:.05rem;align-content:center;padding:.65rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden;cursor:default;-webkit-tap-highlight-color:transparent}
+.calendar-line{font-size:.7rem;line-height:1.5;font-weight:700;color:var(--muted)}
+.calendar-date{font-size:.95rem;line-height:1.7;font-weight:700;white-space:nowrap}
+.calendar-time{font-size:.76rem;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}

@@ -19,9 +19,9 @@ test('the header has no account button: the account lives in the first card of t
 test('the strip puts the account card first, before the prayer card, and shows the strip for it alone', () => {
   const sync = /function syncPrayerCard\(\) \{[\s\S]*?\n\}\n/.exec(app)?.[0] ?? '';
   assert.match(sync, /const showAccount = !accountButton\.hidden;/);
-  assert.match(sync, /pinnedStrip\.children\[showAccount \? 1 : 0\] !== prayerNode/, 'the prayer card is second when the account card is shown');
-  assert.match(sync, /pinnedStrip\.firstElementChild !== accountButton\) pinnedStrip\.prepend\(accountButton\)/, 'prepended last, so it is always first');
-  assert.match(sync, /pinnedStrip\.hidden = !\(showAccount \|\| prayerView \|\| pinnedStrip\.querySelector\('\[data-news-id\]'\)\)/);
+  assert.match(sync, /const cards = \[showAccount && accountButton, showCalendar && calendarNode, prayerView && prayerNode\]\.filter\(Boolean\);/, 'the account card is first, then the calendar card, then the prayer card');
+  assert.match(sync, /if \(pinnedStrip\.children\[index\] !== node\) pinnedStrip\.insertBefore\(node, pinnedStrip\.children\[index\] \?\? null\)/, 'every card is put at its place, so the account card is always first');
+  assert.match(sync, /pinnedStrip\.hidden = !\(cards\.length \|\| pinnedStrip\.querySelector\('\[data-news-id\]'\)\)/);
 });
 
 test('the account card alone never hides the empty-feed message', () => {

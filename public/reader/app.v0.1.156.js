@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.154.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.154.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.154.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.154.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.154.js';
+import { initDock } from '/shared/dock.v0.1.156.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.156.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.156.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.156.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.156.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -938,22 +938,65 @@ function syncPrayerCard() {
   const showAccount = !accountButton.hidden;
   if (!prayerView) {
     prayerNode?.remove();
-  } else {
-    if (!prayerNode) {
-      prayerNode = document.createElement('article');
-      prayerNode.className = 'prayer-card';
-      prayerNode.setAttribute('role', 'group');
-      prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
-    }
-    prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
-    if (pinnedStrip.children[showAccount ? 1 : 0] !== prayerNode) pinnedStrip.prepend(prayerNode);
+  } else if (!prayerNode) {
+    prayerNode = document.createElement('article');
+    prayerNode.className = 'prayer-card';
+    prayerNode.setAttribute('role', 'group');
+    prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
   }
-  // The account card always comes first, before the prayer card and the news cards.
+  if (prayerView) prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
+  const showCalendar = paintCalendar();
+  if (!showCalendar) calendarNode.remove();
   if (!showAccount) accountButton.remove();
-  else if (pinnedStrip.firstElementChild !== accountButton) pinnedStrip.prepend(accountButton);
-  pinnedStrip.hidden = !(showAccount || prayerView || pinnedStrip.querySelector('[data-news-id]'));
+  // The order of the strip: the account card, then the calendar card, then the prayer card, then the news cards.
+  const cards = [showAccount && accountButton, showCalendar && calendarNode, prayerView && prayerNode].filter(Boolean);
+  cards.forEach((node, index) => {
+    if (pinnedStrip.children[index] !== node) pinnedStrip.insertBefore(node, pinnedStrip.children[index] ?? null);
+  });
+  pinnedStrip.hidden = !(cards.length || pinnedStrip.querySelector('[data-news-id]'));
   updatePinnedNav();
 }
+
+// ---------- Calendar card: weekday, Jalali date and the current time in Iran, from the SERVER's clock ----------
+// The phone's own clock may be wrong or in another zone, so the server says what time it is once (and again when the page comes
+// back to the foreground); the card then counts from that and repaints on the minute. Until the server has answered the card is
+// not shown (a wrong time is worse than none). The zone is always Asia/Tehran, whatever the phone's setting.
+const calendarNode = document.createElement('article');
+calendarNode.className = 'calendar-card';
+calendarNode.setAttribute('role', 'group');
+calendarNode.setAttribute('aria-label', 'تقویم و ساعت');
+const WEEKDAY_FORMAT = new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', weekday: 'long' });
+const JALALI_FORMAT = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'Asia/Tehran', day: 'numeric', month: 'long', year: 'numeric' });
+const CLOCK_FORMAT = new Intl.DateTimeFormat('fa-IR', { timeZone: 'Asia/Tehran', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+let serverOffset = null; // server time minus this phone's time, in ms; null until the server has answered
+let calendarTimer = 0;
+const serverNow = () => Date.now() + (serverOffset ?? 0);
+
+// Draws the card and plans the next repaint for the start of the next minute. False while the server's time is not known.
+function paintCalendar() {
+  clearTimeout(calendarTimer);
+  if (serverOffset === null) return false;
+  const now = new Date(serverNow());
+  calendarNode.innerHTML = `<div class="calendar-line">${escapeHtml(WEEKDAY_FORMAT.format(now))}</div>`
+    + `<div class="calendar-date">${escapeHtml(JALALI_FORMAT.format(now))}</div>`
+    + `<div class="calendar-time"><bdi dir="ltr">${escapeHtml(CLOCK_FORMAT.format(now))}</bdi></div>`;
+  calendarTimer = setTimeout(syncPrayerCard, 60_000 - (serverNow() % 60_000) + 50);
+  return true;
+}
+
+async function syncServerTime() {
+  const asked = Date.now();
+  try {
+    const response = await fetch('/api/public/time', { cache: 'no-store' });
+    if (!response.ok) return;
+    const { now } = await response.json();
+    if (!Number.isFinite(now)) return;
+    serverOffset = now + (Date.now() - asked) / 2 - Date.now(); // the answer is about half the round trip old
+  } catch { /* offline: the card stays as it was (or hidden) */ }
+  syncPrayerCard();
+}
+syncServerTime();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncServerTime(); });
 function openPrayerGate() {
   prayerGate = true;
   syncPrayerCard();
@@ -965,7 +1008,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.154.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.156.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1641,7 +1684,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.154.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.156.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1737,7 +1780,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.154.js');
+  accountModule ??= import('/shared/reader-account.v0.1.156.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1911,7 +1954,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.154.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.156.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2560,7 +2603,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.154.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.156.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

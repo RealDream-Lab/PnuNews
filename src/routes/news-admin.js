@@ -415,6 +415,8 @@ export function createNewsAdminRouter({ pool, clock = Date.now, uploadRoot }) {
         }),
       }));
       news.can_edit = context.canEdit;
+      // «مهم» و «فوری» بعد از ۷۲ ساعت از انتشار دیگر قابل تغییر نیستند؛ ویرایش درجا با این نشانه آن دو گزینه را نشان نمی‌دهد.
+      news.flags_expired = news.status === 'published' && flagsHaveExpired(news.published_at, clock());
       return response.json({ item: news });
     } catch (error) {
       return next(error);
