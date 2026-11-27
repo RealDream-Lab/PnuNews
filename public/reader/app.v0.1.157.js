@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.156.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.156.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.156.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.156.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.156.js';
+import { initDock } from '/shared/dock.v0.1.157.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.157.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.157.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.157.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.157.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1008,7 +1008,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.156.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.157.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1684,7 +1684,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.156.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.157.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1780,7 +1780,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.156.js');
+  accountModule ??= import('/shared/reader-account.v0.1.157.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1954,7 +1954,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.156.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.157.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2603,7 +2603,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.156.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.157.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

@@ -1,6 +1,8 @@
 // "Next astronomical / religious event" card, the first card of the important-news strip on the public reader.
 //
-// It appears only when the visitor allows the browser to share the position. The position never leaves the browser:
+// It appears only when the visitor allows the browser to share the position. The position never leaves the browser, and it follows
+// a traveller: it is renewed after ten minutes (also while the page stays open), a remembered position is painted at once only
+// while it is fresh, and a new place always restarts the countdown (see the constants below). The position never leaves the browser:
 // the times are computed here with praytime.js (University of Tehran method, Jafari midnight) and the place name is
 // the nearest city of the bundled list (iran-cities.v1.json). When the visitor refuses (or ignores the question),
 // the browser is asked again the next calendar day, not on every visit.
@@ -24,7 +26,13 @@ export const KEYS = {
   asked: 'pnu.geo.asked', // local day (YYYY-MM-DD) of the last question / refusal: the browser is asked again the next day
 };
 const CACHE_MAX_AGE = 7 * DAY; // a remembered position older than this is not used
-const REFRESH_AFTER = 3 * 36e5; // a granted permission refreshes the position when the remembered one is older than this
+// A traveller: one degree of longitude is about four minutes of prayer time (a city half an hour away is two or three minutes off),
+// so with the permission granted the position is renewed when it is older than ten minutes, on opening the page, on coming back to
+// it, and every few minutes while it stays open.
+const REFRESH_AFTER = 10 * 60e3;
+const RETRY_AFTER = 2 * 60e3; // a renewal that fails (no signal in a tunnel) is tried again after this
+const SHOW_REMEMBERED_MAX = 30 * 60e3; // a remembered position older than this is not painted before a new one is known (the visitor may have moved)
+const FALLBACK_MAX = 3 * 36e5; // with no way to get a new one (no signal, no question allowed), a position this old is still better than no card
 
 // ---------- Pure calculations (no browser needed; covered by tests) ----------
 
@@ -124,6 +132,9 @@ export function createPrayerCard({
   let current = null; // the event being counted down to
   let view = null;
   let interval = 0;
+  let granted = false; // the permission is known to be granted: the position may be renewed without asking
+  let locating = false;
+  let lastAttempt = 0; // when the last position request was made (a failing one is not repeated every few seconds)
 
   const read = (key) => { try { return storage?.getItem(key) ?? null; } catch { return null; } };
   const write = (key, value) => { try { if (value == null) storage?.removeItem(key); else storage?.setItem(key, value); } catch { /* storage unavailable */ } };
@@ -176,14 +187,35 @@ export function createPrayerCard({
       geolocation.getCurrentPosition(
         (result) => resolve({ ok: true, lat: result.coords.latitude, lon: result.coords.longitude }),
         (error) => resolve({ ok: false, code: error?.code }),
-        { enableHighAccuracy: false, timeout: 12000, maximumAge: 10 * 60 * 1000 },
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 60 * 1000 }, // never an answer older than a minute: a moving visitor needs the present place
       );
     } catch {
       resolve({ ok: false, code: 0 });
     }
   });
 
+  // The last remembered position as a fallback, when a new one cannot be had.
+  function useRemembered(maxAge) {
+    if (position) return;
+    const saved = remembered();
+    if (!saved || now() - saved.at > maxAge) return;
+    position = { lat: saved.lat, lon: saved.lon, ...(typeof saved.city === 'string' && saved.city ? { city: saved.city } : {}) };
+    positionAt = saved.at;
+    publish();
+  }
+
   async function locate() {
+    if (locating) return;
+    locating = true;
+    lastAttempt = now();
+    try {
+      await locateOnce();
+    } finally {
+      locating = false;
+    }
+  }
+
+  async function locateOnce() {
     const result = await getPosition();
     if (result.ok) {
       const lat = Math.round(result.lat * 100) / 100; // about 1 km is plenty for prayer times
@@ -191,12 +223,13 @@ export function createPrayerCard({
       const same = position && position.lat === lat && position.lon === lon;
       position = { lat, lon, ...(same && position.city ? { city: position.city } : {}) };
       positionAt = now();
+      if (!same) current = null; // another place: the event and its time are worked out again for it (not kept from the old one)
       write(KEYS.position, JSON.stringify({ ...position, at: positionAt }));
       publish();
     } else if (result.code === 1) { // refused (or the question was dismissed): hide the card and ask again tomorrow
       write(KEYS.asked, dayKey(now()));
       forget();
-    } // other errors (no signal, timeout): stay as we are and try on the next visit
+    } else useRemembered(FALLBACK_MAX); // other errors (no signal, timeout): what is known, if recent enough, and try again soon
   }
 
   async function permissionState() {
@@ -222,18 +255,21 @@ export function createPrayerCard({
       forget();
       return;
     }
-    if (state === 'granted') {
+    granted = state === 'granted';
+    if (granted) {
       if (!saved || now() - saved.at > REFRESH_AFTER) await locate();
       return;
     }
     // "prompt" (or a browser without the Permissions API): ask at most once a day, and not at all while a recent position is known.
-    if (saved && now() - saved.at < DAY) return;
-    if (read(KEYS.asked) === dayKey(now())) return;
+    if (saved && now() - saved.at <= SHOW_REMEMBERED_MAX) return;
+    if (read(KEYS.asked) === dayKey(now())) { useRemembered(FALLBACK_MAX); return; }
     write(KEYS.asked, dayKey(now()));
     await locate();
   }
 
   function tick() {
+    // While the page stays open (in a moving car, say) a granted permission keeps the place current.
+    if (granted && position && !locating && !globalThis.document?.hidden && now() - positionAt > REFRESH_AFTER && now() - lastAttempt >= RETRY_AFTER) locate();
     if (!position) return;
     const before = view ? `${view.key}|${view.countdown}|${view.at}` : '';
     recompute();
@@ -247,7 +283,7 @@ export function createPrayerCard({
       if (shownRemembered) return Boolean(position);
       shownRemembered = true;
       const saved = remembered();
-      if (saved) {
+      if (saved && now() - saved.at <= SHOW_REMEMBERED_MAX) { // an older one might be another city by now: wait for a new position
         position = { lat: saved.lat, lon: saved.lon, ...(typeof saved.city === 'string' && saved.city ? { city: saved.city } : {}) };
         positionAt = saved.at;
         publish();
