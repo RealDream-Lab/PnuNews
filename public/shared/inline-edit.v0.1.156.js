@@ -5,8 +5,8 @@
 //
 // This module is loaded only when /api/auth/viewer reports a signed-in user, so ordinary readers never download it.
 // The server is the authority: every save goes through PUT /api/admin/news/:id, which re-checks the permission.
-import { fetchOrExplain } from '/shared/network-error.v0.1.154.js';
-import { initRichEditor } from '/shared/rich-editor.v0.1.154.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.156.js';
+import { initRichEditor } from '/shared/rich-editor.v0.1.156.js';
 
 const PENCIL = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4Zm9.5-13.5 4 4"/></svg>';
 
@@ -272,6 +272,9 @@ export function initInlineEdit({ roots, showToast = () => {}, onSaved = () => {}
       form.elements.news_type.value = item.news_type === 'announcement' ? 'announcement' : 'news';
       form.elements.is_pinned.checked = Boolean(item.is_pinned);
       form.elements.is_urgent.checked = Boolean(item.is_urgent);
+      // Past the flags' lifetime (72 hours after publishing, decided by the server) «important» and «urgent» mean nothing and cannot be
+      // changed any more: the two choices are not shown at all.
+      dialog.querySelector('.edit-flags').hidden = Boolean(item.flags_expired);
       body.innerHTML = item.body_html || '';
       current = { id, item, snapshot: '' };
       current.snapshot = snapshotOf(form, body);
@@ -310,7 +313,7 @@ export function initInlineEdit({ roots, showToast = () => {}, onSaved = () => {}
           news_type: form.elements.news_type.value === 'announcement' ? 'announcement' : 'news',
         }),
       });
-      for (const [flag, field] of [['pin', 'is_pinned'], ['urgent', 'is_urgent']]) {
+      for (const [flag, field] of item.flags_expired ? [] : [['pin', 'is_pinned'], ['urgent', 'is_urgent']]) {
         const wanted = form.elements[field].checked;
         if (wanted !== Boolean(item[field])) await api(`/api/admin/news/${id}/${flag}`, { method: 'POST', body: JSON.stringify({ enabled: wanted }) });
       }

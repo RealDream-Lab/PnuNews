@@ -275,12 +275,12 @@ function makeHtmlShell({ title, summary, image, canonical, siteTitle }) {
 ${imageMeta}
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(summary)}">
-<link rel="stylesheet" href="/reader/styles.v0.1.154.css">
-<script src="/shared/theme.v0.1.154.js"></script>
+<link rel="stylesheet" href="/reader/styles.v0.1.156.css">
+<script src="/shared/theme.v0.1.156.js"></script>
 </head>
 <body>
 <main id="app" class="reader-app"><header class="site-header"><a href="/">${escapeHtml(siteTitle)}</a></header><article class="news-page"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(summary)}</p><p>برای مشاهدهٔ کامل خبر، برنامهٔ مرورگر خود را به‌روز کنید.</p></article></main>
-<script type="module" src="/reader/app.v0.1.154.js"></script>
+<script type="module" src="/reader/app.v0.1.156.js"></script>
 </body>
 </html>`;
 }
@@ -367,6 +367,12 @@ export function createPublicRouter({ pool, config, clock = Date.now, fetchImpl =
     response.type('image/svg+xml');
     response.setHeader('X-Content-Type-Options', 'nosniff');
     return response.send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="#${color}"/></svg>`);
+  });
+
+  // The server's clock, for the calendar card (the phone's own clock may be wrong). Not cached, nothing else in the answer.
+  router.get('/api/public/time', feedRateLimit, (request, response) => {
+    response.setHeader('Cache-Control', 'no-store');
+    response.json({ now: clock() });
   });
 
   router.get('/api/public/config', async (request, response, next) => {
