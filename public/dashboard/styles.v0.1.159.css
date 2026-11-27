@@ -485,3 +485,4 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .readers-inbound-log{list-style:none;margin:0;padding:0;display:grid;gap:.4rem}
 .readers-inbound-log li{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;font-size:.82rem}
 .readers-inbound-log .is-confirmed{color:var(--success)}
+.flag-toggle{min-width:44px}.flag-toggle[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--surface)}.flag-toggle[data-flag="urgent"][aria-pressed="true"]{background:var(--danger);border-color:var(--danger)}.flag-toggle:disabled{opacity:.55;cursor:progress}.table td>.compact-actions{flex-wrap:wrap;justify-content:flex-start}

@@ -2,8 +2,10 @@ import { hashToken } from '../auth/sessions.js';
 
 // A signed-in dashboard user is also a reader of the news page: the page asks /api/reader/me, and when there is no reader session
 // but the dashboard session cookie is valid, the answer is the reader account linked to that user (reader_users.staff_user_id).
-// No second login, no reader session row and no reader cookie: the identity follows the dashboard session, so signing out of the
-// dashboard, deactivating the user or deleting it ends it at once. The account has no phone number; its card shows the post.
+// That first visit also gives the browser a normal reader session (long-lived, like every reader's), so the news page keeps the
+// account after the 24-hour dashboard session ends. What still ends it at once: signing out of the dashboard in that browser,
+// "sign out everywhere", a password change or reset, a 2FA reset, deactivating the user, or deleting it (see revokeStaffReaderSessions
+// and the `su.is_active` check in readerAuth). The account has no phone number; its card shows the post.
 
 const ROLE_LABELS = Object.freeze({
   super_admin: 'مدیر ارشد',
@@ -63,4 +65,12 @@ export async function staffReaderFromRequest(pool, token) {
     reader = { ...reader, first_name: first, last_name: last, unit_id: staff.region_id };
   }
   return reader ? { row: reader, staff: staffView(staff) } : null;
+}
+
+// Ends every reader session of the user's linked account (all devices). Called wherever the dashboard sessions are all revoked.
+export function revokeStaffReaderSessions(db, staffUserId) {
+  return db.execute(
+    'DELETE s FROM reader_sessions s JOIN reader_users u ON u.id = s.user_id WHERE u.staff_user_id = ?',
+    [staffUserId],
+  );
 }

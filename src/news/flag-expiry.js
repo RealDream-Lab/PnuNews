@@ -9,3 +9,9 @@ export function flagsHaveExpired(publishedAt, now = Date.now()) {
   const time = new Date(publishedAt).getTime();
   return Number.isFinite(time) && now - time >= FLAG_LIFETIME_MS;
 }
+
+// Lists in the panel show the «مهم» / «فوری» buttons only on published news that is still inside the window.
+// The server decides (its own clock), the same way the single-news answer does with `flags_expired`.
+export function flagsExpiredFor(news, now = Date.now()) {
+  return news?.status === 'published' && flagsHaveExpired(news.published_at, now);
+}

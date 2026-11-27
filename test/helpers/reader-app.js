@@ -27,7 +27,7 @@ export const CLIENT = { baseUrl: 'https://edge.ippanel.com/v1', apiKey: 'SECRET-
 // ---------- an in-memory database that answers exactly the statements the reader code uses ----------
 
 export function memoryDatabase({ settings = {} } = {}) {
-  const db = { staffSessions: new Map(), settings: new Map(Object.entries(settings)), otps: [], challenges: [], inboundLog: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
+  const db = { staffSessions: new Map(), staffUsers: new Map(), settings: new Map(Object.entries(settings)), otps: [], challenges: [], inboundLog: [], users: [], sessions: [], smsLog: [], audit: [], regions: [{ id: 51, type: 'city', visibility_override: 'auto' }, { id: 50, type: 'province', visibility_override: 'auto' }], counters: {}, statements: [] };
   const id = (table) => { db.counters[table] = (db.counters[table] ?? 0) + 1; return db.counters[table]; };
   const duplicate = (key, value) => Object.assign(new Error(`Duplicate entry '${value}' for key '${key}'`), { code: 'ER_DUP_ENTRY' });
   const rows = (list) => [list, []];
@@ -75,7 +75,15 @@ export function memoryDatabase({ settings = {} } = {}) {
     [/^DELETE FROM reader_sessions WHERE user_id = \? AND id NOT IN/, ([userId]) => { const keep = new Set(db.sessions.filter((s) => s.user_id === userId).sort((a, b) => b.id - a.id).slice(0, 10).map((s) => s.id)); db.sessions = db.sessions.filter((s) => s.user_id !== userId || keep.has(s.id)); return done(); }],
     [/^DELETE FROM reader_sessions WHERE expires_at < \?$/, ([at]) => { db.sessions = db.sessions.filter((s) => !(s.expires_at < at)); return done(); }],
     [/^DELETE FROM reader_sessions WHERE token_hash = \?$/, ([hash]) => { db.sessions = db.sessions.filter((s) => s.token_hash !== hash); return done(); }],
-    [/^SELECT s\.id AS session_id, s\.last_seen_at, u\.id, u\.phone/, ([hash, now]) => rows(db.sessions.filter((s) => s.token_hash === hash && s.expires_at > now).map((s) => ({ session_id: s.id, last_seen_at: s.last_seen_at, ...userRow(db.users.find((u) => u.id === s.user_id)) })).slice(0, 1))],
+    // A reader session; for a dashboard user's linked account it also carries the user's post and place, and it dies with an inactive user.
+    [/^SELECT s\.id AS session_id, s\.last_seen_at, u\.id, u\.phone/, ([hash, now]) => rows(db.sessions.filter((s) => s.token_hash === hash && s.expires_at > now).map((s) => {
+      const user = db.users.find((u) => u.id === s.user_id);
+      const staff = user.staff_user_id ? db.staffUsers.get(user.staff_user_id) : null;
+      if (user.staff_user_id && !staff?.is_active) return null;
+      return { session_id: s.id, last_seen_at: s.last_seen_at, ...userRow(user), staff_user_id: user.staff_user_id ?? null, ...(staff ? { staff_full_name: staff.full_name, staff_role: staff.role, staff_region_id: staff.region_id, domain_name: staff.domain_name, level: staff.level, region_name: staff.region_name, parent_name: staff.parent_name } : {}) };
+    }).filter(Boolean).slice(0, 1))],
+    [/^DELETE s FROM reader_sessions s JOIN reader_users u ON u\.id = s\.user_id WHERE s\.token_hash = \? AND u\.staff_user_id IS NOT NULL$/, ([hash]) => { const before = db.sessions.length; db.sessions = db.sessions.filter((s) => !(s.token_hash === hash && db.users.find((u) => u.id === s.user_id)?.staff_user_id)); return done({ affectedRows: before - db.sessions.length }); }],
+    [/^DELETE s FROM reader_sessions s JOIN reader_users u ON u\.id = s\.user_id WHERE u\.staff_user_id = \?$/, ([staffId]) => { const before = db.sessions.length; db.sessions = db.sessions.filter((s) => db.users.find((u) => u.id === s.user_id)?.staff_user_id !== staffId); return done({ affectedRows: before - db.sessions.length }); }],
     // ---- dashboard users as readers (linked accounts) ----
     [/^SELECT u\.id AS staff_id, u\.full_name, u\.role, u\.region_id, d\.name AS domain_name, r\.type AS level, r\.name AS region_name, p\.name AS parent_name FROM sessions s/, ([hash]) => rows([db.staffSessions.get(Buffer.from(hash).toString('hex'))].filter(Boolean).map((x) => ({ ...x })))],
     [/^SELECT id, phone, first_name, last_name, is_student, student_no, unit_id FROM reader_users WHERE staff_user_id = \? LIMIT 1$/, ([staffId]) => rows(db.users.filter((u) => u.staff_user_id === staffId).slice(0, 1).map(userRow))],

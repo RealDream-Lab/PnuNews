@@ -28,6 +28,8 @@ import {
 } from '../auth/sessions.js';
 
 import { createRateLimiter } from '../lib/ratelimit.js';
+import { clearReaderCookie, hashReaderToken, readReaderToken } from '../lib/reader-session.js';
+import { revokeStaffReaderSessions } from '../lib/staff-reader.js';
 
 // Per (client address, username): stops one client guessing.
 const FAILURE_THRESHOLD = 5;
@@ -414,6 +416,16 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
         await pool.execute('DELETE FROM sessions WHERE token_hash = ?', [hashToken(token)]);
         if (rows[0]) await audit(pool, rows[0].user_id, 'auth.logout', 'user', rows[0].user_id, request);
       }
+      // Signing out of the dashboard also ends this browser's reader session of the user's own linked account (it outlives the
+      // 24-hour dashboard session on purpose, but an explicit sign-out must cut it). A real reader's own session is left alone.
+      const readerToken = readReaderToken(request, config.nodeEnv);
+      if (readerToken) {
+        const [ended] = await pool.execute(
+          'DELETE s FROM reader_sessions s JOIN reader_users u ON u.id = s.user_id WHERE s.token_hash = ? AND u.staff_user_id IS NOT NULL',
+          [hashReaderToken(readerToken)],
+        );
+        if (ended?.affectedRows) clearReaderCookie(response, config.nodeEnv);
+      }
       const pendingToken = readCookie(request, 'pending', config.nodeEnv);
       pendingStore.delete(pendingToken);
       clearOpaqueCookie(response, 'session', config.nodeEnv);
@@ -492,6 +504,7 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
           [passwordHash, request.user.id],
         );
         await connection.execute('DELETE FROM sessions WHERE user_id = ?', [request.user.id]);
+        await revokeStaffReaderSessions(connection, request.user.id);
         await connection.execute(
           `INSERT INTO audit_log (user_id, action, entity, entity_id, ip)
            VALUES (?, 'auth.password_changed', 'user', ?, ?)`,
@@ -540,6 +553,7 @@ export function createAuthRouter({ pool, config, clock = Date.now }) {
       try {
         await connection.beginTransaction();
         await connection.execute('DELETE FROM sessions WHERE user_id = ?', [request.user.id]);
+        await revokeStaffReaderSessions(connection, request.user.id);
         await connection.execute(
           `INSERT INTO audit_log (user_id, action, entity, entity_id, ip)
            VALUES (?, 'auth.sessions_revoked', 'user', ?, ?)`,
