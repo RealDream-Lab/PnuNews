@@ -296,7 +296,7 @@ test('the reader loads the card lazily, keeps clicks away from it and the server
   assert.ok(reader.includes(`import('/shared/prayer-card.v${version}.js')`));
   assert.ok(!/^import .*prayer-card/m.test(reader), 'not a static import: a missing file must not break the reader');
   assert.ok(!/prayer-card[^\n]*data-news-id/.test(reader));
-  const raceAt = reader.indexOf('await Promise.race([prayerReady');
+  const raceAt = reader.indexOf('await Promise.race([Promise.all([prayerReady');
   const stripAt = reader.indexOf('pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join(\'\');', raceAt);
   const gateAt = reader.indexOf('openPrayerGate();', stripAt);
   assert.ok(raceAt > 0 && stripAt > raceAt && gateAt > stripAt, 'the first strip render waits for the card, builds the news cards, then opens the gate for the card in the same step');

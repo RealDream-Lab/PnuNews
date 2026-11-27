@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.157.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.157.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.157.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.157.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.157.js';
+import { initDock } from '/shared/dock.v0.1.158.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.158.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.158.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.158.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.158.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -43,6 +43,10 @@ accountButton.hidden = true;
 // whatever happens, and the stylesheet lifts it by itself after 12 s even if this script never runs.
 const pageLoader = document.getElementById('page-loader');
 let loaderDone = false;
+// The server's clock for the calendar card is part of the first screen: the loading layer and the first strip wait for its first answer
+// (or its failure), so the card is there when the layer lifts and does not pop in afterwards.
+let resolveServerTime = () => {};
+const serverTimeReady = new Promise((resolve) => { resolveServerTime = resolve; });
 async function finishLoading() {
   if (loaderDone || !pageLoader) return;
   loaderDone = true;
@@ -56,7 +60,7 @@ async function finishLoading() {
   };
   const pictures = [...document.querySelectorAll('.news-card img, .pinned-card img, .news-page img')].filter(inView).slice(0, 6);
   await Promise.race([
-    Promise.all([document.fonts?.ready, ...pictures.map(settle)]),
+    Promise.all([document.fonts?.ready, serverTimeReady, ...pictures.map(settle)]),
     new Promise((resolve) => setTimeout(resolve, 1800)),
   ]);
   // Two frames: what shows under the layer when it starts to fade is the finished layout, not a half-drawn one.
@@ -695,8 +699,9 @@ async function loadMore() {
       const pinned = Array.isArray(data.pinned) ? data.pinned : [];
       state.pinnedIds = new Set(pinned.map((item) => Number(item.id)));
       state.pinnedSig = pinnedSignature(pinned);
-      // The prayer card is waited for (a moment at most) so that it is painted together with the urgent/important cards.
-      await Promise.race([prayerReady, new Promise((resolve) => setTimeout(resolve, 600))]);
+      // The prayer card and the server's time (for the calendar card) are waited for (a moment at most) so that the cards of the strip are
+      // painted together with the urgent/important cards, in their final order, and nothing is added after the loading layer has lifted.
+      await Promise.race([Promise.all([prayerReady, serverTimeReady]), new Promise((resolve) => setTimeout(resolve, 600))]);
       pinnedStrip.hidden = !pinned.length;
       if (pinned.length) pinnedStrip.innerHTML = pinned.map(pinnedMarkup).join('');
       openPrayerGate();
@@ -988,11 +993,12 @@ async function syncServerTime() {
   const asked = Date.now();
   try {
     const response = await fetch('/api/public/time', { cache: 'no-store' });
-    if (!response.ok) return;
-    const { now } = await response.json();
-    if (!Number.isFinite(now)) return;
-    serverOffset = now + (Date.now() - asked) / 2 - Date.now(); // the answer is about half the round trip old
+    if (response.ok) {
+      const { now } = await response.json();
+      if (Number.isFinite(now)) serverOffset = now + (Date.now() - asked) / 2 - Date.now(); // the answer is about half the round trip old
+    }
   } catch { /* offline: the card stays as it was (or hidden) */ }
+  resolveServerTime(); // the first answer, or its failure, lets the loading layer and the first strip go on
   syncPrayerCard();
 }
 syncServerTime();
@@ -1008,7 +1014,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.157.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.158.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1684,7 +1690,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.157.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.158.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1780,7 +1786,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.157.js');
+  accountModule ??= import('/shared/reader-account.v0.1.158.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1954,7 +1960,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.157.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.158.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2603,7 +2609,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.157.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.158.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
