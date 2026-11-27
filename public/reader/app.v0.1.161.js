@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.160.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.160.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.160.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.160.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.160.js';
+import { initDock } from '/shared/dock.v0.1.161.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.161.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.161.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.161.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.161.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1014,7 +1014,7 @@ setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 // asked a moment after the first paint instead.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.160.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.161.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1533,8 +1533,8 @@ function toggleSaved(item, button) {
       : 'ذخیرهٔ خبر ممکن نشد.');
     return;
   }
-  if (!result.saved) showToast('از خبرهای ذخیره‌شده حذف شد');
-  else showToast(bookmarks.persistent ? 'خبر ذخیره شد' : 'مرورگر اجازهٔ ذخیره‌سازی نمی‌دهد؛ نشانک‌ها فقط تا بستن صفحه می‌مانند.');
+  if (!result.saved) showToast('از نشانک‌ها حذف شد');
+  else showToast(bookmarks.persistent ? 'به نشانک‌ها افزوده شد' : 'مرورگر اجازهٔ ذخیره‌سازی نمی‌دهد؛ نشانک‌ها فقط تا بستن صفحه می‌مانند.');
   if (result.saved && button) {
     button.classList.remove('is-popping');
     void button.offsetWidth; // restart the animation
@@ -1690,7 +1690,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.160.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.161.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1786,7 +1786,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.160.js');
+  accountModule ??= import('/shared/reader-account.v0.1.161.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1960,7 +1960,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.160.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.161.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2517,7 +2517,7 @@ function handleNewsPageClick(event) {
   const unsave = event.target.closest('[data-unsave-missing]');
   if (unsave) {
     bookmarks.remove(unsave.dataset.unsaveMissing);
-    showToast('از خبرهای ذخیره‌شده حذف شد');
+    showToast('از نشانک‌ها حذف شد');
     unsave.remove();
   }
 }
@@ -2609,7 +2609,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.160.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.161.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
