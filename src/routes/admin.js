@@ -285,7 +285,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
         values.push(...visibility.values);
       }
       const where = clauses.join(' AND ');
-      const [countRows, latest, mostViewed] = await Promise.all([
+      const [countRows, latest] = await Promise.all([
         pool.execute(
           `SELECT COUNT(*) AS total, SUM(n.status = 'draft') AS drafts,
                   SUM(n.status = 'scheduled') AS scheduled, SUM(n.status = 'published') AS published,
@@ -298,12 +298,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
            WHERE ${where} ORDER BY n.updated_at DESC, n.id DESC LIMIT 10`,
           values,
         ),
-        pool.execute(
-          `SELECT n.id, n.title, n.status, n.published_at, n.view_count, n.source_url
-           FROM news n JOIN users creator ON creator.id = n.created_by
-           WHERE ${where} ORDER BY n.view_count DESC, n.id DESC LIMIT 10`,
-          values,
-        ),
       ]);
       const counts = countRows[0][0];
       return response.json({
@@ -312,7 +306,7 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
           scheduled: Number(counts.scheduled ?? 0), published: Number(counts.published ?? 0),
           views: Number(counts.views),
         },
-        latest: latest[0].map((item) => ({ ...item, flags_expired: flagsExpiredFor(item, clock()) })), most_viewed: mostViewed[0],
+        latest: latest[0].map((item) => ({ ...item, flags_expired: flagsExpiredFor(item, clock()) })),
       });
     } catch (error) {
       return next(error);
