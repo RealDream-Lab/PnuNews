@@ -1,0 +1,12 @@
+{
+  "appId": "ir.realdream.news",
+  "appName": "اخبار پیام‌نور",
+  "webDir": "capacitor-web",
+  "server": {
+    "url": "https://news.myecity.ir",
+    "cleartext": false,
+    "allowNavigation": [
+      "news.myecity.ir"
+    ]
+  }
+}
