@@ -29,6 +29,6 @@ The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## GitHub Actions
 
-Pushing to `android-capacitor-prototype` runs `.github/workflows/android-capacitor-sample.yml` and builds a signed release APK. Configure these repository Actions secrets first: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. The workflow decodes the keystore only in the temporary runner directory and removes it after the build. Download the `PnuNews-android-release-<commit>` artifact from the run. It uses the run number as Android `versionCode` and the project version as `versionName`.
+Pushing to `main` runs `.github/workflows/android-capacitor-sample.yml` and builds a signed release APK. Configure these repository Actions secrets first: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. The workflow decodes the keystore only in the temporary runner directory and removes it after the build. Download the `PnuNews-android-release-<commit>` artifact from the run. It uses the run number as Android `versionCode` and the project version as `versionName`.
 
-This workflow is intentionally scoped to the prototype branch. The artifact is signed for testing, but the remote-WebView approach still needs a production decision and validation before any Bazaar release.
+The artifact is signed for testing, but the remote-WebView approach still needs a production decision and validation before any Bazaar release.

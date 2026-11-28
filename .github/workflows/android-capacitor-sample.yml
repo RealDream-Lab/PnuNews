@@ -3,7 +3,7 @@ name: Capacitor Android release-signing test
 on:
   push:
     branches:
-      - android-capacitor-prototype
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     env:
       ANDROID_VERSION_CODE: ${{ github.run_number }}
     steps:
-      - name: Check out prototype branch
+      - name: Check out source branch
         uses: actions/checkout@v4
 
       - name: Set up Node.js
