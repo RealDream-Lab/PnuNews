@@ -309,6 +309,7 @@ test('the prayer card is controlled by a saved settings switch and requests loca
   assert.ok(reader.includes("matchMedia('(pointer: coarse)')"), 'desktop does not load or show the location card');
   assert.ok(reader.includes('card.requestLocation()'), 'the first switch-on triggers location');
   assert.ok(reader.includes('card.showSaved()'), 'later switch-ons only restore the saved position');
+  assert.ok(reader.includes('if (!card.showSaved()) card.start()'), 'a later switch can use a location after browser permission is manually granted');
   assert.ok(reader.includes("const PRAYER_REQUESTED_KEY = 'pnu.geo.requested'"), 'the first request is remembered on this device');
   assert.ok(reader.includes("} else if (key === 'prayer') {\n    setPrayerPreference(prefs.prayer);"), 'the switch controls visibility without reloading the feed');
   assert.ok(!reader.includes("event.target.closest('.prayer-location-request')"), 'location is not requested from an in-card prompt');

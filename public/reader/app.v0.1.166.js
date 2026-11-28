@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.165.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.165.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.165.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.165.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.165.js';
+import { initDock } from '/shared/dock.v0.1.166.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.166.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.166.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.166.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.166.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -1016,7 +1016,7 @@ let prayerCard = null;
 let prayerLocationRequested = false;
 try { prayerLocationRequested = localStorage.getItem(PRAYER_REQUESTED_KEY) === '1'; } catch {}
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.165.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.166.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
@@ -1037,7 +1037,7 @@ function setPrayerPreference(enabled) {
   loadPrayerCard().then((card) => {
     if (!prefs.prayer || !prayerPointer.matches) return;
     if (prayerLocationRequested) {
-      card.showSaved();
+      if (!card.showSaved()) card.start().catch(() => {}); // a later browser-level grant can supply a missing position without another prompt
       return;
     }
     prayerLocationRequested = true;
@@ -1720,7 +1720,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.165.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.166.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1816,7 +1816,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.165.js');
+  accountModule ??= import('/shared/reader-account.v0.1.166.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -2001,7 +2001,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.165.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.166.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2650,7 +2650,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.165.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.166.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {
