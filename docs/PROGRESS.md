@@ -355,3 +355,4 @@
 ## گام بعدی
 
 - برای cutover نهایی، پس از مشخص‌شدن دامنهٔ اصلی، `PUBLIC_URL` و Nginx Proxy Manager را هماهنگ و restart نهایی/health و ورود HTTPS را تأیید کنید. روند update و دستورات backup در `docs/OPERATIONS.md` ثبت شده‌اند.
+- v0.1.163: فعال/غیرفعال‌سازی کلی کاربران در «ساختار و کاربران» حذف شد: دو دکمه، `POST /api/admin/users/bulk-active`، `src/lib/bulk-users.js` و آزمونش. برچسب‌های `user.bulk_activate` / `user.bulk_deactivate` فقط برای نمایش ردهای قدیمیِ گزارش فعالیت در داشبورد مانده‌اند.

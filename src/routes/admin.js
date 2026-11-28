@@ -12,7 +12,6 @@ import { appEvents } from '../events.js';
 import { compareUsersForTree, groupUsersForTree } from '../lib/user-tree.js';
 import { createNewsAdminRouter } from './news-admin.js';
 import { revokeStaffReaderSessions } from '../lib/staff-reader.js';
-import { bulkSetActive } from '../lib/bulk-users.js';
 import { flagsExpiredFor } from '../news/flag-expiry.js';
 import { createAttachmentDeleteRouter } from './news-attachments.js';
 import { createCategoryAdminRouter } from './categories-admin.js';
@@ -493,31 +492,6 @@ export function createAdminRouter({ pool, config, clock = Date.now, uploadRoot, 
     } catch (error) {
       if (error.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: USERNAME_TAKEN });
       return next(error);
-    }
-  });
-
-  // Switch every dashboard user off or on at once (main admin only). Never touched: the main admin(s) and the system account
-  // (the portal robot). Switching off ends all sessions of those users. Switching on keeps the «one active admin per unit and one
-  // active user per work domain per unit» rule: users are tried most-recent-login first and one that would break the rule is
-  // skipped, then counted in `skipped`.
-  router.post('/users/bulk-active', async (request, response, next) => {
-    if (!canManageRegion(request.user)) return response.status(403).json({ error: 'فقط مدیر ارشد می‌تواند همهٔ کاربران را یکجا فعال یا غیرفعال کند.' });
-    const wanted = request.body?.active;
-    if (typeof wanted !== 'boolean') return response.status(400).json({ error: 'مقدار active باید true یا false باشد.' });
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-      // Same lock the single activation takes (per region), here for all of them, so two requests cannot both pass the conflict check.
-      await connection.query('SELECT id FROM regions FOR UPDATE');
-      const { changed, skipped } = await bulkSetActive(connection, { actorId: request.user.id, wanted, findConflict: activeConflict });
-      await writeAudit(connection, request.user.id, wanted ? 'user.bulk_activate' : 'user.bulk_deactivate', 'user', null, request, { changed, skipped });
-      await connection.commit();
-      return response.json({ ok: true, active: wanted, changed, skipped });
-    } catch (error) {
-      await connection.rollback();
-      return next(error);
-    } finally {
-      connection.release();
     }
   });
 
