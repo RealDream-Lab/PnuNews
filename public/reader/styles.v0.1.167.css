@@ -326,6 +326,7 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .setting-list{display:grid;gap:0}.setting-list>*+*{margin-top:.5rem}
 .setting-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem .9rem;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft);cursor:pointer}
 .setting-row.is-disabled{opacity:.5;cursor:default}
+.setting-row[hidden]{display:none}
 .setting-text{display:grid;gap:0;min-width:0}
 .setting-text strong{font-weight:500;line-height:1.7}
 .setting-text small{color:var(--muted);font-size:.78rem;line-height:1.6}
