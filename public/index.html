@@ -14,8 +14,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="اخبار پیام‌نور">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="/reader/styles.v0.1.166.css">
-  <script src="/shared/theme.v0.1.166.js"></script>
+  <link rel="stylesheet" href="/reader/styles.v0.1.167.css">
+  <script src="/shared/theme.v0.1.167.js"></script>
   <title>اخبار پیام‌نور</title>
 </head>
 <body>
@@ -111,7 +111,7 @@
         <div id="autoplay-row" class="setting-collapse"><div class="setting-collapse-inner">
           <label class="setting-row"><span class="setting-text"><strong>پخش خودکار رادیو</strong><small>با باز شدن سایت، رادیو خودکار شروع به پخش می‌کند (در برخی مرورگرها پس از اولین لمس صفحه)</small></span><input type="checkbox" role="switch" class="switch" data-pref="autoplay"></label>
         </div></div>
-        <label id="prayer-row" class="setting-row"><span class="setting-text"><strong>کارت اوقات شرعی</strong><small>بار اول که روشن کنید، اجازهٔ موقعیت مکانی خواسته می‌شود؛ انتخاب فقط روی همین دستگاه می‌ماند.</small></span><input type="checkbox" role="switch" class="switch" data-pref="prayer"></label>
+        <label id="prayer-row" class="setting-row" hidden><span class="setting-text"><strong>کارت اوقات شرعی</strong><small>بار اول که روشن کنید، اجازهٔ موقعیت مکانی خواسته می‌شود؛ انتخاب فقط روی همین دستگاه می‌ماند.</small></span><input type="checkbox" role="switch" class="switch" data-pref="prayer" disabled></label>
         <label class="setting-row"><span class="setting-text"><strong>خبرهای سازمان مرکزی</strong><small>خبرها و اطلاعیه‌های سراسری</small></span><input type="checkbox" role="switch" class="switch" data-pref="country"></label>
         <label class="setting-row"><span class="setting-text"><strong id="pref-province-title">خبرهای استان من</strong><small>خبرهایی که برای کل استان منتشر شده است</small></span><input type="checkbox" role="switch" class="switch" data-pref="province"></label>
         <label class="setting-row"><span class="setting-text"><strong>خبرهای مراکز هم‌استانی</strong><small id="pref-siblings-hint">خبرهای دیگر مراکز دانشگاهی استان شما</small></span><input type="checkbox" role="switch" class="switch" data-pref="siblings"></label>
@@ -147,6 +147,6 @@
     <figure class="lightbox-figure"><img id="lightbox-image" class="lightbox-image" alt="" referrerpolicy="no-referrer"><figcaption id="lightbox-caption" class="lightbox-caption"></figcaption></figure>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="/reader/app.v0.1.166.js"></script>
+  <script type="module" src="/reader/app.v0.1.167.js"></script>
 </body>
 </html>

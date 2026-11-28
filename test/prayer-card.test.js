@@ -314,7 +314,9 @@ test('the prayer card is controlled by a saved settings switch and requests loca
   assert.ok(reader.includes("} else if (key === 'prayer') {\n    setPrayerPreference(prefs.prayer);"), 'the switch controls visibility without reloading the feed');
   assert.ok(!reader.includes("event.target.closest('.prayer-location-request')"), 'location is not requested from an in-card prompt');
   assert.match(reader, /const showPrayer = prayerPointer\.matches && prefs\.prayer/);
-  assert.match(html, /type="checkbox" role="switch" class="switch" data-pref="prayer"/);
+  assert.match(html, /<label id="prayer-row" class="setting-row" hidden>/, 'hidden by default until touch capability is confirmed');
+  assert.match(html, /type="checkbox" role="switch" class="switch" data-pref="prayer" disabled/);
+  assert.ok(reader.includes('row.hidden = input.disabled'), 'the option is hidden and disabled on desktop, then restored on touch devices');
   assert.ok(!/^import .*prayer-card/m.test(reader), 'not a static import: a missing file must not break the reader');
   assert.ok(!/prayer-card[^\n]*data-news-id/.test(reader));
   const raceAt = reader.indexOf('await Promise.race([Promise.all([prayerReady');
