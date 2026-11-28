@@ -512,6 +512,9 @@ html:has(dialog[open]){overflow:hidden;scrollbar-gutter:stable}
 .prayer-name{font-size:.95rem;line-height:1.7;font-weight:700}
 .prayer-time{direction:ltr;unicode-bidi:isolate;font-size:1.05rem;line-height:1.5;font-weight:700;font-variant-numeric:tabular-nums}
 .prayer-left{font-size:.76rem;line-height:1.6;color:var(--muted)}
+.prayer-location-message{font-size:.76rem;line-height:1.6;color:var(--muted)}
+.prayer-location-request{justify-self:start;margin-top:.3rem;padding:.4rem .7rem;border:1px solid var(--border);border-radius:9px;background:var(--surface-soft);color:var(--text);font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.prayer-location-request:disabled{opacity:.65;cursor:wait}
 
 /* ---------- Page loading layer: a spiral until the first screen is ready, then a soft fade ---------- */
 .page-loader{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:var(--bg);opacity:1;transition:opacity .55s ease,visibility 0s linear .55s;

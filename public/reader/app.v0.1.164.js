@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.163.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.163.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.163.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.163.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.163.js';
+import { initDock } from '/shared/dock.v0.1.164.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.164.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.164.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.164.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.164.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -937,24 +937,29 @@ function animateOut(node) {
 let prayerNode = null;
 let prayerView = null;
 let prayerModule = null;
+const prayerPointer = matchMedia('(pointer: coarse)');
 let prayerGate = false; // closed until the strip has been built once, so the card never shows up before / apart from the news cards
 function syncPrayerCard() {
   if (!prayerGate) return;
   const showAccount = !accountButton.hidden;
-  if (!prayerView) {
+  const showPrayer = prayerPointer.matches && prayerView;
+  if (!showPrayer) {
     prayerNode?.remove();
   } else if (!prayerNode) {
     prayerNode = document.createElement('article');
     prayerNode.className = 'prayer-card';
     prayerNode.setAttribute('role', 'group');
-    prayerNode.setAttribute('aria-label', 'رویداد نجومی و شرعی بعدی');
+    prayerNode.setAttribute('aria-label', 'اوقات شرعی');
+    prayerNode.addEventListener('click', (event) => {
+      if (event.target.closest('.prayer-location-request')) prayerCard?.then((card) => card.requestLocation());
+    });
   }
-  if (prayerView) prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
+  if (showPrayer) prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
   const showCalendar = paintCalendar();
   if (!showCalendar) calendarNode.remove();
   if (!showAccount) accountButton.remove();
   // The order of the strip: the account card, then the calendar card, then the prayer card, then the news cards.
-  const cards = [showAccount && accountButton, showCalendar && calendarNode, prayerView && prayerNode].filter(Boolean);
+  const cards = [showAccount && accountButton, showCalendar && calendarNode, showPrayer && prayerNode].filter(Boolean);
   cards.forEach((node, index) => {
     if (pinnedStrip.children[index] !== node) pinnedStrip.insertBefore(node, pinnedStrip.children[index] ?? null);
   });
@@ -1009,27 +1014,27 @@ function openPrayerGate() {
 }
 setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 
-// A visitor who allowed the position before has it remembered: the module is then loaded at once, in parallel with the
-// feed, and the card is ready for the first strip render. Without a remembered position (first visit) the question is
-// asked a moment after the first paint instead.
+// Geolocation is mobile-only. When permission is not already granted, the visitor taps the card's button so the browser's
+// permission prompt is tied to a clear user action instead of a delayed background request.
 let prayerCard = null;
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.163.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.164.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
   return prayerCard;
 }
-const prayerPositionRemembered = (() => {
-  try {
-    const saved = JSON.parse(localStorage.getItem('pnu.geo.pos'));
-    return Boolean(saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon) && Date.now() - saved.at <= 7 * 864e5);
-  } catch { return false; }
-})();
-const prayerReady = prayerPositionRemembered
-  ? loadPrayerCard().then((card) => card.showRemembered()).catch(() => false) // offline or an old browser: no card, nothing else changes
-  : Promise.resolve(false);
-setTimeout(() => loadPrayerCard().then((card) => card.start()).catch(() => {}), prayerPositionRemembered ? 0 : 1200);
+async function startPrayerCard() {
+  if (!prayerPointer.matches) return;
+  try { await (await loadPrayerCard()).start(); } catch { /* unsupported browser or offline: the reader remains usable */ }
+}
+const prayerReady = Promise.resolve(false);
+setTimeout(startPrayerCard, 1200);
+prayerPointer.addEventListener('change', (event) => {
+  if (event.matches) startPrayerCard();
+  else prayerCard?.then((card) => card.stop());
+  syncPrayerCard();
+});
 
 function renderPinnedStrip(pinned) {
   pinnedStrip.hidden = !pinned.length;
@@ -1690,7 +1695,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.163.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.164.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1786,7 +1791,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.163.js');
+  accountModule ??= import('/shared/reader-account.v0.1.164.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1960,7 +1965,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.163.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.164.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2609,7 +2614,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.163.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.164.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

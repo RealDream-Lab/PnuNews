@@ -58,7 +58,8 @@ test('the card shows the server\'s time: hidden until the server has answered, r
 });
 
 test('the strip order: the account card, then the calendar, then the prayer card, then the news', () => {
-  assert.match(app, /const cards = \[showAccount && accountButton, showCalendar && calendarNode, prayerView && prayerNode\]\.filter\(Boolean\);/);
+  assert.match(app, /const showPrayer = prayerPointer\.matches && prayerView;/);
+  assert.match(app, /const cards = \[showAccount && accountButton, showCalendar && calendarNode, showPrayer && prayerNode\]\.filter\(Boolean\);/);
   assert.match(app, /pinnedStrip\.insertBefore\(node, pinnedStrip\.children\[index\] \?\? null\)/);
   assert.match(app, /pinnedStrip\.hidden = !\(cards\.length \|\| pinnedStrip\.querySelector\('\[data-news-id\]'\)\);/);
 });

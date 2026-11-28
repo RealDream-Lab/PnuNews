@@ -1,11 +1,9 @@
 // "Next astronomical / religious event" card, the first card of the important-news strip on the public reader.
 //
-// It appears only when the visitor allows the browser to share the position. The position never leaves the browser, and it follows
-// a traveller: it is renewed after ten minutes (also while the page stays open), a remembered position is painted at once only
-// while it is fresh, and a new place always restarts the countdown (see the constants below). The position never leaves the browser:
-// the times are computed here with praytime.js (University of Tehran method, Jafari midnight) and the place name is
-// the nearest city of the bundled list (iran-cities.v1.json). When the visitor refuses (or ignores the question),
-// the browser is asked again the next calendar day, not on every visit.
+// It appears on coarse-pointer devices after the visitor explicitly enables location from the card. This user action makes the
+// browser's permission prompt visible instead of starting a delayed request in the background. The position never leaves the
+// browser; it follows a traveller and is renewed every ten minutes. Prayer times use praytime.js (University of Tehran method,
+// Jafari midnight), and the place name is the nearest city in iran-cities.v1.json.
 import { PrayTime } from './praytime.v3.2.js';
 
 export const EVENTS = [
@@ -23,7 +21,7 @@ const DAY = 864e5;
 const MAX_CITY_DISTANCE_KM = 150; // farther than this from any listed city the place is just "your location"
 export const KEYS = {
   position: 'pnu.geo.pos', // { lat, lon, at }: last known position (about 1 km precision), kept in this browser only
-  asked: 'pnu.geo.asked', // local day (YYYY-MM-DD) of the last question / refusal: the browser is asked again the next day
+  asked: 'pnu.geo.asked', // legacy key from the earlier automatic-prompt flow; no longer read or written
 };
 const CACHE_MAX_AGE = 7 * DAY; // a remembered position older than this is not used
 // A traveller: one degree of longitude is about four minutes of prayer time (a city half an hour away is two or three minutes off),
@@ -32,7 +30,7 @@ const CACHE_MAX_AGE = 7 * DAY; // a remembered position older than this is not u
 const REFRESH_AFTER = 10 * 60e3;
 const RETRY_AFTER = 2 * 60e3; // a renewal that fails (no signal in a tunnel) is tried again after this
 const SHOW_REMEMBERED_MAX = 30 * 60e3; // a remembered position older than this is not painted before a new one is known (the visitor may have moved)
-const FALLBACK_MAX = 3 * 36e5; // with no way to get a new one (no signal, no question allowed), a position this old is still better than no card
+
 
 // ---------- Pure calculations (no browser needed; covered by tests) ----------
 
@@ -107,6 +105,16 @@ const escapeText = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&'
 
 // Inner HTML of the card for a view made by the controller: place / event and its time / time left.
 export function prayerMarkup(view) {
+  if (view.kind === 'location') {
+    const message = view.status === 'denied'
+      ? 'دسترسی موقعیت مکانی در مرورگر بسته است؛ آن را در تنظیمات مرورگر فعال کنید.'
+      : view.status === 'error'
+        ? 'موقعیت دریافت نشد؛ اتصال را بررسی کنید و دوباره تلاش کنید.'
+        : 'برای نمایش اوقات شرعی، موقعیت مکانی را فعال کنید.';
+    const button = view.status === 'requesting' ? 'در حال دریافت موقعیت…' : view.status === 'denied' ? 'بعد از تغییر تنظیمات، تلاش کنید' : 'فعال‌کردن موقعیت مکانی';
+    return `<div class="prayer-place">اوقات شرعی</div><div class="prayer-location-message">${message}</div>`
+      + `<button class="prayer-location-request" type="button"${view.status === 'requesting' ? ' disabled' : ''}>${button}</button>`;
+  }
   const place = view.city ? escapeText(view.city) : 'موقعیت شما';
   return `<div class="prayer-place">${place}</div>`
     + `<div class="prayer-line"><strong class="prayer-name">${view.label}</strong><time class="prayer-time" datetime="${new Date(view.at).toISOString()}">${view.timeText}</time></div>`
@@ -134,6 +142,8 @@ export function createPrayerCard({
   let interval = 0;
   let granted = false; // the permission is known to be granted: the position may be renewed without asking
   let locating = false;
+  let active = false;
+  let locationState = null; // prompt, denied, requesting, or error while there is no usable current position
   let lastAttempt = 0; // when the last position request was made (a failing one is not repeated every few seconds)
 
   const read = (key) => { try { return storage?.getItem(key) ?? null; } catch { return null; } };
@@ -168,7 +178,8 @@ export function createPrayerCard({
   }
 
   function publish() {
-    recompute();
+    if (locationState) view = { kind: 'location', status: locationState };
+    else recompute();
     onChange(view);
     if (position && !cities && !citiesRequested) {
       citiesRequested = true;
@@ -216,8 +227,11 @@ export function createPrayerCard({
   }
 
   async function locateOnce() {
+    locationState = 'requesting';
+    publish();
     const result = await getPosition();
     if (result.ok) {
+      locationState = null;
       const lat = Math.round(result.lat * 100) / 100; // about 1 km is plenty for prayer times
       const lon = Math.round(result.lon * 100) / 100;
       const same = position && position.lat === lat && position.lon === lon;
@@ -226,10 +240,18 @@ export function createPrayerCard({
       if (!same) current = null; // another place: the event and its time are worked out again for it (not kept from the old one)
       write(KEYS.position, JSON.stringify({ ...position, at: positionAt }));
       publish();
-    } else if (result.code === 1) { // refused (or the question was dismissed): hide the card and ask again tomorrow
-      write(KEYS.asked, dayKey(now()));
-      forget();
-    } else useRemembered(FALLBACK_MAX); // other errors (no signal, timeout): what is known, if recent enough, and try again soon
+    } else if (result.code === 1) {
+      locationState = 'denied';
+      position = null;
+      current = null;
+      write(KEYS.position, null);
+      publish();
+    } else {
+      locationState = 'error';
+      position = null;
+      current = null;
+      publish();
+    }
   }
 
   async function permissionState() {
@@ -243,7 +265,7 @@ export function createPrayerCard({
 
   let watched = null;
   async function check() {
-    if (!geolocation) return;
+    if (!active || !geolocation) return;
     const { state, status } = await permissionState();
     if (status && status !== watched) { // the visitor changes the permission in the browser: follow it at once
       watched = status;
@@ -251,25 +273,40 @@ export function createPrayerCard({
     }
     const saved = remembered();
     if (state === 'denied') {
-      write(KEYS.asked, dayKey(now()));
-      forget();
+      granted = false;
+      locationState = 'denied';
+      position = null;
+      current = null;
+      write(KEYS.position, null);
+      publish();
       return;
     }
     granted = state === 'granted';
     if (granted) {
-      if (!saved || now() - saved.at > REFRESH_AFTER) await locate();
+      locationState = null;
+      if (saved && now() - saved.at <= REFRESH_AFTER) {
+        position = { lat: saved.lat, lon: saved.lon, ...(typeof saved.city === 'string' && saved.city ? { city: saved.city } : {}) };
+        positionAt = saved.at;
+        publish();
+      } else {
+        position = null;
+        current = null;
+        await locate();
+      }
       return;
     }
-    // "prompt" (or a browser without the Permissions API): ask at most once a day, and not at all while a recent position is known.
-    if (saved && now() - saved.at <= SHOW_REMEMBERED_MAX) return;
-    if (read(KEYS.asked) === dayKey(now())) { useRemembered(FALLBACK_MAX); return; }
-    write(KEYS.asked, dayKey(now()));
-    await locate();
+    // Do not reuse a location saved for another visitor/device session when permission is not currently granted.
+    position = null;
+    current = null;
+    locationState = 'prompt';
+    publish();
   }
 
   function tick() {
+    if (!active) return;
     // While the page stays open (in a moving car, say) a granted permission keeps the place current.
-    if (granted && position && !locating && !globalThis.document?.hidden && now() - positionAt > REFRESH_AFTER && now() - lastAttempt >= RETRY_AFTER) locate();
+    if (granted && !locating && !globalThis.document?.hidden && now() - lastAttempt >= RETRY_AFTER
+      && ((position && now() - positionAt > REFRESH_AFTER) || (!position && locationState === 'error'))) locate();
     if (!position) return;
     const before = view ? `${view.key}|${view.countdown}|${view.at}` : '';
     recompute();
@@ -292,12 +329,25 @@ export function createPrayerCard({
     },
     // Then runs the permission flow (this may ask the visitor).
     async start() {
-      this.showRemembered();
+      active = true;
       if (timer && !interval) {
         interval = setInterval(tick, 20_000);
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick(); check(); } });
+        document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { tick(); check(); } });
       }
       await check();
+    },
+    async requestLocation() {
+      if (!active || locating || !geolocation) return;
+      if (locationState === 'denied') {
+        const { state } = await permissionState();
+        if (state === 'denied') return;
+      }
+      await locate();
+    },
+    stop() {
+      active = false;
+      if (interval) clearInterval(interval);
+      interval = 0;
     },
     view: () => view,
     tick,
