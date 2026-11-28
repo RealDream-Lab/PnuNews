@@ -19,7 +19,7 @@ test('the header has no account button: the account lives in the first card of t
 test('the strip puts the account card first, before the prayer card, and shows the strip for it alone', () => {
   const sync = /function syncPrayerCard\(\) \{[\s\S]*?\n\}\n/.exec(app)?.[0] ?? '';
   assert.match(sync, /const showAccount = !accountButton\.hidden;/);
-  assert.match(sync, /const showPrayer = prayerPointer\.matches && prayerView;/);
+  assert.match(sync, /const showPrayer = prayerPointer\.matches && prefs\.prayer && prayerView && prayerView\.kind !== 'location';/);
   assert.match(sync, /const cards = \[showAccount && accountButton, showCalendar && calendarNode, showPrayer && prayerNode\]\.filter\(Boolean\);/, 'the account card is first, then the calendar card, then the mobile prayer card');
   assert.match(sync, /if \(pinnedStrip\.children\[index\] !== node\) pinnedStrip\.insertBefore\(node, pinnedStrip\.children\[index\] \?\? null\)/, 'every card is put at its place, so the account card is always first');
   assert.match(sync, /pinnedStrip\.hidden = !\(cards\.length \|\| pinnedStrip\.querySelector\('\[data-news-id\]'\)\)/);
