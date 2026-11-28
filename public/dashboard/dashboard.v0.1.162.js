@@ -3737,32 +3737,6 @@ async function handleReaderAction(button) {
   }
 }
 
-// Switch every dashboard user on or off at once (main admin only; the main admin and the system account are never touched).
-async function handleBulkActive(wanted) {
-  const confirmed = await confirmDialog({
-    title: wanted ? "فعال‌سازی همهٔ کاربران؟" : "غیرفعال‌سازی همهٔ کاربران؟",
-    text: wanted
-      ? "همهٔ کاربران غیرفعال (به‌جز مدیر ارشد) فعال می‌شوند. اگر برای یک واحد یا حوزه چند کاربر غیرفعال باشد، فقط آخرین واردشده فعال می‌ماند و بقیه غیرفعال می‌مانند."
-      : "همهٔ کاربران (به‌جز مدیر ارشد و حساب شما) غیرفعال می‌شوند و از همهٔ دستگاه‌ها خارج می‌شوند. هیچ‌کس جز مدیر ارشد نمی‌تواند وارد شود.",
-    tone: wanted ? "question" : "danger",
-    confirmText: "بله، انجام شود",
-  });
-  if (!confirmed) return;
-  try {
-    const result = await api("/api/admin/users/bulk-active", { method: "POST", body: { active: wanted } });
-    const count = faDigits.format(result.changed);
-    const skipped = result.skipped > 0 ? ` (${faDigits.format(result.skipped)} کاربر به‌دلیل تداخل فعال نشد)` : "";
-    showToast(
-      result.changed === 0 && !skipped
-        ? "کاربری برای تغییر نبود."
-        : `${count} کاربر ${wanted ? "فعال" : "غیرفعال"} شد${skipped}.`,
-    );
-    await loadStructure();
-  } catch (error) {
-    showToast(error.message);
-  }
-}
-
 async function loadReaders() {
   try {
     await loadReaderStatus();
@@ -3961,8 +3935,6 @@ function auditAction(action) {
     "user.deactivate": "غیرفعال‌سازی کاربر",
     "user.activate": "فعال‌سازی کاربر",
     "user.delete": "حذف کاربر",
-    "user.bulk_activate": "فعال‌سازی کلی کاربران",
-    "user.bulk_deactivate": "غیرفعال‌سازی کلی کاربران",
     "reader.user.update": "ویرایش خواننده",
     "reader.user.delete": "حذف خواننده",
     "settings.update": "تغییر تنظیمات",
@@ -4463,12 +4435,6 @@ function bindEvents() {
   document
     .querySelector('#user-form [name="role"]')
     .addEventListener("change", syncUserFormRole);
-  document
-    .getElementById("bulk-activate-button")
-    .addEventListener("click", () => handleBulkActive(true));
-  document
-    .getElementById("bulk-deactivate-button")
-    .addEventListener("click", () => handleBulkActive(false));
   document.getElementById("new-region-button").addEventListener("click", () => {
     document.getElementById("region-form").hidden = false;
     populateRegionParents();
