@@ -5,7 +5,7 @@ import { compactCities } from '../scripts/build-iran-cities.mjs';
 
 // The file name carries the release number, so it is imported through package.json like the other tests do.
 const releaseVersion = JSON.parse(await readFile('package.json', 'utf8')).version;
-const { KEYS, computeEvents, countdownText, createPrayerCard, dayKey, nearestCity, nextEvent, prayerMarkup, timeText } = await import(`../public/shared/prayer-card.v${releaseVersion}.js`);
+const { KEYS, computeEvents, countdownText, createPrayerCard, nearestCity, nextEvent, prayerMarkup, timeText } = await import(`../public/shared/prayer-card.v${releaseVersion}.js`);
 
 const BIJAR = [35.87, 47.6];
 const TEHRAN = [35.69, 51.39];
@@ -154,9 +154,12 @@ function world({ state = 'prompt', result: initialResult = { lat: 35.8734, lon: 
   return { card, clock, store, calls, views, status, listeners, moveTo: (next) => { result = next; }, settle: () => new Promise((resolve) => setTimeout(resolve, 20)) };
 }
 
-test('allowed: the card shows the next event with the nearest city name, and the position stays in the browser', async () => {
+test('a new visitor sees an in-page location button; tapping it requests location and shows the next event', async () => {
   const w = world();
   await w.card.start();
+  assert.deepEqual(w.card.view(), { kind: 'location', status: 'prompt' });
+  assert.equal(w.calls.position, 0, 'the browser prompt is not launched in the background');
+  await w.card.requestLocation();
   await w.settle();
   const view = w.card.view();
   assert.equal(view.key, 'dhuhr');
@@ -167,25 +170,22 @@ test('allowed: the card shows the next event with the nearest city name, and the
   assert.deepEqual([saved.lat, saved.lon], [35.87, 47.61], 'rounded to about a kilometre');
 });
 
-test('refused: no card, and the browser is not asked again the same day but is asked again the next day', async () => {
+test('declining the browser prompt keeps the location button visible without re-prompting in the background', async () => {
   const w = world({ result: { error: 1 } });
   await w.card.start();
-  assert.equal(w.card.view(), null);
+  await w.card.requestLocation();
+  assert.equal(w.card.view().kind, 'location');
+  assert.equal(w.card.view().status, 'denied');
   assert.equal(w.calls.position, 1);
-  assert.equal(w.store.get(KEYS.asked), dayKey(w.clock.now));
-  // same day, later visit: not asked
   await w.card.start();
-  assert.equal(w.calls.position, 1, 'no second question the same day');
-  // next day: asked again
-  w.clock.now += 24 * 36e5;
-  await w.card.start();
-  assert.equal(w.calls.position, 2, 'asked again the next day');
+  assert.equal(w.calls.position, 1, 'a page revisit does not launch another browser prompt');
 });
 
 test('refusal after an earlier consent removes the remembered position', async () => {
   const w = world({ state: 'denied', stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:00:00+03:30') }) } });
   await w.card.start();
-  assert.equal(w.card.view(), null);
+  assert.equal(w.card.view().kind, 'location');
+  assert.equal(w.card.view().status, 'denied');
   assert.equal(w.store.has(KEYS.position), false);
   assert.equal(w.calls.position, 0, 'a browser-level block is not poked');
 });
@@ -203,24 +203,26 @@ test('granted: the remembered position shows at once; it is refreshed only when 
   assert.equal(old.card.view().city, 'بیجار', 'the new position replaced the old one');
 });
 
-test('prompt state with a recent remembered position does not ask again (Safari-style "ask each time")', async () => {
-  const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:50:00+03:30') }) } });
+test('prompt state never shows a location left by another visitor or skips the location button', async () => {
+  const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:59:00+03:30'), city: 'بیجار' }) } });
   await w.card.start();
+  assert.deepEqual(w.card.view(), { kind: 'location', status: 'prompt' });
   assert.equal(w.calls.position, 0);
-  assert.ok(w.card.view());
 });
 
-test('a position error that is not a refusal changes nothing and does not count as "asked and refused"', async () => {
+test('a location error leaves a visible retry action', async () => {
   const w = world({ result: { error: 2 } });
   await w.card.start();
-  assert.equal(w.card.view(), null);
+  await w.card.requestLocation();
+  assert.equal(w.card.view().kind, 'location');
+  assert.equal(w.card.view().status, 'error');
   assert.equal(w.store.has(KEYS.position), false);
 });
 
 test('the visitor changes the permission in the browser settings: the card follows without a reload', async () => {
   const w = world({ state: 'denied' });
   await w.card.start();
-  assert.equal(w.card.view(), null);
+  assert.equal(w.card.view().status, 'denied');
   w.status.state = 'granted';
   for (const listener of w.listeners) listener();
   await w.settle();
@@ -228,7 +230,7 @@ test('the visitor changes the permission in the browser settings: the card follo
   w.status.state = 'denied';
   for (const listener of w.listeners) listener();
   await w.settle();
-  assert.equal(w.card.view(), null, 'blocked in the settings: the card goes');
+  assert.equal(w.card.view().status, 'denied', 'blocked in the settings: the location prompt returns');
 });
 
 test('a remembered position (with its city) is shown synchronously, before the city list or the permission check', async () => {
@@ -269,6 +271,7 @@ test('a new position far from the remembered one does not keep the old city name
 test('the countdown moves on with the clock and switches to the next event when one passes', async () => {
   const w = world({ start: at('2026-11-19T11:00:00+03:30') });
   await w.card.start();
+  await w.card.requestLocation();
   await w.settle();
   const first = w.card.view();
   assert.equal(first.key, 'dhuhr');
@@ -290,10 +293,12 @@ test('no geolocation API (insecure page, old browser): nothing happens', async (
   assert.equal(card.view(), null);
 });
 
-test('the reader loads the card lazily, keeps clicks away from it and the server allows geolocation for the site itself', async () => {
+test('the reader loads the card only on coarse-pointer devices, ties location permission to a tap, and allows geolocation', async () => {
   const version = JSON.parse(await readFile('package.json', 'utf8')).version;
   const reader = await readFile(`public/reader/app.v${version}.js`, 'utf8');
   assert.ok(reader.includes(`import('/shared/prayer-card.v${version}.js')`));
+  assert.ok(reader.includes("matchMedia('(pointer: coarse)')"), 'desktop does not load or show the location card');
+  assert.ok(reader.includes('card.requestLocation()'), 'the browser permission flow starts from the visible button');
   assert.ok(!/^import .*prayer-card/m.test(reader), 'not a static import: a missing file must not break the reader');
   assert.ok(!/prayer-card[^\n]*data-news-id/.test(reader));
   const raceAt = reader.indexOf('await Promise.race([Promise.all([prayerReady');
@@ -349,13 +354,14 @@ test('travelling: a remembered position older than half an hour is not painted b
   assert.notEqual(w.card.view().city, 'بیجار');
 });
 
-test('travelling: when no new position can be had, a remembered one up to three hours old is used, an older one is not', async () => {
+test('travelling: a stale position is never shown when refresh fails', async () => {
   const recent = world({ state: 'granted', result: { error: 2 }, stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T08:00:00+03:30'), city: 'بیجار' }) } });
   await recent.card.start();
-  assert.equal(recent.card.view().city, 'بیجار', 'two hours old, no signal: better than nothing');
+  assert.equal(recent.card.view().kind, 'location');
+  assert.equal(recent.card.view().status, 'error', 'an old location is not presented as current');
   const old = world({ state: 'granted', result: { error: 2 }, stored: { [KEYS.position]: JSON.stringify({ ...BIJAR_AT, at: at('2026-11-19T05:00:00+03:30'), city: 'بیجار' }) } });
   await old.card.start();
-  assert.equal(old.card.view(), null, 'five hours old: a wrong place is worse than no card');
+  assert.equal(old.card.view().status, 'error');
 });
 
 test('travelling: a failing renewal is not repeated every few seconds, and only a fresh answer is accepted from the browser', async () => {
