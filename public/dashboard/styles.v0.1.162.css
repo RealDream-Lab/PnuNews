@@ -486,3 +486,14 @@ html select:not([multiple]){padding-inline-start:.8rem}
 .readers-inbound-log li{display:grid;grid-template-columns:auto 1fr auto;gap:.6rem;align-items:center;font-size:.82rem}
 .readers-inbound-log .is-confirmed{color:var(--success)}
 .flag-toggle{min-width:44px}.flag-toggle[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--surface)}.flag-toggle[data-flag="urgent"][aria-pressed="true"]{background:var(--danger);border-color:var(--danger)}.flag-toggle:disabled{opacity:.55;cursor:progress}.table td>.compact-actions{flex-wrap:wrap;justify-content:flex-start}
+
+.heading-actions[hidden]{display:none}
+.button.danger-outline{border-color:var(--danger);color:var(--danger)}
+.readers-actions{white-space:nowrap}
+.reader-edit-dialog{width:min(100% - 2rem,440px)}
+.reader-edit-form{text-align:start}
+.reader-edit-field{display:block;margin-bottom:.1rem;font-size:.86rem}
+.reader-edit-field .swal-input{margin:.25rem 0 .7rem}
+.reader-edit-field[hidden]{display:none}
+.reader-edit-check{display:flex;align-items:center;gap:.5rem;margin:0 0 .8rem;font-size:.9rem}
+.reader-edit-form .form-error{margin:0 0 .8rem}

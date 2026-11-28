@@ -32,3 +32,10 @@ test('the dashboard no longer has a statistics page: no menu item, no view, no l
   assert.ok(!/most_viewed|mostViewed/.test(admin));
   assert.match(admin, /router\.get\('\/stats'/, 'the dashboard home still reads its counts and latest news here');
 });
+
+test('the bookmark messages say «نشانک»', () => {
+  const app = read(`public/reader/app.v${version}.js`);
+  assert.equal((app.match(/showToast\('از نشانک‌ها حذف شد'\)/g) ?? []).length, 2, 'from the card/page button and from the missing-news button');
+  assert.match(app, /showToast\(bookmarks\.persistent \? 'به نشانک‌ها افزوده شد' :/);
+  assert.ok(!app.includes("showToast('خبر ذخیره شد')") && !app.includes("showToast('از خبرهای ذخیره‌شده حذف شد')"));
+});

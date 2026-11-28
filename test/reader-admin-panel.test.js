@@ -20,7 +20,7 @@ test('the readers page is in the menu for the main admin only, before the settin
   assert.match(script, /else if \(actualView === "readers"\) loadReaders\(\);/);
 });
 
-test('the page has the switch, the credit, the limits, the failures, the search and the list, and nothing that changes or deletes an account', () => {
+test('the page has the switch, the credit, the limits, the failures, the search and the list; editing and deleting a reader are buttons drawn by the script, not controls in the page', () => {
   for (const id of ['readers-banner', 'readers-signup-switch', 'readers-signup-state', 'readers-credit', 'readers-refresh', 'readers-limits-form', 'readers-limits-error', 'readers-failures', 'readers-totals', 'readers-search', 'readers-list', 'readers-pager']) {
     assert.match(view, new RegExp(`id="${id}"`), id);
   }
@@ -28,7 +28,13 @@ test('the page has the switch, the credit, the limits, the failures, the search 
   assert.match(view, /type="search"/);
   assert.ok(!/حذف|ویرایش|data-action|type="password"/.test(view.replace('ویرایش', '')) || !/حذف/.test(view), 'no delete control');
   assert.ok(!/حذف/.test(view) && !/data-action/.test(view), 'no action buttons on the reader rows');
-  assert.ok(!/(?:DELETE|PATCH)/.test(panel), 'the page never deletes or patches an account');
+  // The rows get an edit and a delete button (drawn by the script, main admin only: the whole view is data-super-only and the
+  // server refuses every other role); the phone number is never sent back.
+  assert.match(panel, /data-reader-action=\\?"edit\\?"/);
+  assert.match(panel, /data-reader-action=\\?"delete\\?"/);
+  assert.match(panel, /api\(`\/api\/admin\/readers\/users\/\$\{id\}`, \{ method: "PATCH", body: values \}\)/);
+  assert.match(panel, /api\(`\/api\/admin\/readers\/users\/\$\{id\}`, \{ method: "DELETE", body: \{\} \}\)/);
+  assert.ok(!/phone:/.test(panel.slice(panel.indexOf('function editReaderDialog'), panel.indexOf('async function handleReaderAction'))), 'the edit form never sends the phone number');
   assert.match(panel, /method: "PUT", body: \{ signup_enabled: wanted \}/);
 });
 

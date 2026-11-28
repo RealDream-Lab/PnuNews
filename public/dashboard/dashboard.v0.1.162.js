@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.160.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.162.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3626,19 +3626,140 @@ async function loadReaderUsers(page = state.readersPage ?? 1) {
     const data = await api(`/api/admin/readers/users?${params}`);
     if (ticket !== state.readersTicket) return; // a newer search has taken over
     state.readersPage = data.page;
+    state.readerItems = new Map(data.items.map((item) => [Number(item.id), item]));
     document.getElementById("readers-totals").textContent =
       `${faDigits.format(data.totals.readers)} خواننده، ${faDigits.format(data.totals.students)} دانشجو${query ? ` · ${faDigits.format(data.total)} نتیجه` : ""}`;
     list.innerHTML = data.items.length
-      ? `<table class="table readers-table"><thead><tr><th>نام</th><th>شمارهٔ موبایل</th><th>مرکز</th><th>شمارهٔ دانشجویی <small>(اعلام‌شدهٔ کاربر)</small></th><th>ثبت‌نام</th></tr></thead><tbody>${data.items
+      ? `<table class="table readers-table"><thead><tr><th>نام</th><th>شمارهٔ موبایل</th><th>مرکز</th><th>شمارهٔ دانشجویی <small>(اعلام‌شدهٔ کاربر)</small></th><th>ثبت‌نام</th><th>عملیات</th></tr></thead><tbody>${data.items
           .map(
             (item) =>
-              `<tr><td><strong>${escapeHtml(`${item.first_name} ${item.last_name}`)}</strong></td><td dir="ltr">${escapeHtml(readerPhone(item.phone))}</td><td>${item.unit ? `${escapeHtml(item.unit.name)}${item.unit.province ? `<small>${escapeHtml(item.unit.province)}</small>` : ""}` : "—"}</td><td dir="ltr">${item.student_no ? escapeHtml(toFaDigits(item.student_no)) : "—"}</td><td>${formatDate(item.created_at)}</td></tr>`,
+              `<tr><td><strong>${escapeHtml(`${item.first_name} ${item.last_name}`)}</strong></td><td dir="ltr">${escapeHtml(readerPhone(item.phone))}</td><td>${item.unit ? `${escapeHtml(item.unit.name)}${item.unit.province ? `<small>${escapeHtml(item.unit.province)}</small>` : ""}` : "—"}</td><td dir="ltr">${item.student_no ? escapeHtml(toFaDigits(item.student_no)) : "—"}</td><td>${formatDate(item.created_at)}</td><td class="readers-actions"><div class="compact-actions"><button class="mini-button" type="button" data-reader-action="edit" data-reader-id="${Number(item.id)}">ویرایش</button><button class="mini-button danger" type="button" data-reader-action="delete" data-reader-id="${Number(item.id)}">حذف</button></div></td></tr>`,
           )
           .join("")}</tbody></table>`
       : `<p class="empty-panel">${query ? `نتیجه‌ای برای «${escapeHtml(query)}» پیدا نشد.` : "هنوز کسی ثبت‌نام نکرده است."}</p>`;
     renderPager(document.getElementById("readers-pager"), data);
   } catch (error) {
     if (ticket === state.readersTicket) list.innerHTML = `<p class="empty-panel">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+// Edit or delete one reader account (main admin only; the server enforces it). The phone number is shown but never changes.
+function editReaderDialog(item) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "swal-dialog reader-edit-dialog";
+    dialog.setAttribute("aria-labelledby", "reader-edit-title");
+    const cities = state.regions.filter((region) => region.type === "city");
+    const provinceName = (region) =>
+      state.regions.find((other) => Number(other.id) === Number(region.parent_id))?.name ?? "";
+    const unitId = item.unit ? Number(item.unit.id) : 0;
+    const options = cities
+      .map((city) => {
+        const province = provinceName(city);
+        const label = province ? `${city.name} (${province})` : city.name;
+        return `<option value="${Number(city.id)}"${Number(city.id) === unitId ? " selected" : ""}>${escapeHtml(label)}</option>`;
+      })
+      .join("");
+    dialog.innerHTML =
+      `<form class="swal-panel reader-edit-form" novalidate><h2 id="reader-edit-title" class="swal-title">ویرایش خواننده</h2>` +
+      `<p class="swal-text" dir="ltr">${escapeHtml(readerPhone(item.phone))}</p>` +
+      `<label class="reader-edit-field">نام<input class="swal-input" name="first_name" maxlength="60" autocomplete="off" value="${escapeHtml(item.first_name)}"></label>` +
+      `<label class="reader-edit-field">نام خانوادگی<input class="swal-input" name="last_name" maxlength="60" autocomplete="off" value="${escapeHtml(item.last_name)}"></label>` +
+      `<label class="reader-edit-check"><input type="checkbox" name="is_student"${item.is_student ? " checked" : ""}> دانشجو است</label>` +
+      `<label class="reader-edit-field" data-student-field>شمارهٔ دانشجویی<input class="swal-input" name="student_no" dir="ltr" inputmode="numeric" maxlength="20" autocomplete="off" value="${escapeHtml(item.student_no ?? "")}"></label>` +
+      `<label class="reader-edit-field">مرکز دانشگاهی<select class="swal-input" name="unit_id">${options}</select></label>` +
+      `<p class="form-error" role="alert" hidden></p>` +
+      `<div class="swal-actions"><button type="submit" class="button primary">ذخیره</button><button type="button" class="button outline" data-swal="cancel">انصراف</button></div></form>`;
+    const form = dialog.querySelector("form");
+    const studentField = dialog.querySelector("[data-student-field]");
+    const problem = dialog.querySelector(".form-error");
+    const syncStudent = () => {
+      studentField.hidden = !form.elements.is_student.checked;
+    };
+    syncStudent();
+    form.elements.is_student.addEventListener("change", syncStudent);
+    let result = null;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const values = {
+        first_name: form.elements.first_name.value.trim(),
+        last_name: form.elements.last_name.value.trim(),
+        is_student: form.elements.is_student.checked,
+        unit_id: Number(form.elements.unit_id.value),
+      };
+      if (values.is_student) values.student_no = form.elements.student_no.value.trim();
+      if (!values.first_name || !values.last_name) {
+        problem.textContent = "نام و نام خانوادگی را وارد کنید.";
+        problem.hidden = false;
+        return;
+      }
+      result = values;
+      dialog.close();
+    });
+    dialog.addEventListener("click", (event) => {
+      if (event.target.closest('[data-swal="cancel"]') || event.target === dialog) dialog.close();
+    });
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      resolve(result);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    form.elements.first_name.focus();
+  });
+}
+
+async function handleReaderAction(button) {
+  const id = Number(button.dataset.readerId);
+  const item = state.readerItems?.get(id);
+  if (!id || !item) return;
+  const fullName = `${item.first_name} ${item.last_name}`;
+  try {
+    if (button.dataset.readerAction === "edit") {
+      const values = await editReaderDialog(item);
+      if (!values) return;
+      await api(`/api/admin/readers/users/${id}`, { method: "PATCH", body: values });
+      showToast("اطلاعات خواننده ذخیره شد.");
+    } else {
+      const confirmed = await confirmDialog({
+        title: `حذف «${fullName}»؟`,
+        text: "حساب این خواننده با نشانک‌ها و ورودهای فعلی‌اش برای همیشه حذف می‌شود و قابل بازگشت نیست. او می‌تواند دوباره با همان شماره ثبت‌نام کند.",
+        tone: "danger",
+        confirmText: "بله، حذف شود",
+      });
+      if (!confirmed) return;
+      await api(`/api/admin/readers/users/${id}`, { method: "DELETE", body: {} });
+      showToast("خواننده حذف شد.");
+    }
+    await loadReaderUsers();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+// Switch every dashboard user on or off at once (main admin only; the main admin and the system account are never touched).
+async function handleBulkActive(wanted) {
+  const confirmed = await confirmDialog({
+    title: wanted ? "فعال‌سازی همهٔ کاربران؟" : "غیرفعال‌سازی همهٔ کاربران؟",
+    text: wanted
+      ? "همهٔ کاربران غیرفعال (به‌جز مدیر ارشد) فعال می‌شوند. اگر برای یک واحد یا حوزه چند کاربر غیرفعال باشد، فقط آخرین واردشده فعال می‌ماند و بقیه غیرفعال می‌مانند."
+      : "همهٔ کاربران (به‌جز مدیر ارشد و حساب شما) غیرفعال می‌شوند و از همهٔ دستگاه‌ها خارج می‌شوند. هیچ‌کس جز مدیر ارشد نمی‌تواند وارد شود.",
+    tone: wanted ? "question" : "danger",
+    confirmText: "بله، انجام شود",
+  });
+  if (!confirmed) return;
+  try {
+    const result = await api("/api/admin/users/bulk-active", { method: "POST", body: { active: wanted } });
+    const count = faDigits.format(result.changed);
+    const skipped = result.skipped > 0 ? ` (${faDigits.format(result.skipped)} کاربر به‌دلیل تداخل فعال نشد)` : "";
+    showToast(
+      result.changed === 0 && !skipped
+        ? "کاربری برای تغییر نبود."
+        : `${count} کاربر ${wanted ? "فعال" : "غیرفعال"} شد${skipped}.`,
+    );
+    await loadStructure();
+  } catch (error) {
+    showToast(error.message);
   }
 }
 
@@ -3794,6 +3915,11 @@ function initReadersPanel() {
     }
   });
 
+  document.getElementById("readers-list").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-reader-action]");
+    if (button) handleReaderAction(button);
+  });
+
   let searchTimer = null;
   document.getElementById("readers-search").addEventListener("input", () => {
     clearTimeout(searchTimer);
@@ -3809,6 +3935,7 @@ function entityLabel(entity) {
       region: "مرکز یا واحد",
       settings: "تنظیمات",
       reader_settings: "حساب خوانندگان",
+      reader_user: "خواننده",
       category: "دسته‌بندی",
     }[entity] || "سامانه"
   );
@@ -3834,6 +3961,10 @@ function auditAction(action) {
     "user.deactivate": "غیرفعال‌سازی کاربر",
     "user.activate": "فعال‌سازی کاربر",
     "user.delete": "حذف کاربر",
+    "user.bulk_activate": "فعال‌سازی کلی کاربران",
+    "user.bulk_deactivate": "غیرفعال‌سازی کلی کاربران",
+    "reader.user.update": "ویرایش خواننده",
+    "reader.user.delete": "حذف خواننده",
     "settings.update": "تغییر تنظیمات",
     "reader.settings.update": "تغییر تنظیمات حساب خوانندگان",
     "reader.signup.auto_disabled": "خاموش‌شدن خودکار ثبت‌نام خوانندگان",
@@ -4332,6 +4463,12 @@ function bindEvents() {
   document
     .querySelector('#user-form [name="role"]')
     .addEventListener("change", syncUserFormRole);
+  document
+    .getElementById("bulk-activate-button")
+    .addEventListener("click", () => handleBulkActive(true));
+  document
+    .getElementById("bulk-deactivate-button")
+    .addEventListener("click", () => handleBulkActive(false));
   document.getElementById("new-region-button").addEventListener("click", () => {
     document.getElementById("region-form").hidden = false;
     populateRegionParents();
