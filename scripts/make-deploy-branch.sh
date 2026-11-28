@@ -3,23 +3,27 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/make-deploy-branch.sh [--prepare-only]
+Usage: scripts/make-deploy-branch.sh [--prepare-only] [--yes]
 
 Builds local branch deploy from committed main plus Linux x86_64/glibc
 production dependencies. The new deploy commit has origin/deploy as a parent, so
 the server can update with a plain "git pull --ff-only" and no force-push is needed.
 By default, asks before pushing deploy to origin.
+--yes (or -y) answers that push question automatically.
 --prepare-only builds and verifies the branch without contacting GitHub.
 USAGE
 }
 
 prepare_only=false
-case "${1:-}" in
-  '') ;;
-  --prepare-only) prepare_only=true ;;
-  --help|-h) usage; exit 0 ;;
-  *) usage >&2; exit 2 ;;
-esac
+assume_yes=false
+for arg in "$@"; do
+  case "$arg" in
+    --prepare-only) prepare_only=true ;;
+    --yes|-y) assume_yes=true ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$repo_root"
@@ -92,8 +96,13 @@ if [[ "$ssh_result" != Hi\ * ]]; then
   exit 1
 fi
 
-printf 'این کار deploy را (بدون force) به origin push می‌کند. ادامه؟ [y/N] '
-IFS= read -r answer
+if [[ "$assume_yes" == true ]]; then
+  answer=y
+  printf 'گزینهٔ --yes داده شد؛ deploy (بدون force) به origin push می‌شود.\n'
+else
+  printf 'این کار deploy را (بدون force) به origin push می‌کند. ادامه؟ [y/N] '
+  IFS= read -r answer
+fi
 if [[ "$answer" != y && "$answer" != Y ]]; then
   printf 'push لغو شد؛ شاخهٔ محلی deploy آماده است.\nPush cancelled; local deploy branch is ready.\n'
   exit 0

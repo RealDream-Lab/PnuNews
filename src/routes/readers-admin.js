@@ -2,7 +2,7 @@ import express from 'express';
 import { canManageRegion } from '../auth/policy.js';
 import { appEvents } from '../events.js';
 import { cleanFaText } from '../lib/fa.js';
-import { normalizeDigits } from '../lib/reader-auth.js';
+import { cleanPersonName, cleanStudentNumber, normalizeDigits } from '../lib/reader-auth.js';
 import { INBOUND_KEY_SETTING, loadInboundKey, loadReaderSettings, readerSettingKey, storedValue, validateReaderSettingsUpdate } from '../lib/reader-settings.js';
 import { generateInboundKey, webhookUrl } from '../lib/reader-inbound.js';
 import { SIGNUP_DISABLED_INFO_KEY } from '../lib/sms-budget.js';
@@ -73,8 +73,8 @@ export function createReaderAdminRouter({ pool, config = null, events = appEvent
     }
   });
 
-  // The reader accounts, newest first, with a search box (see searchClause) and pages. Read only: nothing about an account
-  // can be changed or deleted from here.
+  // The reader accounts, newest first, with a search box (see searchClause) and pages. Editing and deleting an account are the
+  // two routes below (PATCH and DELETE /users/:id), main admin only like everything in this router.
   router.get('/users', async (request, response, next) => {
     const pageValue = request.query.page === undefined ? 1 : Number(request.query.page);
     if (!Number.isSafeInteger(pageValue) || pageValue < 1 || pageValue > 100_000) return response.status(400).json({ error: 'شمارهٔ صفحه معتبر نیست.' });
@@ -112,6 +112,90 @@ export function createReaderAdminRouter({ pool, config = null, events = appEvent
         page, pages, total, limit,
         totals: { readers: Number(all.readers), students: Number(all.students) },
       });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  const READER_NOT_FOUND = 'خواننده پیدا نشد.';
+  const parseId = (value) => {
+    const id = Number(value);
+    return Number.isSafeInteger(id) && id > 0 ? id : null;
+  };
+
+  // Edit a reader's profile: first name, last name, student or not (with the student number) and the university centre. The phone
+  // number is the account's identity and, as for the reader himself, never changes. Dashboard users' linked accounts
+  // (staff_user_id) are not readers and cannot be edited here.
+  router.patch('/users/:id', async (request, response, next) => {
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ خواننده معتبر نیست.' });
+    const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (Object.hasOwn(body, 'phone')) return response.status(400).json({ error: 'شمارهٔ موبایل پس از ثبت‌نام قابل تغییر نیست.' });
+    try {
+      const [rows] = await pool.execute(
+        'SELECT id, phone, first_name, last_name, is_student, student_no, unit_id FROM reader_users WHERE id = ? AND staff_user_id IS NULL',
+        [id],
+      );
+      if (!rows.length) return response.status(404).json({ error: READER_NOT_FOUND });
+      const current = rows[0];
+      const has = (key) => Object.hasOwn(body, key);
+      const firstName = cleanPersonName(has('first_name') ? body.first_name : current.first_name);
+      if (!firstName) return response.status(400).json({ error: 'نام را فقط با حروف و حداکثر ۶۰ نویسه وارد کنید.' });
+      const lastName = cleanPersonName(has('last_name') ? body.last_name : current.last_name);
+      if (!lastName) return response.status(400).json({ error: 'نام خانوادگی را فقط با حروف و حداکثر ۶۰ نویسه وارد کنید.' });
+      const isStudent = has('is_student') ? body.is_student : Boolean(current.is_student);
+      if (typeof isStudent !== 'boolean') return response.status(400).json({ error: 'مقدار «دانشجو» باید بله یا خیر باشد.' });
+      let studentNo = null;
+      if (isStudent) {
+        studentNo = cleanStudentNumber(has('student_no') ? body.student_no : current.student_no);
+        if (!studentNo) return response.status(400).json({ error: 'شمارهٔ دانشجویی را فقط با رقم و بین ۶ تا ۱۴ رقم وارد کنید.' });
+      }
+      const unitId = Number(has('unit_id') ? body.unit_id : current.unit_id);
+      if (!Number.isSafeInteger(unitId) || unitId <= 0) return response.status(400).json({ error: 'مرکز دانشگاهی را انتخاب کنید.' });
+      // The reader's own centre may have been hidden since he signed up: keeping it is fine, moving to a hidden one is not.
+      if (unitId !== Number(current.unit_id)) {
+        const [units] = await pool.execute("SELECT id FROM regions WHERE id = ? AND type = 'city' AND visibility_override <> 'hide' LIMIT 1", [unitId]);
+        if (!units.length) return response.status(400).json({ error: 'مرکز دانشگاهی را انتخاب کنید.' });
+      }
+      try {
+        await pool.execute(
+          'UPDATE reader_users SET first_name = ?, last_name = ?, is_student = ?, student_no = ?, unit_id = ? WHERE id = ? AND staff_user_id IS NULL',
+          [firstName, lastName, isStudent ? 1 : 0, studentNo, unitId, id],
+        );
+      } catch (error) {
+        if (error?.code === 'ER_DUP_ENTRY') return response.status(409).json({ error: 'این شمارهٔ دانشجویی قبلاً برای حساب دیگری ثبت شده است.' });
+        throw error;
+      }
+      // The audit row says who changed what, never the phone number or the student number itself.
+      await pool.execute(
+        `INSERT INTO audit_log (user_id, action, entity, entity_id, meta, ip) VALUES (?, 'reader.user.update', 'reader_user', ?, ?, ?)`,
+        [request.user.id, id, JSON.stringify({
+          changed: ['first_name', 'last_name', 'is_student', 'student_no', 'unit_id'].filter((name) => {
+            const before = { first_name: current.first_name, last_name: current.last_name, is_student: Boolean(current.is_student), student_no: current.student_no ?? null, unit_id: current.unit_id === null ? null : Number(current.unit_id) }[name];
+            const after = { first_name: firstName, last_name: lastName, is_student: isStudent, student_no: studentNo, unit_id: unitId }[name];
+            return before !== after;
+          }),
+        }), request.ip ?? null],
+      );
+      return response.json({ ok: true, id });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  // Delete a reader's account for good: his sessions and bookmarks go with it (ON DELETE CASCADE) and his sign-in stops working
+  // at once. He can sign up again with the same number.
+  router.delete('/users/:id', async (request, response, next) => {
+    const id = parseId(request.params.id);
+    if (!id) return response.status(400).json({ error: 'شناسهٔ خواننده معتبر نیست.' });
+    try {
+      const [result] = await pool.execute('DELETE FROM reader_users WHERE id = ? AND staff_user_id IS NULL', [id]);
+      if (!result.affectedRows) return response.status(404).json({ error: READER_NOT_FOUND });
+      await pool.execute(
+        `INSERT INTO audit_log (user_id, action, entity, entity_id, meta, ip) VALUES (?, 'reader.user.delete', 'reader_user', ?, ?, ?)`,
+        [request.user.id, id, JSON.stringify({}), request.ip ?? null],
+      );
+      return response.json({ ok: true });
     } catch (error) {
       return next(error);
     }

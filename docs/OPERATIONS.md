@@ -76,7 +76,7 @@ docker exec -it mariadb mariadb -u pnu_news -p pnu_news -e "SELECT DATABASE(), C
 به‌دلیل محدودیت فعلی دسترسی npm در سرور، وابستگی‌ها را با یکی از دو روش آماده کنید:
 
 1. اگر دسترسی npm سرور برقرار است، روی سرور اجرا کنید: `docker exec -w /workspace/PnuNews nodejs npm ci --omit=dev`.
-2. اگر registry در سرور در دسترس نیست، روی Mac اسکریپت `scripts/make-deploy-branch.sh` را اجرا کنید. اسکریپت وابستگی‌های production برای Linux x86_64/glibc را می‌سازد، وجود باینری‌های `sharp` را بررسی می‌کند و پیش از push شاخهٔ `deploy` تأیید می‌گیرد. با `scripts/make-deploy-branch.sh --prepare-only` فقط شاخهٔ محلی ساخته می‌شود. شاخهٔ `deploy` بزرگ‌تر است، شامل `node_modules/` لینوکسی است و برای کار روزمره استفاده نشود.
+2. اگر registry در سرور در دسترس نیست، روی Mac اسکریپت `scripts/make-deploy-branch.sh` را اجرا کنید. اسکریپت وابستگی‌های production برای Linux x86_64/glibc را می‌سازد، وجود باینری‌های `sharp` را بررسی می‌کند و پیش از push شاخهٔ `deploy` تأیید می‌گیرد (با `scripts/make-deploy-branch.sh --yes` خودش به این پرسش جواب «بله» می‌دهد). با `scripts/make-deploy-branch.sh --prepare-only` فقط شاخهٔ محلی ساخته می‌شود. شاخهٔ `deploy` بزرگ‌تر است، شامل `node_modules/` لینوکسی است و برای کار روزمره استفاده نشود.
 
 بعد از اطمینان از وجود وابستگی‌ها و `.autostart`، seed را یک‌بار اجرا کنید و مدیر ارشد را به‌صورت تعاملی بسازید:
 
