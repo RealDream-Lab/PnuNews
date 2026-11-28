@@ -1,4 +1,4 @@
-import { initRichEditor } from "/shared/rich-editor.v0.1.162.js";
+import { initRichEditor } from "/shared/rich-editor.v0.1.163.js";
 import {
   JALALI_MONTHS,
   jalaliMonthLength,
@@ -3935,6 +3935,8 @@ function auditAction(action) {
     "user.deactivate": "غیرفعال‌سازی کاربر",
     "user.activate": "فعال‌سازی کاربر",
     "user.delete": "حذف کاربر",
+    "user.bulk_activate": "فعال‌سازی کلی کاربران",
+    "user.bulk_deactivate": "غیرفعال‌سازی کلی کاربران",
     "reader.user.update": "ویرایش خواننده",
     "reader.user.delete": "حذف خواننده",
     "settings.update": "تغییر تنظیمات",
