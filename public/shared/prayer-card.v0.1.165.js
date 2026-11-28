@@ -105,16 +105,7 @@ const escapeText = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&'
 
 // Inner HTML of the card for a view made by the controller: place / event and its time / time left.
 export function prayerMarkup(view) {
-  if (view.kind === 'location') {
-    const message = view.status === 'denied'
-      ? 'دسترسی موقعیت مکانی در مرورگر بسته است؛ آن را در تنظیمات مرورگر فعال کنید.'
-      : view.status === 'error'
-        ? 'موقعیت دریافت نشد؛ اتصال را بررسی کنید و دوباره تلاش کنید.'
-        : 'برای نمایش اوقات شرعی، موقعیت مکانی را فعال کنید.';
-    const button = view.status === 'requesting' ? 'در حال دریافت موقعیت…' : view.status === 'denied' ? 'بعد از تغییر تنظیمات، تلاش کنید' : 'فعال‌کردن موقعیت مکانی';
-    return `<div class="prayer-place">اوقات شرعی</div><div class="prayer-location-message">${message}</div>`
-      + `<button class="prayer-location-request" type="button"${view.status === 'requesting' ? ' disabled' : ''}>${button}</button>`;
-  }
+  if (!view || view.kind === 'location') return '';
   const place = view.city ? escapeText(view.city) : 'موقعیت شما';
   return `<div class="prayer-place">${place}</div>`
     + `<div class="prayer-line"><strong class="prayer-name">${view.label}</strong><time class="prayer-time" datetime="${new Date(view.at).toISOString()}">${view.timeText}</time></div>`
@@ -144,6 +135,7 @@ export function createPrayerCard({
   let locating = false;
   let active = false;
   let locationState = null; // prompt, denied, requesting, or error while there is no usable current position
+  let visibilityListening = false;
   let lastAttempt = 0; // when the last position request was made (a failing one is not repeated every few seconds)
 
   const read = (key) => { try { return storage?.getItem(key) ?? null; } catch { return null; } };
@@ -216,11 +208,11 @@ export function createPrayerCard({
   }
 
   async function locate() {
-    if (locating) return;
+    if (locating) return Boolean(position);
     locating = true;
     lastAttempt = now();
     try {
-      await locateOnce();
+      return await locateOnce();
     } finally {
       locating = false;
     }
@@ -240,17 +232,20 @@ export function createPrayerCard({
       if (!same) current = null; // another place: the event and its time are worked out again for it (not kept from the old one)
       write(KEYS.position, JSON.stringify({ ...position, at: positionAt }));
       publish();
+      return true;
     } else if (result.code === 1) {
       locationState = 'denied';
       position = null;
       current = null;
       write(KEYS.position, null);
       publish();
+      return false;
     } else {
       locationState = 'error';
       position = null;
       current = null;
       publish();
+      return false;
     }
   }
 
@@ -302,6 +297,15 @@ export function createPrayerCard({
     publish();
   }
 
+  function activate() {
+    active = true;
+    if (timer && !interval) interval = setInterval(tick, 20_000);
+    if (timer && !visibilityListening) {
+      globalThis.document?.addEventListener('visibilitychange', () => { if (active && !globalThis.document.hidden) { tick(); check(); } });
+      visibilityListening = true;
+    }
+  }
+
   function tick() {
     if (!active) return;
     // While the page stays open (in a moving car, say) a granted permission keeps the place current.
@@ -327,22 +331,28 @@ export function createPrayerCard({
       }
       return Boolean(position);
     },
-    // Then runs the permission flow (this may ask the visitor).
     async start() {
-      active = true;
-      if (timer && !interval) {
-        interval = setInterval(tick, 20_000);
-        document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { tick(); check(); } });
-      }
+      activate();
       await check();
     },
-    async requestLocation() {
-      if (!active || locating || !geolocation) return;
-      if (locationState === 'denied') {
-        const { state } = await permissionState();
-        if (state === 'denied') return;
-      }
-      await locate();
+    showSaved() {
+      locationState = null;
+      position = null;
+      current = null;
+      const saved = remembered();
+      if (!saved) { publish(); return false; }
+      position = { lat: saved.lat, lon: saved.lon, ...(typeof saved.city === 'string' && saved.city ? { city: saved.city } : {}) };
+      positionAt = saved.at;
+      publish();
+      return true;
+    },
+    requestLocation() {
+      if (locating || !geolocation) return Promise.resolve(false);
+      activate();
+      locationState = null;
+      position = null;
+      current = null;
+      return locate();
     },
     stop() {
       active = false;

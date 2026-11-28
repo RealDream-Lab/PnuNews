@@ -1,8 +1,8 @@
-import { initDock } from '/shared/dock.v0.1.164.js';
-import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.164.js';
-import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.164.js';
-import { fetchOrExplain } from '/shared/network-error.v0.1.164.js';
-import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.164.js';
+import { initDock } from '/shared/dock.v0.1.165.js';
+import { itemSignature, planLiveUpdate, pinnedSignature } from '/shared/live-plan.v0.1.165.js';
+import { matchesQuery, parseQuery, searchKey } from '/shared/quick-search.v0.1.165.js';
+import { fetchOrExplain } from '/shared/network-error.v0.1.165.js';
+import { createBookmarkStore, MAX_BOOKMARKS, snapFromItem, BOOKMARKS_KEY } from '/shared/bookmarks.v0.1.165.js';
 
 const app = document.getElementById('app');
 const newsView = document.getElementById('news-view');
@@ -137,7 +137,8 @@ const pinnedItems = new Map();
 // ---------- Reader preferences (stored on this device only) ----------
 const PREFS_KEY = 'pnu.prefs';
 const AUTOPLAY_RESET_KEY = 'pnu.autoplay-off';
-const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: false, country: true, province: true, siblings: false });
+const PRAYER_REQUESTED_KEY = 'pnu.geo.requested';
+const DEFAULT_PREFS = Object.freeze({ radio: true, autoplay: false, country: true, province: true, siblings: false, prayer: false });
 const prefs = { ...DEFAULT_PREFS };
 try {
   const saved = JSON.parse(localStorage.getItem(PREFS_KEY) || 'null');
@@ -932,8 +933,7 @@ function animateOut(node) {
   ).finished.catch(() => {});
 }
 
-// ---------- Next astronomical / religious event: first card of the strip, only when the visitor shares the position ----------
-// The module is loaded after the first paint; without it (or without permission) nothing here shows.
+// ---------- Next astronomical / religious event: mobile-only, controlled from Settings ----------
 let prayerNode = null;
 let prayerView = null;
 let prayerModule = null;
@@ -942,7 +942,7 @@ let prayerGate = false; // closed until the strip has been built once, so the ca
 function syncPrayerCard() {
   if (!prayerGate) return;
   const showAccount = !accountButton.hidden;
-  const showPrayer = prayerPointer.matches && prayerView;
+  const showPrayer = prayerPointer.matches && prefs.prayer && prayerView && prayerView.kind !== 'location';
   if (!showPrayer) {
     prayerNode?.remove();
   } else if (!prayerNode) {
@@ -950,9 +950,6 @@ function syncPrayerCard() {
     prayerNode.className = 'prayer-card';
     prayerNode.setAttribute('role', 'group');
     prayerNode.setAttribute('aria-label', 'اوقات شرعی');
-    prayerNode.addEventListener('click', (event) => {
-      if (event.target.closest('.prayer-location-request')) prayerCard?.then((card) => card.requestLocation());
-    });
   }
   if (showPrayer) prayerNode.innerHTML = prayerModule.prayerMarkup(prayerView);
   const showCalendar = paintCalendar();
@@ -1014,25 +1011,53 @@ function openPrayerGate() {
 }
 setTimeout(openPrayerGate, 4000); // a failed feed must not keep the card away
 
-// Geolocation is mobile-only. When permission is not already granted, the visitor taps the card's button so the browser's
-// permission prompt is tied to a clear user action instead of a delayed background request.
+// The first switch-on requests the position; after that, the saved position is only shown or hidden.
 let prayerCard = null;
+let prayerLocationRequested = false;
+try { prayerLocationRequested = localStorage.getItem(PRAYER_REQUESTED_KEY) === '1'; } catch {}
 function loadPrayerCard() {
-  prayerCard ??= import('/shared/prayer-card.v0.1.164.js').then((module) => {
+  prayerCard ??= import('/shared/prayer-card.v0.1.165.js').then((module) => {
     prayerModule = module;
     return module.createPrayerCard({ onChange: (view) => { prayerView = view; syncPrayerCard(); } });
   });
   return prayerCard;
 }
-async function startPrayerCard() {
+function showSavedPrayerCard() {
+  if (!prayerPointer.matches || !prefs.prayer) return;
+  loadPrayerCard().then((card) => card.showSaved()).catch(() => {});
+}
+function setPrayerPreference(enabled) {
+  if (!enabled) {
+    prayerCard?.then((card) => card.stop());
+    prayerView = null;
+    syncPrayerCard();
+    return;
+  }
   if (!prayerPointer.matches) return;
-  try { await (await loadPrayerCard()).start(); } catch { /* unsupported browser or offline: the reader remains usable */ }
+  loadPrayerCard().then((card) => {
+    if (!prefs.prayer || !prayerPointer.matches) return;
+    if (prayerLocationRequested) {
+      card.showSaved();
+      return;
+    }
+    prayerLocationRequested = true;
+    try { localStorage.setItem(PRAYER_REQUESTED_KEY, '1'); } catch {}
+    card.requestLocation().then((available) => {
+      if (!available && prefs.prayer) showToast('برای نمایش اوقات شرعی، اجازهٔ موقعیت مکانی را در مرورگر بررسی کنید.');
+    });
+  }).catch(() => { if (prefs.prayer) showToast('بارگذاری اوقات شرعی ممکن نشد.'); });
 }
 const prayerReady = Promise.resolve(false);
-setTimeout(startPrayerCard, 1200);
+if (prayerPointer.matches) {
+  loadPrayerCard().then((card) => { if (prefs.prayer) card.showSaved(); }).catch(() => {});
+}
 prayerPointer.addEventListener('change', (event) => {
-  if (event.matches) startPrayerCard();
-  else prayerCard?.then((card) => card.stop());
+  if (event.matches) showSavedPrayerCard();
+  else {
+    prayerCard?.then((card) => card.stop());
+    prayerView = null;
+  }
+  syncPrayerSwitch();
   syncPrayerCard();
 });
 
@@ -1695,7 +1720,7 @@ let bookmarkSync = null; // the sync controller (a promise), alive only while ac
 
 function startBookmarkSync() {
   if (bookmarkSync) return;
-  bookmarkSync = import('/shared/bookmark-sync.v0.1.164.js').then(({ createBookmarkSync }) => {
+  bookmarkSync = import('/shared/bookmark-sync.v0.1.165.js').then(({ createBookmarkSync }) => {
     const controller = createBookmarkSync({
       store: bookmarks,
       isActive: () => Boolean(readerUser), // switching signup off stops new logins only, not a signed-in reader's sync
@@ -1791,7 +1816,7 @@ function syncAccountUi() {
 }
 
 accountButton.addEventListener('click', async () => {
-  accountModule ??= import('/shared/reader-account.v0.1.164.js');
+  accountModule ??= import('/shared/reader-account.v0.1.165.js');
   try {
     const module = await accountModule;
     module.openAccount({
@@ -1850,9 +1875,18 @@ function syncAutoplaySwitch({ animate = false } = {}) {
   }
 }
 
+function syncPrayerSwitch() {
+  const input = settingsDialog.querySelector('[data-pref="prayer"]');
+  const row = input?.closest('.setting-row');
+  if (!input || !row) return;
+  input.disabled = !prayerPointer.matches;
+  row.classList.toggle('is-disabled', input.disabled);
+}
+
 function renderSettings() {
   for (const input of settingsDialog.querySelectorAll('[data-pref]')) input.checked = Boolean(prefs[input.dataset.pref]);
   syncAutoplaySwitch();
+  syncPrayerSwitch();
   const province = state.province?.name;
   document.getElementById('pref-province-title').textContent = province ? `خبرهای استان ${province}` : 'خبرهای استان من';
   document.getElementById('pref-siblings-hint').textContent = province
@@ -1871,6 +1905,8 @@ settingsDialog.addEventListener('change', (event) => {
   if (key === 'radio') {
     applyRadioPreference();
     syncAutoplaySwitch({ animate: true });
+  } else if (key === 'prayer') {
+    setPrayerPreference(prefs.prayer);
   } else if (key === 'autoplay') {
     // only matters at the next page load
   } else if (state.city && !state.newsId) resetFeed();
@@ -1965,7 +2001,7 @@ let buildDateShown = false;
 async function showBuildDate() {
   if (buildDateShown) return;
   try {
-    const { loadBuildDate } = await import('/shared/build-date.v0.1.164.js');
+    const { loadBuildDate } = await import('/shared/build-date.v0.1.165.js');
     const text = await loadBuildDate();
     if (!text) return;
     document.getElementById('about-build').textContent = text;
@@ -2614,7 +2650,7 @@ async function refreshViewer() {
       return;
     }
     if (!inlineEdit) {
-      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.164.js');
+      const { initInlineEdit } = await import('/shared/inline-edit.v0.1.165.js');
       inlineEdit = initInlineEdit({ roots: [app, newsView], showToast, onSaved: afterInlineSave });
       inlineEdit.refresh();
     } else if (inlineViewerId !== user.id) {

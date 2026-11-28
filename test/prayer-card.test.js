@@ -125,6 +125,7 @@ test('texts: countdown and markup', () => {
   assert.ok(html.indexOf('prayer-place') < html.indexOf('prayer-name') && html.indexOf('prayer-name') < html.indexOf('prayer-left'), 'place, then event and time, then time left');
   assert.ok(!html.includes('<svg') && !html.includes('رویداد بعدی'), 'no icon and no caption');
   assert.ok(prayerMarkup({ label: 'x', at: 0, timeText: '', countdown: '', city: null }).includes('موقعیت شما'));
+  assert.equal(prayerMarkup({ kind: 'location', status: 'prompt' }), '', 'permission requests are never rendered inside the prayer card');
 });
 
 // ---------- The question flow ----------
@@ -154,11 +155,8 @@ function world({ state = 'prompt', result: initialResult = { lat: 35.8734, lon: 
   return { card, clock, store, calls, views, status, listeners, moveTo: (next) => { result = next; }, settle: () => new Promise((resolve) => setTimeout(resolve, 20)) };
 }
 
-test('a new visitor sees an in-page location button; tapping it requests location and shows the next event', async () => {
+test('the first settings switch-on requests location and shows the next event', async () => {
   const w = world();
-  await w.card.start();
-  assert.deepEqual(w.card.view(), { kind: 'location', status: 'prompt' });
-  assert.equal(w.calls.position, 0, 'the browser prompt is not launched in the background');
   await w.card.requestLocation();
   await w.settle();
   const view = w.card.view();
@@ -170,7 +168,7 @@ test('a new visitor sees an in-page location button; tapping it requests locatio
   assert.deepEqual([saved.lat, saved.lon], [35.87, 47.61], 'rounded to about a kilometre');
 });
 
-test('declining the browser prompt keeps the location button visible without re-prompting in the background', async () => {
+test('declining the browser prompt clears the position and keeps the permission state blocked', async () => {
   const w = world({ result: { error: 1 } });
   await w.card.start();
   await w.card.requestLocation();
@@ -200,17 +198,27 @@ test('granted: the remembered position shows at once; it is refreshed only when 
   await old.card.start();
   await old.settle();
   assert.equal(old.calls.position, 1);
-  assert.equal(old.card.view().city, 'بیجار', 'the new position replaced the old one');
+  const updated = JSON.parse(old.store.get(KEYS.position));
+  assert.deepEqual([updated.lat, updated.lon], [35.87, 47.61], 'the new position replaced the old one');
 });
 
-test('prompt state never shows a location left by another visitor or skips the location button', async () => {
+test('permission state does not reuse a saved location until the settings switch is enabled', async () => {
   const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: at('2026-11-19T09:59:00+03:30'), city: 'بیجار' }) } });
   await w.card.start();
   assert.deepEqual(w.card.view(), { kind: 'location', status: 'prompt' });
   assert.equal(w.calls.position, 0);
 });
 
-test('a location error leaves a visible retry action', async () => {
+test('turning the setting back on restores saved location without another position request', async () => {
+  const savedAt = at('2026-11-19T08:00:00+03:30');
+  const w = world({ stored: { [KEYS.position]: JSON.stringify({ lat: 35.87, lon: 47.6, at: savedAt, city: 'بیجار' }) } });
+  assert.equal(w.card.showSaved(), true);
+  assert.equal(w.card.view().city, 'بیجار');
+  assert.equal(w.calls.position, 0);
+  assert.equal(w.calls.query, 0);
+});
+
+test('a location error produces no prayer time', async () => {
   const w = world({ result: { error: 2 } });
   await w.card.start();
   await w.card.requestLocation();
@@ -293,12 +301,19 @@ test('no geolocation API (insecure page, old browser): nothing happens', async (
   assert.equal(card.view(), null);
 });
 
-test('the reader loads the card only on coarse-pointer devices, ties location permission to a tap, and allows geolocation', async () => {
+test('the prayer card is controlled by a saved settings switch and requests location only on its first enable', async () => {
   const version = JSON.parse(await readFile('package.json', 'utf8')).version;
   const reader = await readFile(`public/reader/app.v${version}.js`, 'utf8');
+  const html = await readFile('public/index.html', 'utf8');
   assert.ok(reader.includes(`import('/shared/prayer-card.v${version}.js')`));
   assert.ok(reader.includes("matchMedia('(pointer: coarse)')"), 'desktop does not load or show the location card');
-  assert.ok(reader.includes('card.requestLocation()'), 'the browser permission flow starts from the visible button');
+  assert.ok(reader.includes('card.requestLocation()'), 'the first switch-on triggers location');
+  assert.ok(reader.includes('card.showSaved()'), 'later switch-ons only restore the saved position');
+  assert.ok(reader.includes("const PRAYER_REQUESTED_KEY = 'pnu.geo.requested'"), 'the first request is remembered on this device');
+  assert.ok(reader.includes("} else if (key === 'prayer') {\n    setPrayerPreference(prefs.prayer);"), 'the switch controls visibility without reloading the feed');
+  assert.ok(!reader.includes("event.target.closest('.prayer-location-request')"), 'location is not requested from an in-card prompt');
+  assert.match(reader, /const showPrayer = prayerPointer\.matches && prefs\.prayer/);
+  assert.match(html, /type="checkbox" role="switch" class="switch" data-pref="prayer"/);
   assert.ok(!/^import .*prayer-card/m.test(reader), 'not a static import: a missing file must not break the reader');
   assert.ok(!/prayer-card[^\n]*data-news-id/.test(reader));
   const raceAt = reader.indexOf('await Promise.race([Promise.all([prayerReady');
